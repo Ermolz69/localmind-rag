@@ -36,6 +36,12 @@ The desktop UI talks only to `KnowledgeApp.LocalApi`. LocalApi owns SQLite, loca
 
 See [docs/architectury/README.md](docs/architectury/README.md) and [docs/architecture-diagrams.md](docs/architecture-diagrams.md).
 
+## First Release
+
+The first foundation release is documented in [docs/releases/v0.1.0-base-architecture.md](docs/releases/v0.1.0-base-architecture.md). It explains what is already built, what is intentionally still skeleton-level, and how the desktop app, LocalApi, SQLite, runtime folders, AI runtime, and optional SyncApi are intended to interact.
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
+
 ## GitHub Workflows
 
 - `Check`: full validation on push, pull request, and manual run.
