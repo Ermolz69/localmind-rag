@@ -41,6 +41,19 @@ See [docs/architectury/README.md](docs/architectury/README.md) and [docs/archite
 - `Check`: full validation on push, pull request, and manual run.
 - `Portable Release`: manual or tag-based Windows portable preview artifact build.
 
+`Check` is split into separate jobs so failures are visible without digging through one long log:
+
+- Backend format
+- Backend build
+- Backend tests
+- Frontend format
+- Frontend lint
+- Frontend typecheck
+- Frontend build
+- Frontend color guard
+- Docker compose config
+- Check summary
+
 ## Repository Hygiene
 
 Generated build outputs, runtime data, local databases, AI models, local env files, and release artifacts are ignored. See [docs/repository-hygiene.md](docs/repository-hygiene.md) before adding large files, local runtime assets, or Docker build inputs.

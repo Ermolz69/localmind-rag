@@ -9,9 +9,15 @@ concurrency:
   group: check-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NODE_VERSION: 24
+  PNPM_VERSION: 10.0.0
+
 jobs:
-  full-check:
-    name: Build, test, lint, typecheck
+  backend-format:
+    name: Backend format
     runs-on: windows-latest
 
     steps:
@@ -23,23 +29,212 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Restore backend
+        run: dotnet restore backend/KnowledgeApp.slnx
+
+      - name: Verify dotnet format
+        run: dotnet format backend/KnowledgeApp.slnx --verify-no-changes --no-restore
+
+  backend-build:
+    name: Backend build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore backend
+        run: dotnet restore backend/KnowledgeApp.slnx
+
+      - name: Build backend
+        run: dotnet build backend/KnowledgeApp.slnx --no-restore
+
+  backend-tests:
+    name: Backend tests
+    runs-on: windows-latest
+    needs:
+      - backend-build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore backend
+        run: dotnet restore backend/KnowledgeApp.slnx
+
+      - name: Build backend
+        run: dotnet build backend/KnowledgeApp.slnx --no-restore
+
+      - name: Run backend tests
+        run: dotnet test backend/KnowledgeApp.slnx --no-build
+
+  frontend-format:
+    name: Frontend format
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.0.0
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
-      - name: Install frontend dependencies
+      - name: Install dependencies
         run: pnpm.cmd install --frozen-lockfile
 
-      - name: Run repository checks
-        shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1
+      - name: Check Prettier formatting
+        run: pnpm.cmd --filter desktop format:check
 
-      - name: Validate remote docker compose
+  frontend-lint:
+    name: Frontend lint
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm.cmd install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm.cmd --filter desktop lint
+
+  frontend-typecheck:
+    name: Frontend typecheck
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm.cmd install --frozen-lockfile
+
+      - name: Run TypeScript
+        run: pnpm.cmd --filter desktop typecheck
+
+  frontend-build:
+    name: Frontend build
+    runs-on: windows-latest
+    needs:
+      - frontend-lint
+      - frontend-typecheck
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm.cmd install --frozen-lockfile
+
+      - name: Build desktop frontend
+        run: pnpm.cmd --filter desktop build
+
+  frontend-color-guard:
+    name: Frontend color guard
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check hardcoded colors
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-colors.ps1
+
+  docker-compose:
+    name: Docker compose config
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate remote compose file
         run: docker compose -f infra/docker-compose.remote.yml config
+
+  check-summary:
+    name: Check summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - backend-format
+      - backend-build
+      - backend-tests
+      - frontend-format
+      - frontend-lint
+      - frontend-typecheck
+      - frontend-build
+      - frontend-color-guard
+      - docker-compose
+
+    steps:
+      - name: Summarize job results
+        run: |
+          echo "## Check results" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Job | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Backend format | ${{ needs.backend-format.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Backend build | ${{ needs.backend-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Backend tests | ${{ needs.backend-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Frontend format | ${{ needs.frontend-format.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Frontend lint | ${{ needs.frontend-lint.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Frontend typecheck | ${{ needs.frontend-typecheck.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Frontend build | ${{ needs.frontend-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Frontend color guard | ${{ needs.frontend-color-guard.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Docker compose config | ${{ needs.docker-compose.result }} |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if any check failed
+        if: contains(join(needs.*.result, ','), 'failure') || contains(join(needs.*.result, ','), 'cancelled')
+        run: exit 1
