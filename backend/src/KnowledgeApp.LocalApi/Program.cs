@@ -1,0 +1,214 @@
+using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Bootstrap;
+using KnowledgeApp.Contracts.Documents;
+using KnowledgeApp.Contracts.Rag;
+using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Domain.Enums;
+using KnowledgeApp.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.AddKnowledgeAppBootstrap();
+builder.Services.AddOpenApi();
+
+var app = builder.Build();
+
+app.UseKnowledgeAppBootstrap();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
+
+app.MapGet("/api/health", () => Results.Ok(new { status = "OK", app = "localmind" }))
+    .WithName("Health");
+
+app.MapGet("/api/runtime/status", async (IAiRuntimeManager runtime, CancellationToken cancellationToken) =>
+    Results.Ok(await runtime.GetStatusAsync(cancellationToken)));
+
+app.MapPost("/api/runtime/ai/start", async (IAiRuntimeManager runtime, CancellationToken cancellationToken) =>
+{
+    await runtime.StartAsync(cancellationToken);
+    return Results.Accepted();
+});
+
+app.MapGet("/api/runtime/models", async (IAiModelRegistry registry, CancellationToken cancellationToken) =>
+    Results.Ok(await registry.ListModelsAsync(cancellationToken)));
+
+app.MapGet("/api/buckets", async (AppDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await db.Buckets.OrderBy(x => x.Name).ToArrayAsync(cancellationToken)));
+
+app.MapPost("/api/buckets", async (Bucket bucket, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    db.Buckets.Add(bucket);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Created($"/api/buckets/{bucket.Id}", bucket);
+});
+
+app.MapPut("/api/buckets/{id:guid}", async Task<Results<NoContent, NotFound>> (Guid id, Bucket request, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var bucket = await db.Buckets.FindAsync([id], cancellationToken);
+    if (bucket is null)
+    {
+        return TypedResults.NotFound();
+    }
+
+    bucket.Name = request.Name;
+    bucket.Description = request.Description;
+    bucket.UpdatedAt = DateTimeOffset.UtcNow;
+    await db.SaveChangesAsync(cancellationToken);
+    return TypedResults.NoContent();
+});
+
+app.MapDelete("/api/buckets/{id:guid}", async Task<Results<NoContent, NotFound>> (Guid id, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var bucket = await db.Buckets.FindAsync([id], cancellationToken);
+    if (bucket is null)
+    {
+        return TypedResults.NotFound();
+    }
+
+    db.Buckets.Remove(bucket);
+    await db.SaveChangesAsync(cancellationToken);
+    return TypedResults.NoContent();
+});
+
+app.MapGet("/api/documents", async (AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var documents = await db.Documents
+        .OrderByDescending(x => x.CreatedAt)
+        .Select(x => new DocumentDto(x.Id, x.Name, x.Status.ToString(), x.CreatedAt))
+        .ToArrayAsync(cancellationToken);
+    return Results.Ok(documents);
+});
+
+app.MapPost("/api/documents/upload", async (IFormFile file, IFileStorageService files, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    await using var stream = file.OpenReadStream();
+    var stored = await files.SaveAsync(stream, file.FileName, cancellationToken);
+    var document = new Document { Name = file.FileName, Status = DocumentStatus.Queued };
+    var documentFile = new DocumentFile
+    {
+        DocumentId = document.Id,
+        FileName = stored.FileName,
+        LocalPath = stored.LocalPath,
+        ContentHash = stored.ContentHash,
+        SizeBytes = stored.SizeBytes,
+    };
+    var job = new IngestionJob { DocumentId = document.Id };
+    db.Documents.Add(document);
+    db.DocumentFiles.Add(documentFile);
+    db.IngestionJobs.Add(job);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Created($"/api/documents/{document.Id}", new UploadDocumentResponse(document.Id, job.Id, document.Status.ToString()));
+}).DisableAntiforgery();
+
+app.MapGet("/api/documents/{id:guid}", async Task<Results<Ok<DocumentDto>, NotFound>> (Guid id, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var document = await db.Documents.FindAsync([id], cancellationToken);
+    return document is null
+        ? TypedResults.NotFound()
+        : TypedResults.Ok(new DocumentDto(document.Id, document.Name, document.Status.ToString(), document.CreatedAt));
+});
+
+app.MapDelete("/api/documents/{id:guid}", async Task<Results<NoContent, NotFound>> (Guid id, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var document = await db.Documents.FindAsync([id], cancellationToken);
+    if (document is null)
+    {
+        return TypedResults.NotFound();
+    }
+
+    document.Status = DocumentStatus.Deleted;
+    document.SyncStatus = SyncStatus.DeletedLocal;
+    await db.SaveChangesAsync(cancellationToken);
+    return TypedResults.NoContent();
+});
+
+app.MapPost("/api/documents/{id:guid}/reindex", async (Guid id, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var document = await db.Documents.FindAsync([id], cancellationToken);
+    if (document is null)
+    {
+        return Results.NotFound();
+    }
+
+    db.IngestionJobs.Add(new IngestionJob { DocumentId = id });
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Accepted();
+});
+
+app.MapGet("/api/notes", async (AppDbContext db, CancellationToken cancellationToken) => Results.Ok(await db.Notes.ToArrayAsync(cancellationToken)));
+app.MapPost("/api/notes", async (Note note, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    db.Notes.Add(note);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Created($"/api/notes/{note.Id}", note);
+});
+app.MapPut("/api/notes/{id:guid}", async Task<Results<NoContent, NotFound>> (Guid id, Note request, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var note = await db.Notes.FindAsync([id], cancellationToken);
+    if (note is null)
+    {
+        return TypedResults.NotFound();
+    }
+
+    note.Title = request.Title;
+    note.Markdown = request.Markdown;
+    await db.SaveChangesAsync(cancellationToken);
+    return TypedResults.NoContent();
+});
+app.MapDelete("/api/notes/{id:guid}", async Task<Results<NoContent, NotFound>> (Guid id, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var note = await db.Notes.FindAsync([id], cancellationToken);
+    if (note is null)
+    {
+        return TypedResults.NotFound();
+    }
+
+    db.Notes.Remove(note);
+    await db.SaveChangesAsync(cancellationToken);
+    return TypedResults.NoContent();
+});
+
+app.MapGet("/api/chats", async (AppDbContext db, CancellationToken cancellationToken) => Results.Ok(await db.Conversations.ToArrayAsync(cancellationToken)));
+app.MapPost("/api/chats", async (Conversation conversation, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    db.Conversations.Add(conversation);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Created($"/api/chats/{conversation.Id}", conversation);
+});
+app.MapPost("/api/chats/{id:guid}/messages", async (Guid id, ChatMessageRequest request, IRagAnswerGenerator rag, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    db.ChatMessages.Add(new ChatMessage { ConversationId = id, Role = ChatRole.User, Content = request.Content });
+    var answer = await rag.AnswerAsync(id, request.Content, cancellationToken);
+    db.ChatMessages.Add(new ChatMessage { ConversationId = id, Role = ChatRole.Assistant, Content = answer.Answer });
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Ok(answer);
+});
+
+app.MapPost("/api/search/semantic", async (SemanticSearchRequest request, IRagContextBuilder rag, CancellationToken cancellationToken) =>
+    Results.Ok(await rag.BuildAsync(request.Query, cancellationToken)));
+
+app.MapGet("/api/settings", async (AppDbContext db, CancellationToken cancellationToken) => Results.Ok(await db.AppSettings.ToArrayAsync(cancellationToken)));
+app.MapPut("/api/settings", async (AppSetting[] settings, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    db.AppSettings.UpdateRange(settings);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.NoContent();
+});
+
+app.MapGet("/api/sync/status", async (ISyncService sync, CancellationToken cancellationToken) => Results.Ok(await sync.GetStatusAsync(cancellationToken)));
+app.MapPost("/api/sync/run", async (ISyncService sync, CancellationToken cancellationToken) =>
+{
+    await sync.RunAsync(cancellationToken);
+    return Results.Accepted();
+});
+app.MapPost("/api/sync/login", () => Results.Problem("Remote sync auth is not implemented in the skeleton.", statusCode: StatusCodes.Status501NotImplemented));
+app.MapPost("/api/sync/logout", () => Results.NoContent());
+
+app.Run();
+
+public partial class Program;

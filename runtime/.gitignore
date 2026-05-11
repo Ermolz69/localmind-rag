@@ -1,0 +1,9 @@
+app/data/*
+app/files/*
+app/indexes/*
+app/logs/*
+ai/bin/*
+ai/models/*
+
+!**/.gitkeep
+!ai/README.md

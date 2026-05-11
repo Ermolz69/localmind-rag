@@ -1,0 +1,4 @@
+case "$1" in
+  feat*|fix*|refactor*|chore*|docs*|test*|build*|ci*|perf*|style*) exit 0 ;;
+  *) echo "Commit message must start with feat, fix, refactor, chore, docs, test, build, ci, perf, or style."; exit 1 ;;
+esac

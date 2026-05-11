@@ -1,0 +1,16 @@
+{
+  "name": "localmind-rag",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "setup": "pnpm install",
+    "dev": "concurrently -n localapi,desktop \"dotnet run --project backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj --urls http://127.0.0.1:49321\" \"pnpm --filter desktop dev\"",
+    "check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1",
+    "package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1",
+    "docker:up": "docker compose -f infra/docker-compose.remote.yml up -d"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "prettier": "^3.6.2"
+  }
+}

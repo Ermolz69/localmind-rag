@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+.vite
+.eslintcache
+coverage
+src-tauri/target
+target
+.env
+.env.*
+*.log
+pnpm-debug.log*

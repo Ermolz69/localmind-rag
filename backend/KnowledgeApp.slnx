@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KnowledgeApp.Application/KnowledgeApp.Application.csproj" />
+    <Project Path="src/KnowledgeApp.Bootstrap/KnowledgeApp.Bootstrap.csproj" />
+    <Project Path="src/KnowledgeApp.Contracts/KnowledgeApp.Contracts.csproj" />
+    <Project Path="src/KnowledgeApp.Domain/KnowledgeApp.Domain.csproj" />
+    <Project Path="src/KnowledgeApp.Infrastructure/KnowledgeApp.Infrastructure.csproj" />
+    <Project Path="src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj" />
+    <Project Path="src/KnowledgeApp.SyncApi/KnowledgeApp.SyncApi.csproj" />
+    <Project Path="src/KnowledgeApp.Worker/KnowledgeApp.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/KnowledgeApp.ArchitectureTests/KnowledgeApp.ArchitectureTests.csproj" />
+    <Project Path="tests/KnowledgeApp.IntegrationTests/KnowledgeApp.IntegrationTests.csproj" />
+    <Project Path="tests/KnowledgeApp.UnitTests/KnowledgeApp.UnitTests.csproj" />
+  </Folder>
+</Solution>

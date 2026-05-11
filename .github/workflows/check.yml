@@ -1,0 +1,50 @@
+name: Check
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/**"
+      - "fix/**"
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-check:
+    name: Build, test, lint, typecheck
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm.cmd install --frozen-lockfile
+
+      - name: Run repository checks
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1
+
+      - name: Validate remote docker compose
+        run: docker compose -f infra/docker-compose.remote.yml config

@@ -1,0 +1,19 @@
+node_modules/
+dist/
+dist-ssr/
+.vite/
+.eslintcache
+coverage/
+
+# Tauri / Rust
+src-tauri/target/
+target/
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+pnpm-debug.log*

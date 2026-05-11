@@ -1,0 +1,6 @@
+@KnowledgeApp.SyncApi_HostAddress = http://localhost:5030
+
+GET {{KnowledgeApp.SyncApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

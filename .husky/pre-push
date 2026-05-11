@@ -1,0 +1,3 @@
+dotnet test backend/KnowledgeApp.slnx
+pnpm --filter desktop build
+docker compose -f infra/docker-compose.remote.yml config

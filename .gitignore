@@ -1,0 +1,92 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+*.local
+appsettings.Local.json
+appsettings.*.local.json
+
+# Logs and diagnostics
+*.log
+logs/
+*.pid
+*.seed
+*.stackdump
+
+# .NET
+bin/
+obj/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+*.nupkg
+*.snupkg
+
+# Node / frontend
+node_modules/
+dist/
+dist-ssr/
+.vite/
+.turbo/
+.eslintcache
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Tauri / Rust
+target/
+apps/desktop/src-tauri/target/
+
+# Build outputs and release artifacts
+artifacts/
+publish/
+out/
+release/
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+# Local databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Portable runtime data
+runtime/app/data/*
+runtime/app/files/*
+runtime/app/indexes/*
+runtime/app/logs/*
+runtime/ai/bin/*
+runtime/ai/models/*
+!runtime/**/.gitkeep
+!runtime/ai/README.md
+
+# AI model files are intentionally not tracked
+*.gguf
+*.bin
+*.safetensors
+*.onnx
+
+# Docker local state
+.docker/
+docker-data/
+postgres-data/

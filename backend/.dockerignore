@@ -1,0 +1,12 @@
+**/bin
+**/obj
+**/TestResults
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/*.sqlite
+**/*.sqlite3
+coverage
+*.trx
+*.coverage
+*.coveragexml

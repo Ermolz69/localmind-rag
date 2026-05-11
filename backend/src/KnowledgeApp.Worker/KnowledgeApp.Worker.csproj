@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-KnowledgeApp.Worker-28bd38ac-1f33-45d3-9f31-ffd44467f089</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Serilog.Extensions.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\KnowledgeApp.Application\KnowledgeApp.Application.csproj" />
+    <ProjectReference Include="..\KnowledgeApp.Infrastructure\KnowledgeApp.Infrastructure.csproj" />
+    <ProjectReference Include="..\KnowledgeApp.Bootstrap\KnowledgeApp.Bootstrap.csproj" />
+  </ItemGroup>
+</Project>
