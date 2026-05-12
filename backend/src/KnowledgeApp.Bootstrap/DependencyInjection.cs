@@ -1,3 +1,4 @@
+using KnowledgeApp.Application;
 using KnowledgeApp.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -12,6 +13,7 @@ public static class DependencyInjection
     {
         builder.Host.UseSerilog((context, logger) => logger.ReadFrom.Configuration(context.Configuration).WriteTo.Console());
         builder.Services.AddProblemDetails();
+        builder.Services.AddApplication();
         builder.Services.AddInfrastructure(builder.Configuration);
         return builder;
     }

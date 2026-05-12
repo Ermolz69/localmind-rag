@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\KnowledgeApp.Domain\KnowledgeApp.Domain.csproj" />
     <ProjectReference Include="..\..\src\KnowledgeApp.Application\KnowledgeApp.Application.csproj" />
+    <ProjectReference Include="..\..\src\KnowledgeApp.Infrastructure\KnowledgeApp.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

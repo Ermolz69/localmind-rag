@@ -1,6 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Documents;
 using KnowledgeApp.Bootstrap;
-using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
@@ -75,42 +75,23 @@ app.MapDelete("/api/buckets/{id:guid}", async Task<Results<NoContent, NotFound>>
     return TypedResults.NoContent();
 });
 
-app.MapGet("/api/documents", async (AppDbContext db, CancellationToken cancellationToken) =>
-{
-    var documents = await db.Documents
-        .OrderByDescending(x => x.CreatedAt)
-        .Select(x => new DocumentDto(x.Id, x.Name, x.Status.ToString(), x.CreatedAt))
-        .ToArrayAsync(cancellationToken);
-    return Results.Ok(documents);
-});
+app.MapGet("/api/documents", async (Guid? bucketId, GetDocumentsHandler handler, CancellationToken cancellationToken) =>
+    Results.Ok(await handler.HandleAsync(new GetDocumentsQuery(bucketId), cancellationToken)));
 
-app.MapPost("/api/documents/upload", async (IFormFile file, IFileStorageService files, AppDbContext db, CancellationToken cancellationToken) =>
+app.MapPost("/api/documents/upload", async (IFormFile file, Guid? bucketId, UploadDocumentHandler handler, CancellationToken cancellationToken) =>
 {
     await using var stream = file.OpenReadStream();
-    var stored = await files.SaveAsync(stream, file.FileName, cancellationToken);
-    var document = new Document { Name = file.FileName, Status = DocumentStatus.Queued };
-    var documentFile = new DocumentFile
-    {
-        DocumentId = document.Id,
-        FileName = stored.FileName,
-        LocalPath = stored.LocalPath,
-        ContentHash = stored.ContentHash,
-        SizeBytes = stored.SizeBytes,
-    };
-    var job = new IngestionJob { DocumentId = document.Id };
-    db.Documents.Add(document);
-    db.DocumentFiles.Add(documentFile);
-    db.IngestionJobs.Add(job);
-    await db.SaveChangesAsync(cancellationToken);
-    return Results.Created($"/api/documents/{document.Id}", new UploadDocumentResponse(document.Id, job.Id, document.Status.ToString()));
+    var response = await handler.HandleAsync(
+        new UploadDocumentCommand(stream, file.FileName, file.ContentType, file.Length, bucketId),
+        cancellationToken);
+
+    return Results.Created($"/api/documents/{response.DocumentId}", response);
 }).DisableAntiforgery();
 
-app.MapGet("/api/documents/{id:guid}", async Task<Results<Ok<DocumentDto>, NotFound>> (Guid id, AppDbContext db, CancellationToken cancellationToken) =>
+app.MapGet("/api/documents/{id:guid}", async (Guid id, GetDocumentByIdHandler handler, CancellationToken cancellationToken) =>
 {
-    var document = await db.Documents.FindAsync([id], cancellationToken);
-    return document is null
-        ? TypedResults.NotFound()
-        : TypedResults.Ok(new DocumentDto(document.Id, document.Name, document.Status.ToString(), document.CreatedAt));
+    var document = await handler.HandleAsync(new GetDocumentByIdQuery(id), cancellationToken);
+    return document is null ? Results.NotFound() : Results.Ok(document);
 });
 
 app.MapDelete("/api/documents/{id:guid}", async Task<Results<NoContent, NotFound>> (Guid id, AppDbContext db, CancellationToken cancellationToken) =>
