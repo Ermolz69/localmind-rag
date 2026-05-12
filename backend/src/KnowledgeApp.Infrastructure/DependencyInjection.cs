@@ -29,8 +29,9 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IFileStorageService, LocalFileStorageService>();
         services.AddScoped<IIngestionQueue, IngestionQueue>();
-        services.AddScoped<IIngestionJobProcessor, NoopIngestionJobProcessor>();
-        services.AddSingleton<PlainTextExtractor>();
+        services.AddScoped<IIngestionJobProcessor, IngestionJobProcessor>();
+        services.AddSingleton<RawTextExtractor>();
+        services.AddSingleton<HtmlTextExtractor>();
         services.AddSingleton<IDocumentTextExtractorFactory, DocumentTextExtractorFactory>();
         services.AddSingleton<IDocumentChunker, SimpleDocumentChunker>();
         services.AddSingleton<IEmbeddingGenerator, StubEmbeddingGenerator>();

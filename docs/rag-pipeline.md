@@ -58,3 +58,34 @@ flowchart LR
     Context --> Chat["Call local chat model"]
     Chat --> Answer["Answer with sources"]
 ```
+
+## Ingestion MVP
+
+```mermaid
+sequenceDiagram
+    participant Processor as "IngestionJobProcessor"
+    participant DB as "SQLite"
+    participant Extractor as "DocumentTextExtractor"
+    participant Chunker as "DocumentChunker"
+
+    Processor->>DB: Load queued IngestionJob
+    Processor->>DB: Load Document + DocumentFile
+    Processor->>DB: Mark job Running and document Processing
+    Processor->>Extractor: Extract text from local file
+    alt Supported text/markdown/html
+        Extractor-->>Processor: Text
+        Processor->>Chunker: Split into chunks
+        Chunker-->>Processor: Chunk texts
+        Processor->>DB: Replace DocumentChunk rows
+        Processor->>DB: Mark job Completed and document Indexed
+    else Unsupported format
+        Extractor-->>Processor: NotSupportedException
+        Processor->>DB: Mark job Failed and document Failed
+    end
+```
+
+Current MVP support:
+
+- `.txt`, `.md`, `.markdown` are extracted as raw text.
+- `.html`, `.htm` are extracted by stripping scripts, styles and tags, then decoding HTML entities.
+- `.pdf`, `.docx`, `.pptx` upload successfully, but ingestion fails with a clear unsupported-format error until real parsers are added.

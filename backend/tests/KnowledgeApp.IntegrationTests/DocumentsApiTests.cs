@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Buckets;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -83,6 +85,51 @@ public sealed class DocumentsApiTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Uploaded_Text_Document_Should_Be_Processed_Into_Chunks()
+    {
+        using var client = factory.CreateClient();
+        var fileName = $"ingestion-{Guid.NewGuid():N}.txt";
+        var upload = await UploadDocumentAsync(client, fileName, content: "First paragraph.\n\nSecond paragraph.");
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var processor = scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+        await processor.ProcessAsync(upload.IngestionJobId);
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var chunks = await db.DocumentChunks
+            .Where(x => x.DocumentId == upload.DocumentId)
+            .OrderBy(x => x.Index)
+            .ToArrayAsync();
+        var document = await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
+        var job = await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+
+        Assert.Single(chunks);
+        Assert.Equal("First paragraph.\n\nSecond paragraph.", chunks[0].Text);
+        Assert.Equal(DocumentStatus.Indexed, document.Status);
+        Assert.Equal(IngestionJobStatus.Completed, job.Status);
+    }
+
+    [Fact]
+    public async Task Uploaded_Pdf_Document_Should_Fail_Ingestion_For_Mvp()
+    {
+        using var client = factory.CreateClient();
+        var fileName = $"unsupported-{Guid.NewGuid():N}.pdf";
+        var upload = await UploadDocumentAsync(client, fileName, content: "%PDF skeleton", contentType: "application/pdf");
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var processor = scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+        await processor.ProcessAsync(upload.IngestionJobId);
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var document = await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
+        var job = await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+
+        Assert.Equal(DocumentStatus.Failed, document.Status);
+        Assert.Equal(IngestionJobStatus.Failed, job.Status);
+        Assert.Contains("not supported", job.LastError, StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task ClearLastSelectedBucketAsync()
     {
         await using var scope = factory.Services.CreateAsyncScope();
@@ -94,11 +141,16 @@ public sealed class DocumentsApiTests : IClassFixture<WebApplicationFactory<Prog
         await db.SaveChangesAsync();
     }
 
-    private static async Task<UploadDocumentResponse> UploadDocumentAsync(HttpClient client, string fileName, Guid? bucketId = null)
+    private static async Task<UploadDocumentResponse> UploadDocumentAsync(
+        HttpClient client,
+        string fileName,
+        Guid? bucketId = null,
+        string content = "hello from integration test",
+        string contentType = "text/plain")
     {
         using var form = new MultipartFormDataContent();
-        using var file = new ByteArrayContent("hello from integration test"u8.ToArray());
-        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+        using var file = new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(content));
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
         form.Add(file, "file", fileName);
 
         var url = bucketId.HasValue ? $"/api/documents/upload?bucketId={bucketId}" : "/api/documents/upload";

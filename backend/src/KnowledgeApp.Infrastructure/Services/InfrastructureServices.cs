@@ -1,5 +1,7 @@
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Rag;
@@ -57,24 +59,194 @@ public sealed class IngestionQueue(AppDbContext dbContext) : IIngestionQueue
     }
 }
 
-public sealed class NoopIngestionJobProcessor : IIngestionJobProcessor
+public sealed class IngestionJobProcessor(
+    AppDbContext dbContext,
+    IDocumentTextExtractorFactory extractorFactory,
+    IDocumentChunker chunker,
+    IDateTimeProvider dateTimeProvider) : IIngestionJobProcessor
 {
-    public Task ProcessAsync(Guid jobId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public async Task ProcessAsync(Guid jobId, CancellationToken cancellationToken = default)
+    {
+        var job = await dbContext.IngestionJobs.FindAsync([jobId], cancellationToken);
+        if (job is null)
+        {
+            throw new InvalidOperationException("Ingestion job was not found.");
+        }
+
+        if (job.Status != IngestionJobStatus.Queued)
+        {
+            return;
+        }
+
+        var document = await dbContext.Documents.FindAsync([job.DocumentId], cancellationToken);
+        if (document is null)
+        {
+            job.Status = IngestionJobStatus.Failed;
+            job.LastError = "Document was not found.";
+            job.ProcessedAt = dateTimeProvider.UtcNow;
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        job.Status = IngestionJobStatus.Running;
+        document.Status = DocumentStatus.Processing;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            var documentFile = await dbContext.DocumentFiles
+                .Where(x => x.DocumentId == document.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (documentFile is null)
+            {
+                throw new InvalidOperationException("Document file was not found.");
+            }
+
+            var extension = Path.GetExtension(documentFile.FileName);
+            var extractor = extractorFactory.GetExtractor(documentFile.FileType, extension, null);
+            var text = await extractor.ExtractAsync(documentFile.LocalPath, cancellationToken);
+            var chunkTexts = chunker.Split(text);
+            var existingChunks = await dbContext.DocumentChunks
+                .Where(x => x.DocumentId == document.Id)
+                .ToArrayAsync(cancellationToken);
+
+            dbContext.DocumentChunks.RemoveRange(existingChunks);
+            dbContext.DocumentChunks.AddRange(chunkTexts.Select((chunkText, index) => new DocumentChunk
+            {
+                CreatedAt = dateTimeProvider.UtcNow,
+                DocumentId = document.Id,
+                Index = index,
+                PageNumber = null,
+                Text = chunkText,
+            }));
+
+            job.Status = IngestionJobStatus.Completed;
+            job.LastError = null;
+            job.ProcessedAt = dateTimeProvider.UtcNow;
+            document.Status = DocumentStatus.Indexed;
+        }
+        catch (Exception exception)
+        {
+            job.Status = IngestionJobStatus.Failed;
+            job.LastError = exception.Message;
+            job.ProcessedAt = dateTimeProvider.UtcNow;
+            document.Status = DocumentStatus.Failed;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
 }
 
 public sealed class SimpleDocumentChunker : IDocumentChunker
 {
-    public IReadOnlyList<string> Split(string text) => text.Chunk(1200).Select(chars => new string(chars)).ToArray();
+    private const int TargetChunkSize = 1200;
+
+    public IReadOnlyList<string> Split(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return [];
+        }
+
+        var normalizedText = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var paragraphs = normalizedText
+            .Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(paragraph => Regex.Replace(paragraph, @"\s+", " ").Trim())
+            .Where(paragraph => paragraph.Length > 0);
+
+        var chunks = new List<string>();
+        var current = new StringBuilder();
+        foreach (var paragraph in paragraphs)
+        {
+            if (paragraph.Length > TargetChunkSize)
+            {
+                FlushCurrentChunk(chunks, current);
+                chunks.AddRange(SplitLongParagraph(paragraph));
+                continue;
+            }
+
+            if (current.Length > 0 && current.Length + 2 + paragraph.Length > TargetChunkSize)
+            {
+                FlushCurrentChunk(chunks, current);
+            }
+
+            if (current.Length > 0)
+            {
+                current.Append("\n\n");
+            }
+
+            current.Append(paragraph);
+        }
+
+        FlushCurrentChunk(chunks, current);
+        return chunks;
+    }
+
+    private static IEnumerable<string> SplitLongParagraph(string paragraph)
+    {
+        for (var index = 0; index < paragraph.Length; index += TargetChunkSize)
+        {
+            yield return paragraph.Substring(index, Math.Min(TargetChunkSize, paragraph.Length - index));
+        }
+    }
+
+    private static void FlushCurrentChunk(ICollection<string> chunks, StringBuilder current)
+    {
+        if (current.Length == 0)
+        {
+            return;
+        }
+
+        chunks.Add(current.ToString());
+        current.Clear();
+    }
 }
 
-public sealed class PlainTextExtractor : IDocumentTextExtractor
+public sealed class RawTextExtractor : IDocumentTextExtractor
 {
     public Task<string> ExtractAsync(string filePath, CancellationToken cancellationToken = default) => File.ReadAllTextAsync(filePath, cancellationToken);
 }
 
-public sealed class DocumentTextExtractorFactory(PlainTextExtractor plainTextExtractor) : IDocumentTextExtractorFactory
+public sealed partial class HtmlTextExtractor : IDocumentTextExtractor
 {
-    public IDocumentTextExtractor GetExtractor(FileType fileType, string extension, string? mimeType) => plainTextExtractor;
+    public async Task<string> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        var html = await File.ReadAllTextAsync(filePath, cancellationToken);
+        var withoutScripts = ScriptOrStyleRegex().Replace(html, " ");
+        var withoutTags = HtmlTagRegex().Replace(withoutScripts, " ");
+        return WebUtility.HtmlDecode(withoutTags);
+    }
+
+    [GeneratedRegex("<(script|style)[^>]*>.*?</\\1>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex ScriptOrStyleRegex();
+
+    [GeneratedRegex("<[^>]+>", RegexOptions.IgnoreCase)]
+    private static partial Regex HtmlTagRegex();
+}
+
+public sealed class UnsupportedDocumentTextExtractor(FileType fileType) : IDocumentTextExtractor
+{
+    public Task<string> ExtractAsync(string filePath, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException($"Document text extraction is not supported for {fileType} files yet.");
+}
+
+public sealed class DocumentTextExtractorFactory(RawTextExtractor rawTextExtractor, HtmlTextExtractor htmlTextExtractor) : IDocumentTextExtractorFactory
+{
+    public IDocumentTextExtractor GetExtractor(FileType fileType, string extension, string? mimeType)
+    {
+        var normalizedExtension = extension.ToLowerInvariant();
+        return fileType switch
+        {
+            FileType.PlainText => rawTextExtractor,
+            FileType.Markdown => rawTextExtractor,
+            FileType.Html => htmlTextExtractor,
+            FileType.Unknown when normalizedExtension is ".txt" => rawTextExtractor,
+            FileType.Unknown when normalizedExtension is ".md" or ".markdown" => rawTextExtractor,
+            FileType.Unknown when normalizedExtension is ".html" or ".htm" => htmlTextExtractor,
+            _ => new UnsupportedDocumentTextExtractor(fileType),
+        };
+    }
 }
 
 public sealed class StubEmbeddingGenerator : IEmbeddingGenerator
