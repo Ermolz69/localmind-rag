@@ -121,6 +121,18 @@ app.MapPost("/api/documents/{id:guid}/reindex", async (Guid id, AppDbContext db,
     return Results.Accepted();
 });
 
+app.MapPost("/api/ingestion/jobs/{id:guid}/process", async (Guid id, IIngestionJobProcessor processor, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var exists = await db.IngestionJobs.AnyAsync(x => x.Id == id, cancellationToken);
+    if (!exists)
+    {
+        return Results.NotFound();
+    }
+
+    await processor.ProcessAsync(id, cancellationToken);
+    return Results.Accepted();
+});
+
 app.MapGet("/api/notes", async (AppDbContext db, CancellationToken cancellationToken) => Results.Ok(await db.Notes.ToArrayAsync(cancellationToken)));
 app.MapPost("/api/notes", async (Note note, AppDbContext db, CancellationToken cancellationToken) =>
 {

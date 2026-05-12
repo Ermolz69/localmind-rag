@@ -13,6 +13,14 @@ public static class DependencyInjection
     {
         builder.Host.UseSerilog((context, logger) => logger.ReadFrom.Configuration(context.Configuration).WriteTo.Console());
         builder.Services.AddProblemDetails();
+        builder.Services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(policy => policy
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .SetIsOriginAllowed(origin => origin.StartsWith("http://127.0.0.1:", StringComparison.OrdinalIgnoreCase)
+                    || origin.StartsWith("http://localhost:", StringComparison.OrdinalIgnoreCase)));
+        });
         builder.Services.AddApplication();
         builder.Services.AddInfrastructure(builder.Configuration);
         return builder;
@@ -22,6 +30,7 @@ public static class DependencyInjection
     {
         app.UseExceptionHandler();
         app.UseStatusCodePages();
+        app.UseCors();
         return app;
     }
 }

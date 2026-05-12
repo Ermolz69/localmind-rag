@@ -111,6 +111,24 @@ public sealed class DocumentsApiTests : IClassFixture<WebApplicationFactory<Prog
     }
 
     [Fact]
+    public async Task ProcessIngestionJobEndpoint_Should_Process_Uploaded_Text_Document()
+    {
+        using var client = factory.CreateClient();
+        var fileName = $"endpoint-ingestion-{Guid.NewGuid():N}.txt";
+        var upload = await UploadDocumentAsync(client, fileName, content: "Endpoint paragraph.");
+
+        using var response = await client.PostAsync($"/api/ingestion/jobs/{upload.IngestionJobId}/process", content: null);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var chunk = await db.DocumentChunks.SingleAsync(x => x.DocumentId == upload.DocumentId);
+        var document = await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
+        Assert.Equal("Endpoint paragraph.", chunk.Text);
+        Assert.Equal(DocumentStatus.Indexed, document.Status);
+    }
+
+    [Fact]
     public async Task Uploaded_Pdf_Document_Should_Fail_Ingestion_For_Mvp()
     {
         using var client = factory.CreateClient();
