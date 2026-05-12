@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Buckets;
 using KnowledgeApp.Application.Documents;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,6 +10,8 @@ public static class DependencyInjection
     {
         services.AddScoped<GetDocumentByIdHandler>();
         services.AddScoped<GetDocumentsHandler>();
+        services.AddScoped<IBucketResolver, BucketResolver>();
+        services.AddScoped<UploadDocumentCommandValidator>();
         services.AddScoped<UploadDocumentHandler>();
 
         return services;

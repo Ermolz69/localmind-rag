@@ -23,17 +23,28 @@ public sealed class UnitOfWork(AppDbContext dbContext) : IUnitOfWork
 
 public sealed class LocalFileStorageService(IAppPathProvider paths) : IFileStorageService
 {
-    public async Task<StoredFileDto> SaveAsync(Stream content, string fileName, CancellationToken cancellationToken = default)
+    public async Task<StoredFileDto> SaveAsync(Stream content, Guid documentId, string fileName, CancellationToken cancellationToken = default)
     {
-        Directory.CreateDirectory(paths.FilesDirectory);
-        var storedName = $"{Guid.NewGuid():N}{Path.GetExtension(fileName)}";
-        var localPath = Path.Combine(paths.FilesDirectory, storedName);
-        await using var output = File.Create(localPath);
-        await content.CopyToAsync(output, cancellationToken);
-        await output.FlushAsync(cancellationToken);
-        output.Position = 0;
-        var hash = Convert.ToHexString(await SHA256.HashDataAsync(output, cancellationToken));
-        return new StoredFileDto(fileName, localPath, output.Length, hash);
+        var safeFileName = Path.GetFileName(fileName);
+        if (string.IsNullOrWhiteSpace(safeFileName))
+        {
+            throw new ArgumentException("Document file name is required.", nameof(fileName));
+        }
+
+        var documentDirectory = Path.Combine(paths.FilesDirectory, documentId.ToString());
+        Directory.CreateDirectory(documentDirectory);
+        var localPath = Path.Combine(documentDirectory, safeFileName);
+        long sizeBytes;
+        await using (var output = File.Create(localPath))
+        {
+            await content.CopyToAsync(output, cancellationToken);
+            await output.FlushAsync(cancellationToken);
+            sizeBytes = output.Length;
+        }
+
+        await using var input = File.OpenRead(localPath);
+        var hash = Convert.ToHexString(await SHA256.HashDataAsync(input, cancellationToken));
+        return new StoredFileDto(safeFileName, localPath, sizeBytes, hash);
     }
 }
 

@@ -16,7 +16,7 @@ public interface IDocumentChunker { IReadOnlyList<string> Split(string text); }
 public interface IDocumentTextExtractor { Task<string> ExtractAsync(string filePath, CancellationToken cancellationToken = default); }
 public interface IDocumentTextExtractorFactory { IDocumentTextExtractor GetExtractor(FileType fileType, string extension, string? mimeType); }
 public interface IEmbeddingGenerator { Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default); }
-public interface IFileStorageService { Task<StoredFileDto> SaveAsync(Stream content, string fileName, CancellationToken cancellationToken = default); }
+public interface IFileStorageService { Task<StoredFileDto> SaveAsync(Stream content, Guid documentId, string fileName, CancellationToken cancellationToken = default); }
 public interface IIngestionJobProcessor { Task ProcessAsync(Guid jobId, CancellationToken cancellationToken = default); }
 public interface IIngestionQueue { Task EnqueueAsync(Guid documentId, CancellationToken cancellationToken = default); }
 public interface INetworkStatusService { Task<bool> IsOnlineAsync(CancellationToken cancellationToken = default); }
