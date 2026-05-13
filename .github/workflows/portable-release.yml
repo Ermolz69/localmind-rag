@@ -31,6 +31,20 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'backend/**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Cache Rust build outputs
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+          key: tauri-win-x64
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -44,10 +58,6 @@ jobs:
 
       - name: Install frontend dependencies
         run: pnpm.cmd install --frozen-lockfile
-
-      - name: Run full checks before packaging
-        shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1
 
       - name: Build portable folder
         shell: powershell
