@@ -61,27 +61,12 @@ jobs:
           -RuntimeIdentifier win-x64
           -OutputPath artifacts/localmind-portable-win-x64
 
-      - name: Verify portable package
+      - name: Smoke test portable package
         shell: powershell
-        run: |
-          $required = @(
-            "artifacts/localmind-portable-win-x64/localmind.exe",
-            "artifacts/localmind-portable-win-x64/bin/KnowledgeApp.LocalApi.exe",
-            "artifacts/localmind-portable-win-x64/config/appsettings.json",
-            "artifacts/localmind-portable-win-x64/runtime/app/data",
-            "artifacts/localmind-portable-win-x64/runtime/app/files",
-            "artifacts/localmind-portable-win-x64/runtime/app/indexes",
-            "artifacts/localmind-portable-win-x64/runtime/app/logs"
-          )
-          foreach ($path in $required) {
-            if (-not (Test-Path $path)) {
-              throw "Missing portable package path: $path"
-            }
-          }
-
-      - name: Create portable zip
-        shell: powershell
-        run: Compress-Archive -Path artifacts/localmind-portable-win-x64 -DestinationPath artifacts/localmind-portable-win-x64.zip -Force
+        run: >
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-portable-package.ps1
+          -PackagePath artifacts/localmind-portable-win-x64
+          -ZipPath artifacts/localmind-portable-win-x64.zip
 
       - name: Upload portable artifact
         uses: actions/upload-artifact@v4
