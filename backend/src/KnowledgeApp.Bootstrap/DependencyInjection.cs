@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
+using Serilog.Settings.Configuration;
 
 namespace KnowledgeApp.Bootstrap;
 
@@ -11,7 +12,11 @@ public static class DependencyInjection
 {
     public static WebApplicationBuilder AddKnowledgeAppBootstrap(this WebApplicationBuilder builder)
     {
-        builder.Host.UseSerilog((context, logger) => logger.ReadFrom.Configuration(context.Configuration).WriteTo.Console());
+        builder.Host.UseSerilog((context, logger) =>
+        {
+            var readerOptions = new ConfigurationReaderOptions(typeof(ConsoleLoggerConfigurationExtensions).Assembly);
+            logger.ReadFrom.Configuration(context.Configuration, readerOptions);
+        });
         builder.Services.AddProblemDetails();
         builder.Services.AddCors(options =>
         {
