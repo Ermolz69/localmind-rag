@@ -67,7 +67,7 @@ fn start_local_api(app: &mut tauri::App) {
         let state = app.state::<LocalApiProcess>();
         if let Ok(mut stored_child) = state.child.lock() {
             *stored_child = Some(child);
-        }
+        };
     }
 }
 
