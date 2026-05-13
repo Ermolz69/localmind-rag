@@ -39,12 +39,6 @@ jobs:
           restore-keys: |
             nuget-${{ runner.os }}-
 
-      - name: Cache Rust build outputs
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: apps/desktop/src-tauri -> target
-          key: tauri-win-x64
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
