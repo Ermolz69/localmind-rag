@@ -23,8 +23,7 @@ public static class DependencyInjection
             options.AddDefaultPolicy(policy => policy
                 .AllowAnyHeader()
                 .AllowAnyMethod()
-                .SetIsOriginAllowed(origin => origin.StartsWith("http://127.0.0.1:", StringComparison.OrdinalIgnoreCase)
-                    || origin.StartsWith("http://localhost:", StringComparison.OrdinalIgnoreCase)));
+                .SetIsOriginAllowed(IsAllowedDesktopOrigin));
         });
         builder.Services.AddApplication();
         builder.Services.AddInfrastructure(builder.Configuration);
@@ -37,5 +36,18 @@ public static class DependencyInjection
         app.UseStatusCodePages();
         app.UseCors();
         return app;
+    }
+
+    private static bool IsAllowedDesktopOrigin(string origin)
+    {
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return uri.Scheme is "http" or "https"
+            && (uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.Equals("tauri.localhost", StringComparison.OrdinalIgnoreCase));
     }
 }

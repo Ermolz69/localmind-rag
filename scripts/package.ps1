@@ -1,7 +1,8 @@
 param(
     [string]$Configuration = "Release",
     [string]$RuntimeIdentifier = "win-x64",
-    [string]$OutputPath = "artifacts/localmind-portable-win-x64"
+    [string]$OutputPath = "artifacts/localmind-portable-win-x64",
+    [switch]$SkipZip
 )
 
 $ErrorActionPreference = "Stop"
@@ -90,3 +91,13 @@ foreach ($path in $requiredPaths) {
 }
 
 Write-Host "Portable package created at $output"
+
+if (-not $SkipZip) {
+    $zipPath = "$output.zip"
+    if (Test-Path $zipPath) {
+        Remove-Item -LiteralPath $zipPath -Force
+    }
+
+    Compress-Archive -Path (Join-Path $output "*") -DestinationPath $zipPath -Force
+    Write-Host "Portable zip created at $zipPath"
+}
