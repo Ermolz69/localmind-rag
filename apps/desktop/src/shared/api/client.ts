@@ -28,6 +28,7 @@ export const localApi = {
   getSyncStatus: () => request<SyncStatus>("/api/sync/status"),
   getBuckets: () => request<BucketDto[]>("/api/buckets"),
   getDiagnostics: () => request<DiagnosticsStatus>("/api/diagnostics"),
+  getSettings: () => request<AppSettings>("/api/settings"),
   createBucket: (name: string) =>
     request<BucketDto>("/api/buckets", {
       method: "POST",
@@ -48,6 +49,11 @@ export const localApi = {
       },
     );
   },
+  saveSettings: (settings: AppSettings) =>
+    request<void>("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    }),
   processIngestionJob: (jobId: string) =>
     request<void>(`/api/ingestion/jobs/${jobId}/process`, {
       method: "POST",
@@ -122,4 +128,36 @@ export type DiagnosticsStatus = {
   localApiVersion: string;
   aiRuntimeStatus: RuntimeStatus;
   pendingIngestionJobsCount: number;
+};
+
+export type AppSettings = {
+  appearance: AppearanceSettings;
+  ai: AiSettings;
+  runtimePaths: RuntimePathsSettings;
+  sync: SyncSettings;
+};
+
+export type AppearanceSettings = {
+  theme: string;
+};
+
+export type AiSettings = {
+  provider: string;
+  chatModel: string;
+  embeddingModel: string;
+  runtimePath: string;
+  modelsPath: string;
+};
+
+export type RuntimePathsSettings = {
+  dataPath: string;
+  databasePath: string;
+  filesPath: string;
+  indexPath: string;
+  logsPath: string;
+};
+
+export type SyncSettings = {
+  enabled: boolean;
+  autoSync: boolean;
 };

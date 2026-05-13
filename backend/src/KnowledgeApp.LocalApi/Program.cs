@@ -7,6 +7,7 @@ using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
 using KnowledgeApp.Infrastructure.Options;
+using KnowledgeApp.LocalApi;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -240,13 +241,10 @@ app.MapPost("/api/chats/{id:guid}/messages", async (Guid id, ChatMessageRequest 
 app.MapPost("/api/search/semantic", async (SemanticSearchRequest request, IRagContextBuilder rag, CancellationToken cancellationToken) =>
     Results.Ok(await rag.BuildAsync(request.Query, cancellationToken)));
 
-app.MapGet("/api/settings", async (AppDbContext db, CancellationToken cancellationToken) => Results.Ok(await db.AppSettings.ToArrayAsync(cancellationToken)));
-app.MapPut("/api/settings", async (AppSetting[] settings, AppDbContext db, CancellationToken cancellationToken) =>
-{
-    db.AppSettings.UpdateRange(settings);
-    await db.SaveChangesAsync(cancellationToken);
-    return Results.NoContent();
-});
+app.MapGet("/api/settings", SettingsApi.GetAsync)
+    .WithName("GetSettings");
+app.MapPut("/api/settings", SettingsApi.PutAsync)
+    .WithName("UpdateSettings");
 
 app.MapGet("/api/sync/status", async (ISyncService sync, CancellationToken cancellationToken) => Results.Ok(await sync.GetStatusAsync(cancellationToken)));
 app.MapPost("/api/sync/run", async (ISyncService sync, CancellationToken cancellationToken) =>
