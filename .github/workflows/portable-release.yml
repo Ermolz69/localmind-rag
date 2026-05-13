@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build-portable:
-    name: Build portable preview
+    name: Build portable package
     runs-on: windows-latest
 
     steps:
@@ -27,6 +27,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -53,6 +56,24 @@ jobs:
           -Configuration Release
           -RuntimeIdentifier win-x64
           -OutputPath artifacts/localmind-portable-win-x64
+
+      - name: Verify portable package
+        shell: powershell
+        run: |
+          $required = @(
+            "artifacts/localmind-portable-win-x64/localmind.exe",
+            "artifacts/localmind-portable-win-x64/bin/KnowledgeApp.LocalApi.exe",
+            "artifacts/localmind-portable-win-x64/config/appsettings.json",
+            "artifacts/localmind-portable-win-x64/runtime/app/data",
+            "artifacts/localmind-portable-win-x64/runtime/app/files",
+            "artifacts/localmind-portable-win-x64/runtime/app/indexes",
+            "artifacts/localmind-portable-win-x64/runtime/app/logs"
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path $path)) {
+              throw "Missing portable package path: $path"
+            }
+          }
 
       - name: Create portable zip
         shell: powershell
