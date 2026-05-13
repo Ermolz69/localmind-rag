@@ -2,11 +2,15 @@ using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Documents;
 using KnowledgeApp.Bootstrap;
 using KnowledgeApp.Contracts.Rag;
+using KnowledgeApp.Contracts.Runtime;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
+using KnowledgeApp.Infrastructure.Options;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +28,57 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "OK", app = "localmind" }))
     .WithName("Health");
+
+app.MapGet("/api/diagnostics",
+    async (
+        IAppPathProvider paths,
+        IOptions<LocalRuntimeOptions> runtimeOptions,
+        IAiRuntimeManager aiRuntimeManager,
+        AppDbContext db,
+        CancellationToken cancellationToken) =>
+    {
+        RuntimeStatusDto aiRuntimeStatus;
+
+        try
+        {
+            aiRuntimeStatus = await aiRuntimeManager.GetStatusAsync(cancellationToken);
+        }
+        catch
+        {
+            aiRuntimeStatus = new RuntimeStatusDto(
+                LocalApiReady: true,
+                AiRuntimeStatus: "Missing",
+                ModelsAvailable: false,
+                OfflineMode: true);
+        }
+
+        var pendingIngestionJobsCount = await db.IngestionJobs.CountAsync(
+            job => job.Status == IngestionJobStatus.Queued
+                || job.Status == IngestionJobStatus.Running,
+            cancellationToken);
+
+        var localApiVersion =
+            typeof(Program).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                ?.InformationalVersion
+            ?? typeof(Program).Assembly.GetName().Version?.ToString()
+            ?? "unknown";
+
+        var runtimeMode = runtimeOptions.Value.Portable ? "portable" : "dev";
+
+        return Results.Ok(
+            new DiagnosticsDto(
+                Paths: new DiagnosticsPathsDto(
+                    DatabasePath: paths.DatabasePath,
+                    FilesPath: paths.FilesDirectory,
+                    IndexPath: paths.IndexDirectory,
+                    LogsPath: paths.LogsDirectory),
+                RuntimeMode: runtimeMode,
+                LocalApiVersion: localApiVersion,
+                AiRuntimeStatus: aiRuntimeStatus,
+                PendingIngestionJobsCount: pendingIngestionJobsCount));
+    })
+    .WithName("Diagnostics");
 
 app.MapGet("/api/runtime/status", async (IAiRuntimeManager runtime, CancellationToken cancellationToken) =>
     Results.Ok(await runtime.GetStatusAsync(cancellationToken)));

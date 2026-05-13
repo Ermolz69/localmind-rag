@@ -27,6 +27,7 @@ export const localApi = {
   getRuntimeStatus: () => request<RuntimeStatus>("/api/runtime/status"),
   getSyncStatus: () => request<SyncStatus>("/api/sync/status"),
   getBuckets: () => request<BucketDto[]>("/api/buckets"),
+  getDiagnostics: () => request<DiagnosticsStatus>("/api/diagnostics"),
   createBucket: (name: string) =>
     request<BucketDto>("/api/buckets", {
       method: "POST",
@@ -106,4 +107,19 @@ export type RagSource = {
   pageNumber: number | null;
   score: number;
   snippet: string;
+};
+
+export type DiagnosticsPaths = {
+  databasePath: string;
+  filesPath: string;
+  indexPath: string;
+  logsPath: string;
+};
+
+export type DiagnosticsStatus = {
+  paths: DiagnosticsPaths;
+  runtimeMode: string;
+  localApiVersion: string;
+  aiRuntimeStatus: RuntimeStatus;
+  pendingIngestionJobsCount: number;
 };
