@@ -42,7 +42,7 @@ dotnet publish `
     -p:EnableCompressionInSingleFile=true `
     -o $bin
 
-pnpm.cmd --filter desktop exec tauri build --no-bundle
+pnpm.cmd --filter desktop run tauri -- build --no-bundle
 
 if (-not (Test-Path $tauriExe)) {
     throw "Tauri executable was not produced at $tauriExe"
