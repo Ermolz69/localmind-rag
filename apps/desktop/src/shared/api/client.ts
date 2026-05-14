@@ -64,12 +64,19 @@ export const localApi = {
       body: JSON.stringify({ query }),
     }),
   getNotes: () => request<NoteDto[]>("/api/notes"),
-  createNote: (note: { title: string; markdown: string; bucketId?: string | null }) =>
+  createNote: (note: {
+    title: string;
+    markdown: string;
+    bucketId?: string | null;
+  }) =>
     request<NoteDto>("/api/notes", {
       method: "POST",
       body: JSON.stringify(note),
     }),
-  updateNote: (id: string, note: { title: string; markdown: string; bucketId?: string | null }) =>
+  updateNote: (
+    id: string,
+    note: { title: string; markdown: string; bucketId?: string | null },
+  ) =>
     request<void>(`/api/notes/${id}`, {
       method: "PUT",
       body: JSON.stringify(note),

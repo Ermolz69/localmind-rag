@@ -140,7 +140,9 @@ export function NotesPage() {
       }
     } catch (exception) {
       setError(
-        exception instanceof Error ? exception.message : "Failed to delete note.",
+        exception instanceof Error
+          ? exception.message
+          : "Failed to delete note.",
       );
     }
   }
@@ -183,7 +185,7 @@ export function NotesPage() {
                 <button
                   key={note.id}
                   className={cn(
-                    "w-full text-left rounded-md px-3 py-2 text-sm transition",
+                    "w-full rounded-md px-3 py-2 text-left text-sm transition",
                     selectedNoteId === note.id
                       ? "bg-primary text-primary-foreground"
                       : "text-foreground hover:bg-muted",
@@ -193,10 +195,7 @@ export function NotesPage() {
                   <div className="truncate font-medium">{note.title}</div>
                   {note.bucketId && (
                     <div className="text-xs opacity-75">
-                      {
-                        buckets.find((b) => b.id === note.bucketId)
-                          ?.name
-                      }
+                      {buckets.find((b) => b.id === note.bucketId)?.name}
                     </div>
                   )}
                 </button>
@@ -230,7 +229,7 @@ export function NotesPage() {
                   Markdown
                 </label>
                 <textarea
-                  className="min-h-96 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground font-mono outline-none"
+                  className="min-h-96 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm text-foreground outline-none"
                   value={editMarkdown}
                   onChange={(e) => setEditMarkdown(e.target.value)}
                   placeholder="Write markdown here..."
@@ -239,10 +238,7 @@ export function NotesPage() {
             </div>
 
             <div className="flex gap-2">
-              <Button
-                onClick={() => void saveNote()}
-                disabled={isSaving}
-              >
+              <Button onClick={() => void saveNote()} disabled={isSaving}>
                 {isSaving ? "Saving..." : "Save"}
               </Button>
               <Button
