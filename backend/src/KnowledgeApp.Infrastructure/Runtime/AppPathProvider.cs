@@ -9,6 +9,7 @@ public sealed class AppPathProvider(IOptions<LocalRuntimeOptions> options) : IAp
     private readonly LocalRuntimeOptions options = options.Value;
     private readonly string rootPath = ResolveRootPath();
 
+    public string AppRootDirectory => rootPath;
     public string DataDirectory => FullPath(options.DataPath);
     public string DatabasePath => FullPath(options.DatabasePath);
     public string FilesDirectory => FullPath(options.FilesPath);
