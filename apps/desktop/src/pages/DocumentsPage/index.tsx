@@ -244,8 +244,7 @@ export function DocumentsPage() {
               Drop a document here or choose a file
             </span>
             <span className="mt-1 text-xs text-muted-foreground">
-              TXT, Markdown, HTML index now. PDF, DOCX and PPTX upload for later
-              parser support.
+              TXT, Markdown, HTML, PDF, DOCX and PPTX can be indexed locally.
             </span>
           </label>
 
@@ -398,7 +397,7 @@ function DocumentList({
               {document.name}
             </p>
             <p className="truncate text-xs text-muted-foreground">
-              {document.id}
+              {document.lastError ?? document.id}
             </p>
           </div>
           <StatusBadge
