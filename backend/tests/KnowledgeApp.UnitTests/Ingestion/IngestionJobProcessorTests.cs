@@ -7,6 +7,8 @@ using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
 using KnowledgeApp.Infrastructure.Services;
+using KnowledgeApp.Infrastructure.Options;
+using Microsoft.Extensions.Options;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using A = DocumentFormat.OpenXml.Drawing;
@@ -211,7 +213,7 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         var rawExtractor = new RawTextExtractor();
         return new IngestionJobProcessor(
             database.Context,
-            new DocumentTextExtractorFactory(rawExtractor, new HtmlTextExtractor(), new PdfTextExtractor(), new DocxTextExtractor(), new PptxTextExtractor()),
+            new DocumentTextExtractorFactory(rawExtractor, new HtmlTextExtractor(), new PdfTextExtractor(new NoOpOcrEngine(), Options.Create(new OcrOptions { Enabled = false })), new DocxTextExtractor(), new PptxTextExtractor()),
             new SimpleDocumentChunker(),
             new FixedDateTimeProvider());
     }
@@ -394,6 +396,20 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         {
             await Context.DisposeAsync();
             await connection.DisposeAsync();
+        }
+    }
+    private sealed class NoOpOcrEngine : IOcrEngine
+    {
+        public Task<OcrTextResult> ExtractAsync(
+            string imagePath,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(
+                new OcrTextResult(
+                    Text: string.Empty,
+                    DetectedLanguage: null,
+                    DetectedScript: null,
+                    Confidence: null));
         }
     }
 }

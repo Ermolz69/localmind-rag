@@ -42,5 +42,7 @@ public sealed class LocalFileStorageServiceTests : IDisposable
         public string FilesDirectory => Path.Combine(root, "files");
         public string IndexDirectory => Path.Combine(root, "indexes");
         public string LogsDirectory => Path.Combine(root, "logs");
+
+        public string AppRootDirectory => throw new NotImplementedException();
     }
 }

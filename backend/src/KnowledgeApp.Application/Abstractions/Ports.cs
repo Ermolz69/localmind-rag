@@ -8,7 +8,7 @@ namespace KnowledgeApp.Application.Abstractions;
 public interface IAiModelRegistry { Task<IReadOnlyCollection<string>> ListModelsAsync(CancellationToken cancellationToken = default); }
 public interface IAiRuntimeManager { Task<RuntimeStatusDto> GetStatusAsync(CancellationToken cancellationToken = default); Task StartAsync(CancellationToken cancellationToken = default); }
 public interface IAppLockService { Task<bool> TryAcquireAsync(string key, CancellationToken cancellationToken = default); }
-public interface IAppPathProvider { string DataDirectory { get; } string DatabasePath { get; } string FilesDirectory { get; } string IndexDirectory { get; } string LogsDirectory { get; } }
+public interface IAppPathProvider { string AppRootDirectory { get; } string DataDirectory { get; } string DatabasePath { get; } string FilesDirectory { get; } string IndexDirectory { get; } string LogsDirectory { get; } }
 public interface IChatModelClient { Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default); }
 public interface ICurrentUserService { Guid? UserId { get; } }
 public interface IDateTimeProvider { DateTimeOffset UtcNow { get; } }
@@ -30,3 +30,5 @@ public interface ISyncService { Task<SyncStatusDto> GetStatusAsync(CancellationT
 public interface IUnitOfWork { Task<int> SaveChangesAsync(CancellationToken cancellationToken = default); }
 public interface IVectorIndex { Task UpsertAsync(Guid chunkId, float[] vector, CancellationToken cancellationToken = default); }
 public interface IVectorSearchService { Task<IReadOnlyList<RagSourceDto>> SearchAsync(float[] queryVector, int limit, CancellationToken cancellationToken = default); }
+public interface IOcrEngine { Task<OcrTextResult> ExtractAsync(string imagePath, CancellationToken cancellationToken = default); }
+public sealed record OcrTextResult(string Text, string? DetectedLanguage, string? DetectedScript, double? Confidence);
