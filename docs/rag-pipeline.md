@@ -72,14 +72,14 @@ sequenceDiagram
     Processor->>DB: Load Document + DocumentFile
     Processor->>DB: Mark job Running and document Processing
     Processor->>Extractor: Extract text from local file
-    alt Supported text/markdown/html
-        Extractor-->>Processor: Text
+    alt Supported text/markdown/html/pdf/docx/pptx
+        Extractor-->>Processor: Text segments with source metadata
         Processor->>Chunker: Split into chunks
         Chunker-->>Processor: Chunk texts
-        Processor->>DB: Replace DocumentChunk rows
+        Processor->>DB: Replace DocumentChunk rows with page/slide metadata where available
         Processor->>DB: Mark job Completed and document Indexed
-    else Unsupported format
-        Extractor-->>Processor: NotSupportedException
+    else Corrupt or unsupported file
+        Extractor-->>Processor: Extraction exception
         Processor->>DB: Mark job Failed and document Failed
     end
 ```
@@ -88,4 +88,7 @@ Current MVP support:
 
 - `.txt`, `.md`, `.markdown` are extracted as raw text.
 - `.html`, `.htm` are extracted by stripping scripts, styles and tags, then decoding HTML entities.
-- `.pdf`, `.docx`, `.pptx` upload successfully, but ingestion fails with a clear unsupported-format error until real parsers are added.
+- `.pdf` is extracted page by page and stores page numbers on chunks.
+- `.docx` is extracted from document paragraphs.
+- `.pptx` is extracted slide by slide and stores slide numbers on chunks.
+- Corrupt files fail ingestion with the parsing error stored in `IngestionJob.LastError`.

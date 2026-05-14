@@ -36,6 +36,10 @@ The desktop UI talks only to `KnowledgeApp.LocalApi`. LocalApi owns SQLite, loca
 
 See [docs/architectury/README.md](docs/architectury/README.md) and [docs/architecture-diagrams.md](docs/architecture-diagrams.md).
 
+## Requirements
+
+The project technical specification, MVP scope, user stories, non-functional requirements, priorities, and risks live in [docs/requirements/technical-specification.md](docs/requirements/technical-specification.md).
+
 ## Releases
 
 Project releases are published through GitHub Releases. Release notes describe what changed, what is verified, and what remains intentionally skeleton-level.
