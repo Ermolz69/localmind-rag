@@ -63,6 +63,21 @@ export const localApi = {
       method: "POST",
       body: JSON.stringify({ query }),
     }),
+  getNotes: () => request<NoteDto[]>("/api/notes"),
+  createNote: (note: { title: string; markdown: string; bucketId?: string | null }) =>
+    request<NoteDto>("/api/notes", {
+      method: "POST",
+      body: JSON.stringify(note),
+    }),
+  updateNote: (id: string, note: { title: string; markdown: string; bucketId?: string | null }) =>
+    request<void>(`/api/notes/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(note),
+    }),
+  deleteNote: (id: string) =>
+    request<void>(`/api/notes/${id}`, {
+      method: "DELETE",
+    }),
 };
 
 export type HealthStatus = {
@@ -84,6 +99,13 @@ export type DocumentSummary = {
   name: string;
   status: string;
   createdAt: string;
+};
+
+export type NoteDto = {
+  id: string;
+  title: string;
+  markdown: string;
+  bucketId: string | null;
 };
 
 export type UploadDocumentResponse = {
