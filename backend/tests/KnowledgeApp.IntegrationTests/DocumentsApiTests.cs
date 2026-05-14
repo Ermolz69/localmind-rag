@@ -115,6 +115,11 @@ public sealed class DocumentsApiTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Equal("First paragraph.\n\nSecond paragraph.", chunks[0].Text);
         Assert.Equal(DocumentStatus.Indexed, document.Status);
         Assert.Equal(IngestionJobStatus.Completed, job.Status);
+
+        var embedding = await db.DocumentEmbeddings.SingleAsync(x => x.DocumentChunkId == chunks[0].Id);
+        Assert.Equal("BGE-M3", embedding.ModelName);
+        Assert.Equal(32, embedding.Dimension);
+        Assert.Equal(32 * sizeof(float), embedding.Embedding.Length);
     }
 
     [Fact]

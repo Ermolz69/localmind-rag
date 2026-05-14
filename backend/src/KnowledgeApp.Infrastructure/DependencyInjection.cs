@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddSingleton<PptxTextExtractor>();
         services.AddSingleton<IDocumentTextExtractorFactory, DocumentTextExtractorFactory>();
         services.AddSingleton<IDocumentChunker, SimpleDocumentChunker>();
+        services.AddScoped<IDocumentEmbeddingService, DocumentEmbeddingService>();
         services.AddSingleton<IEmbeddingGenerator, StubEmbeddingGenerator>();
         services.AddSingleton<IChatModelClient, StubChatModelClient>();
         services.AddScoped<ExactVectorSearchService>();

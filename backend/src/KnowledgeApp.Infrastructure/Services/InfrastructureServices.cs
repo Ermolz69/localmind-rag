@@ -9,8 +9,10 @@ using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Contracts.Runtime;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
+using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using UglyToad.PdfPig;
 using A = DocumentFormat.OpenXml.Drawing;
 using PresentationSlideId = DocumentFormat.OpenXml.Presentation.SlideId;
@@ -70,6 +72,7 @@ public sealed class IngestionJobProcessor(
     AppDbContext dbContext,
     IDocumentTextExtractorFactory extractorFactory,
     IDocumentChunker chunker,
+    IDocumentEmbeddingService documentEmbeddingService,
     IDateTimeProvider dateTimeProvider) : IIngestionJobProcessor
 {
     public async Task ProcessAsync(Guid jobId, CancellationToken cancellationToken = default)
@@ -116,7 +119,12 @@ public sealed class IngestionJobProcessor(
             var existingChunks = await dbContext.DocumentChunks
                 .Where(x => x.DocumentId == document.Id)
                 .ToArrayAsync(cancellationToken);
+            var existingChunkIds = existingChunks.Select(x => x.Id).ToArray();
+            var existingEmbeddings = await dbContext.DocumentEmbeddings
+                .Where(x => existingChunkIds.Contains(x.DocumentChunkId))
+                .ToArrayAsync(cancellationToken);
 
+            dbContext.DocumentEmbeddings.RemoveRange(existingEmbeddings);
             dbContext.DocumentChunks.RemoveRange(existingChunks);
             var newChunks = new List<DocumentChunk>();
             foreach (var segment in extraction.Segments)
@@ -140,6 +148,8 @@ public sealed class IngestionJobProcessor(
             }
 
             dbContext.DocumentChunks.AddRange(newChunks);
+            var newEmbeddings = await documentEmbeddingService.GenerateAsync(newChunks, cancellationToken);
+            dbContext.DocumentEmbeddings.AddRange(newEmbeddings);
 
             job.Status = IngestionJobStatus.Completed;
             job.LastError = null;
@@ -493,10 +503,76 @@ internal static class FileSignatureValidator
 
 public sealed class StubEmbeddingGenerator : IEmbeddingGenerator
 {
+    private const string DefaultModelName = "BGE-M3";
+    private readonly string modelName;
+
+    public StubEmbeddingGenerator() : this(DefaultModelName)
+    {
+    }
+
+    public StubEmbeddingGenerator(IOptions<AiOptions> options) : this(options.Value.EmbeddingModel)
+    {
+    }
+
+    private StubEmbeddingGenerator(string modelName)
+    {
+        this.modelName = string.IsNullOrWhiteSpace(modelName) ? DefaultModelName : modelName;
+    }
+
+    public string ModelName => modelName;
+
     public Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(text));
         return Task.FromResult(bytes.Select(x => (float)x / byte.MaxValue).ToArray());
+    }
+}
+
+public sealed class DocumentEmbeddingService(
+    IEmbeddingGenerator embeddingGenerator,
+    IDateTimeProvider dateTimeProvider) : IDocumentEmbeddingService
+{
+    public async Task<IReadOnlyList<DocumentEmbedding>> GenerateAsync(
+        IReadOnlyList<DocumentChunk> chunks,
+        CancellationToken cancellationToken = default)
+    {
+        var embeddings = new List<DocumentEmbedding>(chunks.Count);
+        foreach (var chunk in chunks)
+        {
+            var vector = await embeddingGenerator.GenerateAsync(chunk.Text, cancellationToken);
+            embeddings.Add(new DocumentEmbedding
+            {
+                CreatedAt = dateTimeProvider.UtcNow,
+                DocumentChunkId = chunk.Id,
+                ModelName = embeddingGenerator.ModelName,
+                Dimension = vector.Length,
+                Embedding = EmbeddingVectorSerializer.ToBytes(vector),
+            });
+        }
+
+        return embeddings;
+    }
+}
+
+internal static class EmbeddingVectorSerializer
+{
+    public static byte[] ToBytes(float[] vector)
+    {
+        var bytes = new byte[vector.Length * sizeof(float)];
+        Buffer.BlockCopy(vector, 0, bytes, 0, bytes.Length);
+        return bytes;
+    }
+
+    public static float[] FromBytes(byte[] bytes)
+    {
+        if (bytes.Length % sizeof(float) != 0)
+        {
+            throw new InvalidOperationException("Embedding byte length is not a multiple of float size.");
+        }
+
+        var vector = new float[bytes.Length / sizeof(float)];
+        Buffer.BlockCopy(bytes, 0, vector, 0, bytes.Length);
+        return vector;
     }
 }
 
