@@ -13,7 +13,9 @@ public interface IChatModelClient { Task<string> GenerateAsync(string prompt, Ca
 public interface ICurrentUserService { Guid? UserId { get; } }
 public interface IDateTimeProvider { DateTimeOffset UtcNow { get; } }
 public interface IDocumentChunker { IReadOnlyList<string> Split(string text); }
-public interface IDocumentTextExtractor { Task<string> ExtractAsync(string filePath, CancellationToken cancellationToken = default); }
+public sealed record DocumentTextExtractionResult(IReadOnlyList<DocumentTextSegment> Segments);
+public sealed record DocumentTextSegment(string Text, int? PageNumber = null, string? SectionTitle = null, string SourceKind = "Document");
+public interface IDocumentTextExtractor { Task<DocumentTextExtractionResult> ExtractAsync(string filePath, CancellationToken cancellationToken = default); }
 public interface IDocumentTextExtractorFactory { IDocumentTextExtractor GetExtractor(FileType fileType, string extension, string? mimeType); }
 public interface IEmbeddingGenerator { Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default); }
 public interface IFileStorageService { Task<StoredFileDto> SaveAsync(Stream content, Guid documentId, string fileName, CancellationToken cancellationToken = default); }

@@ -15,11 +15,25 @@ public sealed class GetDocumentsHandler(IAppDbContext dbContext)
             documents = documents.Where(document => document.BucketId == query.BucketId.Value);
         }
 
-        var result = await documents
-            .Select(document => new DocumentDto(document.Id, document.Name, document.Status.ToString(), document.CreatedAt))
+        var documentRows = await documents
+            .ToArrayAsync(cancellationToken);
+        var documentIds = documentRows.Select(document => document.Id).ToArray();
+        var failedJobs = await dbContext.IngestionJobs
+            .AsNoTracking()
+            .Where(job => documentIds.Contains(job.DocumentId) && job.LastError != null)
             .ToArrayAsync(cancellationToken);
 
-        return result
+        return documentRows
+            .Select(document => new DocumentDto(
+                document.Id,
+                document.Name,
+                document.Status.ToString(),
+                document.CreatedAt,
+                failedJobs
+                    .Where(job => job.DocumentId == document.Id)
+                    .OrderByDescending(job => job.ProcessedAt ?? job.CreatedAt)
+                    .Select(job => job.LastError)
+                    .FirstOrDefault()))
             .OrderByDescending(document => document.CreatedAt)
             .ToArray();
     }

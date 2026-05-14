@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using DocumentFormat.OpenXml.Packaging;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Rag;
@@ -10,6 +11,12 @@ using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using UglyToad.PdfPig;
+using A = DocumentFormat.OpenXml.Drawing;
+using PresentationSlideId = DocumentFormat.OpenXml.Presentation.SlideId;
+using SlideText = DocumentFormat.OpenXml.Drawing.Text;
+using WordParagraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
+using WordText = DocumentFormat.OpenXml.Wordprocessing.Text;
 
 namespace KnowledgeApp.Infrastructure.Services;
 
@@ -105,21 +112,34 @@ public sealed class IngestionJobProcessor(
 
             var extension = Path.GetExtension(documentFile.FileName);
             var extractor = extractorFactory.GetExtractor(documentFile.FileType, extension, null);
-            var text = await extractor.ExtractAsync(documentFile.LocalPath, cancellationToken);
-            var chunkTexts = chunker.Split(text);
+            var extraction = await extractor.ExtractAsync(documentFile.LocalPath, cancellationToken);
             var existingChunks = await dbContext.DocumentChunks
                 .Where(x => x.DocumentId == document.Id)
                 .ToArrayAsync(cancellationToken);
 
             dbContext.DocumentChunks.RemoveRange(existingChunks);
-            dbContext.DocumentChunks.AddRange(chunkTexts.Select((chunkText, index) => new DocumentChunk
+            var newChunks = new List<DocumentChunk>();
+            foreach (var segment in extraction.Segments)
             {
-                CreatedAt = dateTimeProvider.UtcNow,
-                DocumentId = document.Id,
-                Index = index,
-                PageNumber = null,
-                Text = chunkText,
-            }));
+                foreach (var chunkText in chunker.Split(segment.Text))
+                {
+                    newChunks.Add(new DocumentChunk
+                    {
+                        CreatedAt = dateTimeProvider.UtcNow,
+                        DocumentId = document.Id,
+                        Index = newChunks.Count,
+                        PageNumber = segment.PageNumber,
+                        Text = chunkText,
+                    });
+                }
+            }
+
+            if (newChunks.Count == 0)
+            {
+                throw new InvalidOperationException("No extractable text was found in the document.");
+            }
+
+            dbContext.DocumentChunks.AddRange(newChunks);
 
             job.Status = IngestionJobStatus.Completed;
             job.LastError = null;
@@ -205,17 +225,180 @@ public sealed class SimpleDocumentChunker : IDocumentChunker
 
 public sealed class RawTextExtractor : IDocumentTextExtractor
 {
-    public Task<string> ExtractAsync(string filePath, CancellationToken cancellationToken = default) => File.ReadAllTextAsync(filePath, cancellationToken);
+    public async Task<DocumentTextExtractionResult> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        var text = await File.ReadAllTextAsync(filePath, cancellationToken);
+        return ExtractedText.FromSingle(text);
+    }
+}
+
+public sealed class PdfTextExtractor : IDocumentTextExtractor
+{
+    public Task<DocumentTextExtractionResult> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            FileSignatureValidator.EnsurePdf(filePath);
+            using var document = PdfDocument.Open(filePath);
+            var pages = new List<DocumentTextSegment>();
+            foreach (var page in document.GetPages())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!string.IsNullOrWhiteSpace(page.Text))
+                {
+                    pages.Add(new DocumentTextSegment(page.Text.Trim(), page.Number, $"Page {page.Number}", "PdfPage"));
+                }
+            }
+
+            return Task.FromResult(ExtractedText.FromSegments(pages));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException($"Failed to extract text from PDF document: {exception.Message}", exception);
+        }
+    }
+}
+
+public sealed class DocxTextExtractor : IDocumentTextExtractor
+{
+    public Task<DocumentTextExtractionResult> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            FileSignatureValidator.EnsureZipPackage(filePath, "DOCX");
+            using var document = WordprocessingDocument.Open(filePath, false);
+            var body = document.MainDocumentPart?.Document?.Body;
+            if (body is null)
+            {
+                throw new InvalidOperationException("DOCX document body was not found.");
+            }
+
+            var paragraphs = body
+                .Descendants<WordParagraph>()
+                .Select(ExtractWordParagraphText)
+                .Where(paragraph => paragraph.Length > 0);
+
+            return Task.FromResult(ExtractedText.FromSingle(string.Join("\n\n", paragraphs), "Document", "DocxDocument"));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException($"Failed to extract text from DOCX document: {exception.Message}", exception);
+        }
+    }
+
+    private static string ExtractWordParagraphText(WordParagraph paragraph)
+    {
+        var text = string.Concat(paragraph.Descendants<WordText>().Select(text => text.Text)).Trim();
+        var style = paragraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value;
+        return string.IsNullOrWhiteSpace(style) ? text : $"{style}: {text}";
+    }
+}
+
+public sealed class PptxTextExtractor : IDocumentTextExtractor
+{
+    public Task<DocumentTextExtractionResult> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            FileSignatureValidator.EnsureZipPackage(filePath, "PPTX");
+            using var document = PresentationDocument.Open(filePath, false);
+            var presentationPart = document.PresentationPart;
+            var slideIdList = presentationPart?.Presentation?.SlideIdList;
+            if (presentationPart is null || slideIdList is null)
+            {
+                throw new InvalidOperationException("PPTX slide list was not found.");
+            }
+
+            var slides = new List<DocumentTextSegment>();
+            var slideNumber = 1;
+            foreach (var slideId in slideIdList.Elements<PresentationSlideId>())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var relationshipId = slideId.RelationshipId?.Value;
+                if (string.IsNullOrWhiteSpace(relationshipId))
+                {
+                    continue;
+                }
+
+                var slidePart = (SlidePart)presentationPart.GetPartById(relationshipId);
+                var slideText = ExtractSlideText(slidePart).Trim();
+                if (slideText.Length > 0)
+                {
+                    slides.Add(new DocumentTextSegment(slideText, slideNumber, $"Slide {slideNumber}", "PptxSlide"));
+                }
+
+                slideNumber++;
+            }
+
+            return Task.FromResult(ExtractedText.FromSegments(slides));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException($"Failed to extract text from PPTX document: {exception.Message}", exception);
+        }
+    }
+
+    private static string ExtractSlideText(SlidePart slidePart)
+    {
+        var textBlocks = new List<string>();
+        if (slidePart.Slide is not null)
+        {
+            textBlocks.AddRange(slidePart.Slide
+                .Descendants<A.Paragraph>()
+                .Select(paragraph => string.Join(string.Empty, paragraph.Descendants<SlideText>().Select(text => text.Text)).Trim())
+                .Where(text => text.Length > 0));
+        }
+
+        if (slidePart.NotesSlidePart?.NotesSlide is not null)
+        {
+            textBlocks.AddRange(slidePart.NotesSlidePart.NotesSlide
+                .Descendants<A.Paragraph>()
+                .Select(paragraph => string.Join(string.Empty, paragraph.Descendants<SlideText>().Select(text => text.Text)).Trim())
+                .Where(text => text.Length > 0));
+        }
+
+        return string.Join("\n\n", textBlocks);
+    }
 }
 
 public sealed partial class HtmlTextExtractor : IDocumentTextExtractor
 {
-    public async Task<string> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
+    public async Task<DocumentTextExtractionResult> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
     {
         var html = await File.ReadAllTextAsync(filePath, cancellationToken);
         var withoutScripts = ScriptOrStyleRegex().Replace(html, " ");
         var withoutTags = HtmlTagRegex().Replace(withoutScripts, " ");
-        return WebUtility.HtmlDecode(withoutTags);
+        return ExtractedText.FromSingle(WebUtility.HtmlDecode(withoutTags), "Document", "HtmlDocument");
     }
 
     [GeneratedRegex("<(script|style)[^>]*>.*?</\\1>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
@@ -227,25 +410,84 @@ public sealed partial class HtmlTextExtractor : IDocumentTextExtractor
 
 public sealed class UnsupportedDocumentTextExtractor(FileType fileType) : IDocumentTextExtractor
 {
-    public Task<string> ExtractAsync(string filePath, CancellationToken cancellationToken = default) =>
+    public Task<DocumentTextExtractionResult> ExtractAsync(string filePath, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException($"Document text extraction is not supported for {fileType} files yet.");
 }
 
-public sealed class DocumentTextExtractorFactory(RawTextExtractor rawTextExtractor, HtmlTextExtractor htmlTextExtractor) : IDocumentTextExtractorFactory
+public sealed class DocumentTextExtractorFactory(
+    RawTextExtractor rawTextExtractor,
+    HtmlTextExtractor htmlTextExtractor,
+    PdfTextExtractor pdfTextExtractor,
+    DocxTextExtractor docxTextExtractor,
+    PptxTextExtractor pptxTextExtractor) : IDocumentTextExtractorFactory
 {
     public IDocumentTextExtractor GetExtractor(FileType fileType, string extension, string? mimeType)
     {
         var normalizedExtension = extension.ToLowerInvariant();
         return fileType switch
         {
+            FileType.Pdf => pdfTextExtractor,
+            FileType.Docx => docxTextExtractor,
+            FileType.Pptx => pptxTextExtractor,
             FileType.PlainText => rawTextExtractor,
             FileType.Markdown => rawTextExtractor,
             FileType.Html => htmlTextExtractor,
+            FileType.Unknown when normalizedExtension is ".pdf" => pdfTextExtractor,
+            FileType.Unknown when normalizedExtension is ".docx" => docxTextExtractor,
+            FileType.Unknown when normalizedExtension is ".pptx" => pptxTextExtractor,
             FileType.Unknown when normalizedExtension is ".txt" => rawTextExtractor,
             FileType.Unknown when normalizedExtension is ".md" or ".markdown" => rawTextExtractor,
             FileType.Unknown when normalizedExtension is ".html" or ".htm" => htmlTextExtractor,
             _ => new UnsupportedDocumentTextExtractor(fileType),
         };
+    }
+}
+
+internal static class ExtractedText
+{
+    public static DocumentTextExtractionResult FromSingle(string text, string? sectionTitle = null, string sourceKind = "Document")
+    {
+        return FromSegments([new DocumentTextSegment(text, null, sectionTitle, sourceKind)]);
+    }
+
+    public static DocumentTextExtractionResult FromSegments(IEnumerable<DocumentTextSegment> segments)
+    {
+        var cleanSegments = segments
+            .Select(segment => segment with { Text = segment.Text.Trim() })
+            .Where(segment => segment.Text.Length > 0)
+            .ToArray();
+
+        if (cleanSegments.Length == 0)
+        {
+            throw new InvalidOperationException("No extractable text was found in the document.");
+        }
+
+        return new DocumentTextExtractionResult(cleanSegments);
+    }
+}
+
+internal static class FileSignatureValidator
+{
+    public static void EnsurePdf(string filePath)
+    {
+        Span<byte> signature = stackalloc byte[5];
+        using var input = File.OpenRead(filePath);
+        if (input.Read(signature) != signature.Length || !signature.SequenceEqual("%PDF-"u8))
+        {
+            throw new InvalidOperationException("PDF file signature is invalid.");
+        }
+    }
+
+    public static void EnsureZipPackage(string filePath, string format)
+    {
+        Span<byte> signature = stackalloc byte[4];
+        using var input = File.OpenRead(filePath);
+        if (input.Read(signature) != signature.Length
+            || signature[0] != (byte)'P'
+            || signature[1] != (byte)'K')
+        {
+            throw new InvalidOperationException($"{format} file signature is invalid.");
+        }
     }
 }
 

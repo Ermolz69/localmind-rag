@@ -32,6 +32,9 @@ public static class DependencyInjection
         services.AddScoped<IIngestionJobProcessor, IngestionJobProcessor>();
         services.AddSingleton<RawTextExtractor>();
         services.AddSingleton<HtmlTextExtractor>();
+        services.AddSingleton<PdfTextExtractor>();
+        services.AddSingleton<DocxTextExtractor>();
+        services.AddSingleton<PptxTextExtractor>();
         services.AddSingleton<IDocumentTextExtractorFactory, DocumentTextExtractorFactory>();
         services.AddSingleton<IDocumentChunker, SimpleDocumentChunker>();
         services.AddSingleton<IEmbeddingGenerator, StubEmbeddingGenerator>();

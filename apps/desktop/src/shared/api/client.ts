@@ -106,6 +106,7 @@ export type DocumentSummary = {
   name: string;
   status: string;
   createdAt: string;
+  lastError: string | null;
 };
 
 export type NoteDto = {
