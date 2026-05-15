@@ -56,6 +56,24 @@ public sealed class ArchitectureRulesTests
         Assert.DoesNotContain("KnowledgeApp.Domain.csproj", syncApiProject);
     }
 
+    [Fact]
+    public void LocalApi_Endpoint_Modules_Should_Not_Use_AppDbContext_Directly()
+    {
+        var root = FindRepositoryRoot();
+        var endpointFiles = Directory.GetFiles(
+            Path.Combine(root, "backend/src/KnowledgeApp.LocalApi/Endpoints"),
+            "*.cs",
+            SearchOption.AllDirectories);
+
+        foreach (var endpointFile in endpointFiles)
+        {
+            var source = File.ReadAllText(endpointFile);
+
+            Assert.DoesNotContain("AppDbContext", source);
+            Assert.DoesNotContain("KnowledgeApp.Infrastructure.Persistence", source);
+        }
+    }
+
     private static string FindRepositoryRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);
