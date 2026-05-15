@@ -1,20 +1,22 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Documents;
 
 public sealed class ReindexDocumentHandler(IAppDbContext dbContext)
 {
-    public async Task<bool> HandleAsync(Guid documentId, CancellationToken cancellationToken = default)
+    public async Task<ReindexDocumentResult> HandleAsync(Guid documentId, CancellationToken cancellationToken = default)
     {
-        var document = await dbContext.Documents.FindAsync([documentId], cancellationToken);
+        var document = await dbContext.Documents.FirstOrDefaultAsync(x => x.Id == documentId, cancellationToken);
         if (document is null)
         {
-            return false;
+            return new ReindexDocumentResult(false, null);
         }
 
-        dbContext.IngestionJobs.Add(new IngestionJob { DocumentId = documentId });
+        var job = new IngestionJob { DocumentId = documentId };
+        dbContext.IngestionJobs.Add(job);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return new ReindexDocumentResult(true, job.Id);
     }
 }

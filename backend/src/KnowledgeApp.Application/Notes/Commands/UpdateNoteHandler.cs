@@ -1,21 +1,25 @@
 using KnowledgeApp.Application.Abstractions;
-using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Contracts.Notes;
+using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Notes;
 
 public sealed class UpdateNoteHandler(IAppDbContext dbContext)
 {
-    public async Task<bool> HandleAsync(Guid noteId, Note request, CancellationToken cancellationToken = default)
+    public async Task<UpdateNoteResult> HandleAsync(
+        Guid noteId,
+        UpdateNoteRequest request,
+        CancellationToken cancellationToken = default)
     {
-        var note = await dbContext.Notes.FindAsync([noteId], cancellationToken);
+        var note = await dbContext.Notes.FirstOrDefaultAsync(x => x.Id == noteId, cancellationToken);
         if (note is null)
         {
-            return false;
+            return new UpdateNoteResult(false);
         }
 
         note.Title = request.Title;
         note.Markdown = request.Markdown;
         await dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return new UpdateNoteResult(true);
     }
 }

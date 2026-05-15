@@ -1,14 +1,22 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Domain.Entities;
 
 namespace KnowledgeApp.Application.Chats;
 
 public sealed class CreateChatHandler(IAppDbContext dbContext)
 {
-    public async Task<Conversation> HandleAsync(Conversation conversation, CancellationToken cancellationToken = default)
+    public async Task<ConversationDto> HandleAsync(
+        CreateConversationRequest request,
+        CancellationToken cancellationToken = default)
     {
+        var conversation = new Conversation
+        {
+            Title = request.Title,
+        };
+
         dbContext.Conversations.Add(conversation);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return conversation;
+        return ConversationMapper.ToDto(conversation);
     }
 }

@@ -1,13 +1,17 @@
 using KnowledgeApp.Application.Abstractions;
-using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Contracts.Chats;
 using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Chats;
 
 public sealed class GetChatsHandler(IAppDbContext dbContext)
 {
-    public async Task<IReadOnlyList<Conversation>> HandleAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ConversationDto>> HandleAsync(CancellationToken cancellationToken = default)
     {
-        return await dbContext.Conversations.AsNoTracking().ToArrayAsync(cancellationToken);
+        var conversations = await dbContext.Conversations
+            .AsNoTracking()
+            .ToArrayAsync(cancellationToken);
+
+        return conversations.Select(ConversationMapper.ToDto).ToArray();
     }
 }

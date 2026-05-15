@@ -7,7 +7,10 @@ namespace KnowledgeApp.Application.Chats;
 
 public sealed class SendChatMessageHandler(IAppDbContext dbContext, IRagAnswerGenerator ragAnswerGenerator)
 {
-    public async Task<RagAnswerDto> HandleAsync(Guid conversationId, ChatMessageRequest request, CancellationToken cancellationToken = default)
+    public async Task<SendChatMessageResult> HandleAsync(
+        Guid conversationId,
+        ChatMessageRequest request,
+        CancellationToken cancellationToken = default)
     {
         dbContext.ChatMessages.Add(new ChatMessage
         {
@@ -26,6 +29,6 @@ public sealed class SendChatMessageHandler(IAppDbContext dbContext, IRagAnswerGe
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return answer;
+        return new SendChatMessageResult(answer);
     }
 }

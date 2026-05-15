@@ -1,16 +1,20 @@
 using KnowledgeApp.Application.Abstractions;
-using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Contracts.Buckets;
+using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Buckets;
 
 public sealed class UpdateBucketHandler(IAppDbContext dbContext, IDateTimeProvider dateTimeProvider)
 {
-    public async Task<bool> HandleAsync(Guid bucketId, Bucket request, CancellationToken cancellationToken = default)
+    public async Task<UpdateBucketResult> HandleAsync(
+        Guid bucketId,
+        UpdateBucketRequest request,
+        CancellationToken cancellationToken = default)
     {
-        var bucket = await dbContext.Buckets.FindAsync([bucketId], cancellationToken);
+        var bucket = await dbContext.Buckets.FirstOrDefaultAsync(x => x.Id == bucketId, cancellationToken);
         if (bucket is null)
         {
-            return false;
+            return new UpdateBucketResult(false);
         }
 
         bucket.Name = request.Name;
@@ -18,6 +22,6 @@ public sealed class UpdateBucketHandler(IAppDbContext dbContext, IDateTimeProvid
         bucket.UpdatedAt = dateTimeProvider.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return new UpdateBucketResult(true);
     }
 }

@@ -11,7 +11,8 @@ public static class IngestionEndpoints
             ProcessIngestionJobHandler handler,
             CancellationToken cancellationToken) =>
         {
-            if (!await handler.HandleAsync(id, cancellationToken))
+            var result = await handler.HandleAsync(id, cancellationToken);
+            if (!result.Found)
             {
                 return Results.NotFound();
             }

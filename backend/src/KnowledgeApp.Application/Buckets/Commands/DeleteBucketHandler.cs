@@ -1,19 +1,20 @@
 using KnowledgeApp.Application.Abstractions;
+using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Buckets;
 
 public sealed class DeleteBucketHandler(IAppDbContext dbContext)
 {
-    public async Task<bool> HandleAsync(Guid bucketId, CancellationToken cancellationToken = default)
+    public async Task<DeleteBucketResult> HandleAsync(Guid bucketId, CancellationToken cancellationToken = default)
     {
-        var bucket = await dbContext.Buckets.FindAsync([bucketId], cancellationToken);
+        var bucket = await dbContext.Buckets.FirstOrDefaultAsync(x => x.Id == bucketId, cancellationToken);
         if (bucket is null)
         {
-            return false;
+            return new DeleteBucketResult(false);
         }
 
         dbContext.Buckets.Remove(bucket);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return new DeleteBucketResult(true);
     }
 }

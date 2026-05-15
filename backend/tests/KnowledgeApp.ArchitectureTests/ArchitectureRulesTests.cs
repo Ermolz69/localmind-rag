@@ -1,4 +1,8 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Buckets;
+using KnowledgeApp.Application.Chats;
+using KnowledgeApp.Application.Notes;
+using KnowledgeApp.Contracts.Buckets;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Infrastructure.Persistence;
 
@@ -40,6 +44,14 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
+    public void Contracts_Should_Not_Reference_Domain()
+    {
+        var references = typeof(BucketDto).Assembly.GetReferencedAssemblies().Select(x => x.Name).ToArray();
+
+        Assert.DoesNotContain("KnowledgeApp.Domain", references);
+    }
+
+    [Fact]
     public void Infrastructure_Should_Implement_Application_Ports()
     {
         Assert.True(typeof(IAppDbContext).IsAssignableFrom(typeof(AppDbContext)));
@@ -72,6 +84,74 @@ public sealed class ArchitectureRulesTests
             Assert.DoesNotContain("AppDbContext", source);
             Assert.DoesNotContain("KnowledgeApp.Infrastructure.Persistence", source);
         }
+    }
+
+    [Fact]
+    public void LocalApi_Endpoint_Modules_Should_Not_Use_Domain_Entities_Directly()
+    {
+        var root = FindRepositoryRoot();
+        var endpointFiles = Directory.GetFiles(
+            Path.Combine(root, "backend/src/KnowledgeApp.LocalApi/Endpoints"),
+            "*.cs",
+            SearchOption.AllDirectories);
+
+        foreach (var endpointFile in endpointFiles)
+        {
+            var source = File.ReadAllText(endpointFile);
+
+            Assert.DoesNotContain("KnowledgeApp.Domain.Entities", source);
+        }
+    }
+
+    [Fact]
+    public void Bucket_Note_Chat_Query_And_Create_Handlers_Should_Not_Return_Domain_Entities()
+    {
+        var handlerTypes = new[]
+        {
+            typeof(CreateBucketHandler),
+            typeof(GetBucketsHandler),
+            typeof(CreateNoteHandler),
+            typeof(GetNotesHandler),
+            typeof(CreateChatHandler),
+            typeof(GetChatsHandler),
+        };
+        var forbiddenReturnTypes = new[]
+        {
+            typeof(Bucket),
+            typeof(Note),
+            typeof(Conversation),
+        };
+
+        foreach (var handlerType in handlerTypes)
+        {
+            var handleMethods = handlerType.GetMethods()
+                .Where(method => method.Name == "HandleAsync");
+
+            foreach (var method in handleMethods)
+            {
+                foreach (var forbiddenType in forbiddenReturnTypes)
+                {
+                    Assert.False(
+                        TypeUses(method.ReturnType, forbiddenType),
+                        $"{handlerType.Name}.{method.Name} returns {forbiddenType.Name} through {method.ReturnType}.");
+                }
+            }
+        }
+    }
+
+    private static bool TypeUses(Type candidate, Type forbidden)
+    {
+        if (candidate == forbidden)
+        {
+            return true;
+        }
+
+        if (candidate.IsArray)
+        {
+            return TypeUses(candidate.GetElementType()!, forbidden);
+        }
+
+        return candidate.IsGenericType && candidate.GetGenericArguments().Any(type => TypeUses(type, forbidden));
     }
 
     private static string FindRepositoryRoot()

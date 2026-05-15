@@ -1,5 +1,5 @@
 using KnowledgeApp.Application.Buckets;
-using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Contracts.Buckets;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
@@ -12,21 +12,22 @@ public static class BucketEndpoints
             Results.Ok(await handler.HandleAsync(cancellationToken)));
 
         app.MapPost("/api/buckets", async (
-            Bucket bucket,
+            CreateBucketRequest request,
             CreateBucketHandler handler,
             CancellationToken cancellationToken) =>
         {
-            var created = await handler.HandleAsync(bucket, cancellationToken);
+            var created = await handler.HandleAsync(request, cancellationToken);
             return Results.Created($"/api/buckets/{created.Id}", created);
         });
 
         app.MapPut("/api/buckets/{id:guid}", async Task<Results<NoContent, NotFound>> (
             Guid id,
-            Bucket request,
+            UpdateBucketRequest request,
             UpdateBucketHandler handler,
             CancellationToken cancellationToken) =>
         {
-            if (!await handler.HandleAsync(id, request, cancellationToken))
+            var result = await handler.HandleAsync(id, request, cancellationToken);
+            if (!result.Found)
             {
                 return TypedResults.NotFound();
             }
@@ -39,7 +40,8 @@ public static class BucketEndpoints
             DeleteBucketHandler handler,
             CancellationToken cancellationToken) =>
         {
-            if (!await handler.HandleAsync(id, cancellationToken))
+            var result = await handler.HandleAsync(id, cancellationToken);
+            if (!result.Found)
             {
                 return TypedResults.NotFound();
             }

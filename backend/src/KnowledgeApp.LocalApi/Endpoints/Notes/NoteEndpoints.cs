@@ -1,5 +1,5 @@
 using KnowledgeApp.Application.Notes;
-using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Contracts.Notes;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
@@ -11,19 +11,23 @@ public static class NoteEndpoints
         app.MapGet("/api/notes", async (GetNotesHandler handler, CancellationToken cancellationToken) =>
             Results.Ok(await handler.HandleAsync(cancellationToken)));
 
-        app.MapPost("/api/notes", async (Note note, CreateNoteHandler handler, CancellationToken cancellationToken) =>
+        app.MapPost("/api/notes", async (
+            CreateNoteRequest request,
+            CreateNoteHandler handler,
+            CancellationToken cancellationToken) =>
         {
-            var created = await handler.HandleAsync(note, cancellationToken);
+            var created = await handler.HandleAsync(request, cancellationToken);
             return Results.Created($"/api/notes/{created.Id}", created);
         });
 
         app.MapPut("/api/notes/{id:guid}", async Task<Results<NoContent, NotFound>> (
             Guid id,
-            Note request,
+            UpdateNoteRequest request,
             UpdateNoteHandler handler,
             CancellationToken cancellationToken) =>
         {
-            if (!await handler.HandleAsync(id, request, cancellationToken))
+            var result = await handler.HandleAsync(id, request, cancellationToken);
+            if (!result.Found)
             {
                 return TypedResults.NotFound();
             }
@@ -36,7 +40,8 @@ public static class NoteEndpoints
             DeleteNoteHandler handler,
             CancellationToken cancellationToken) =>
         {
-            if (!await handler.HandleAsync(id, cancellationToken))
+            var result = await handler.HandleAsync(id, cancellationToken);
+            if (!result.Found)
             {
                 return TypedResults.NotFound();
             }

@@ -1,22 +1,23 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Documents;
 
 public sealed class DeleteDocumentHandler(IAppDbContext dbContext)
 {
-    public async Task<bool> HandleAsync(Guid documentId, CancellationToken cancellationToken = default)
+    public async Task<DeleteDocumentResult> HandleAsync(Guid documentId, CancellationToken cancellationToken = default)
     {
-        var document = await dbContext.Documents.FindAsync([documentId], cancellationToken);
+        var document = await dbContext.Documents.FirstOrDefaultAsync(x => x.Id == documentId, cancellationToken);
         if (document is null)
         {
-            return false;
+            return new DeleteDocumentResult(false);
         }
 
         document.Status = DocumentStatus.Deleted;
         document.SyncStatus = SyncStatus.DeletedLocal;
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return new DeleteDocumentResult(true);
     }
 }

@@ -1,16 +1,18 @@
 using KnowledgeApp.Application.Abstractions;
-using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Contracts.Buckets;
 using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Buckets;
 
 public sealed class GetBucketsHandler(IAppDbContext dbContext)
 {
-    public async Task<IReadOnlyList<Bucket>> HandleAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<BucketDto>> HandleAsync(CancellationToken cancellationToken = default)
     {
-        return await dbContext.Buckets
+        var buckets = await dbContext.Buckets
             .AsNoTracking()
             .OrderBy(bucket => bucket.Name)
             .ToArrayAsync(cancellationToken);
+
+        return buckets.Select(BucketMapper.ToDto).ToArray();
     }
 }

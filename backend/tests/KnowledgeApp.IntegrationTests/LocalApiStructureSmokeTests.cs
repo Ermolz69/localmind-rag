@@ -1,5 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using KnowledgeApp.Contracts.Buckets;
+using KnowledgeApp.Contracts.Chats;
+using KnowledgeApp.Contracts.Notes;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
@@ -23,16 +26,20 @@ public sealed class LocalApiStructureSmokeTests : IClassFixture<WebApplicationFa
     {
         using var client = factory.CreateClient();
 
-        var bucketResponse = await client.PostAsJsonAsync("/api/buckets", new Bucket { Name = $"Bucket-{Guid.NewGuid():N}" });
-        var noteResponse = await client.PostAsJsonAsync("/api/notes", new Note { Title = "Note", Markdown = "Body" });
-        var chatResponse = await client.PostAsJsonAsync("/api/chats", new Conversation { Title = "Chat" });
+        var bucketResponse = await client.PostAsJsonAsync(
+            "/api/buckets",
+            new CreateBucketRequest($"Bucket-{Guid.NewGuid():N}", Description: null));
+        var noteResponse = await client.PostAsJsonAsync(
+            "/api/notes",
+            new CreateNoteRequest(BucketId: null, "Note", "Body"));
+        var chatResponse = await client.PostAsJsonAsync("/api/chats", new CreateConversationRequest("Chat"));
 
         Assert.Equal(HttpStatusCode.Created, bucketResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Created, noteResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Created, chatResponse.StatusCode);
-        Assert.NotNull(await client.GetFromJsonAsync<Bucket[]>("/api/buckets"));
-        Assert.NotNull(await client.GetFromJsonAsync<Note[]>("/api/notes"));
-        Assert.NotNull(await client.GetFromJsonAsync<Conversation[]>("/api/chats"));
+        Assert.NotNull(await client.GetFromJsonAsync<BucketDto[]>("/api/buckets"));
+        Assert.NotNull(await client.GetFromJsonAsync<NoteDto[]>("/api/notes"));
+        Assert.NotNull(await client.GetFromJsonAsync<ConversationDto[]>("/api/chats"));
     }
 
     [Fact]

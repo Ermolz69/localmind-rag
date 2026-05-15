@@ -1,6 +1,6 @@
 using KnowledgeApp.Application.Chats;
+using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Rag;
-using KnowledgeApp.Domain.Entities;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
 
@@ -12,11 +12,11 @@ public static class ChatEndpoints
             Results.Ok(await handler.HandleAsync(cancellationToken)));
 
         app.MapPost("/api/chats", async (
-            Conversation conversation,
+            CreateConversationRequest request,
             CreateChatHandler handler,
             CancellationToken cancellationToken) =>
         {
-            var created = await handler.HandleAsync(conversation, cancellationToken);
+            var created = await handler.HandleAsync(request, cancellationToken);
             return Results.Created($"/api/chats/{created.Id}", created);
         });
 
@@ -26,7 +26,8 @@ public static class ChatEndpoints
             SendChatMessageHandler handler,
             CancellationToken cancellationToken) =>
         {
-            return Results.Ok(await handler.HandleAsync(id, request, cancellationToken));
+            var result = await handler.HandleAsync(id, request, cancellationToken);
+            return Results.Ok(result.Answer);
         });
 
         return app;

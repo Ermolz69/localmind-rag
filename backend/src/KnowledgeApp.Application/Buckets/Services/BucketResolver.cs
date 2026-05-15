@@ -12,7 +12,8 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
     {
         if (requestedBucketId.HasValue)
         {
-            var requestedBucket = await dbContext.Buckets.FindAsync([requestedBucketId.Value], cancellationToken);
+            var requestedBucket = await dbContext.Buckets
+                .FirstOrDefaultAsync(x => x.Id == requestedBucketId.Value, cancellationToken);
             if (requestedBucket is null)
             {
                 throw new NotFoundAppException("buckets.notFound", "Selected bucket was not found.");
@@ -56,7 +57,7 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
             return null;
         }
 
-        return await dbContext.Buckets.FindAsync([bucketId], cancellationToken);
+        return await dbContext.Buckets.FirstOrDefaultAsync(x => x.Id == bucketId, cancellationToken);
     }
 
     private async Task SetLastSelectedBucketAsync(Guid bucketId, CancellationToken cancellationToken)
