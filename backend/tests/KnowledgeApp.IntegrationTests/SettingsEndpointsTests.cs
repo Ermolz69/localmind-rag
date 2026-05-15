@@ -9,11 +9,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace KnowledgeApp.IntegrationTests;
 
-public sealed class SettingsApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class SettingsEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> factory;
 
-    public SettingsApiTests(WebApplicationFactory<Program> factory)
+    public SettingsEndpointsTests(WebApplicationFactory<Program> factory)
     {
         this.factory = factory;
     }
