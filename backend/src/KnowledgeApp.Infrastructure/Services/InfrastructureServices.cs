@@ -7,7 +7,6 @@ using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Contracts.Runtime;
-using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Options;
