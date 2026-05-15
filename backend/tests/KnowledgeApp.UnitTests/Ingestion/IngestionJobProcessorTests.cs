@@ -43,18 +43,31 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         Assert.Equal(IngestionJobStatus.Completed, job.Status);
         Assert.Null(job.LastError);
         Assert.NotNull(job.ProcessedAt);
+
+        var embedding = await database.Context.DocumentEmbeddings.SingleAsync(x => x.DocumentChunkId == chunks[0].Id);
+        Assert.Equal("BGE-M3", embedding.ModelName);
+        Assert.Equal(32, embedding.Dimension);
+        Assert.Equal(32 * sizeof(float), embedding.Embedding.Length);
     }
 
     [Fact]
-    public async Task ProcessAsync_Should_Remove_Existing_Chunks_On_Reindex()
+    public async Task ProcessAsync_Should_Remove_Existing_Chunks_And_Embeddings_On_Reindex()
     {
         await using var database = await TestDatabase.CreateAsync();
         var document = await CreateDocumentWithJobAsync(database, "notes.md", FileType.Markdown, "New content.");
-        database.Context.DocumentChunks.Add(new DocumentChunk
+        var oldChunk = new DocumentChunk
         {
             DocumentId = document.DocumentId,
             Index = 0,
             Text = "Old content.",
+        };
+        database.Context.DocumentChunks.Add(oldChunk);
+        database.Context.DocumentEmbeddings.Add(new DocumentEmbedding
+        {
+            DocumentChunkId = oldChunk.Id,
+            ModelName = "BGE-M3",
+            Dimension = 2,
+            Embedding = new byte[2 * sizeof(float)],
         });
         await database.Context.SaveChangesAsync();
         var processor = CreateProcessor(database);
@@ -64,9 +77,14 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         var chunks = await database.Context.DocumentChunks
             .Where(x => x.DocumentId == document.DocumentId)
             .ToArrayAsync();
+        var embeddings = await database.Context.DocumentEmbeddings.ToArrayAsync();
 
         Assert.Single(chunks);
         Assert.Equal("New content.", chunks[0].Text);
+        Assert.NotEqual(oldChunk.Id, chunks[0].Id);
+        var embedding = Assert.Single(embeddings);
+        Assert.Equal(chunks[0].Id, embedding.DocumentChunkId);
+        Assert.Equal(32, embedding.Dimension);
     }
 
     [Fact]
@@ -215,6 +233,7 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
             database.Context,
             new DocumentTextExtractorFactory(rawExtractor, new HtmlTextExtractor(), new PdfTextExtractor(new NoOpOcrEngine(), Options.Create(new OcrOptions { Enabled = false })), new DocxTextExtractor(), new PptxTextExtractor()),
             new SimpleDocumentChunker(),
+            new DocumentEmbeddingService(new StubEmbeddingGenerator(), new FixedDateTimeProvider()),
             new FixedDateTimeProvider());
     }
 

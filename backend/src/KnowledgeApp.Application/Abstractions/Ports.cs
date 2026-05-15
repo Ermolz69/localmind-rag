@@ -1,6 +1,7 @@
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Contracts.Runtime;
+using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 
 namespace KnowledgeApp.Application.Abstractions;
@@ -17,7 +18,8 @@ public sealed record DocumentTextExtractionResult(IReadOnlyList<DocumentTextSegm
 public sealed record DocumentTextSegment(string Text, int? PageNumber = null, string? SectionTitle = null, string SourceKind = "Document");
 public interface IDocumentTextExtractor { Task<DocumentTextExtractionResult> ExtractAsync(string filePath, CancellationToken cancellationToken = default); }
 public interface IDocumentTextExtractorFactory { IDocumentTextExtractor GetExtractor(FileType fileType, string extension, string? mimeType); }
-public interface IEmbeddingGenerator { Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default); }
+public interface IDocumentEmbeddingService { Task<IReadOnlyList<DocumentEmbedding>> GenerateAsync(IReadOnlyList<DocumentChunk> chunks, CancellationToken cancellationToken = default); }
+public interface IEmbeddingGenerator { string ModelName { get; } Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default); }
 public interface IFileStorageService { Task<StoredFileDto> SaveAsync(Stream content, Guid documentId, string fileName, CancellationToken cancellationToken = default); }
 public interface IIngestionJobProcessor { Task ProcessAsync(Guid jobId, CancellationToken cancellationToken = default); }
 public interface IIngestionQueue { Task EnqueueAsync(Guid documentId, CancellationToken cancellationToken = default); }
