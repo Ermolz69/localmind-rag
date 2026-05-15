@@ -7,6 +7,7 @@
     "dev": "concurrently -n localapi,desktop \"dotnet run --project backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj --urls http://127.0.0.1:49321\" \"pnpm --filter desktop dev\"",
     "check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1",
     "package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1",
+    "setup:ocr": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-ocr.ps1",
     "docker:up": "docker compose -f infra/docker-compose.remote.yml up -d"
   },
   "devDependencies": {

@@ -15,6 +15,7 @@ public static class DependencyInjection
     {
         services.Configure<LocalRuntimeOptions>(configuration.GetSection("LocalRuntime"));
         services.Configure<AiOptions>(configuration.GetSection("Ai"));
+        services.Configure<OcrOptions>(configuration.GetSection("Ocr"));
 
         services.AddSingleton<IAppPathProvider, AppPathProvider>();
         services.AddDbContext<AppDbContext>((provider, options) =>
@@ -55,6 +56,7 @@ public static class DependencyInjection
         services.AddSingleton<INetworkStatusService, NetworkStatusService>();
         services.AddSingleton<ICurrentUserService, CurrentUserService>();
         services.AddSingleton<IAppLockService, AppLockService>();
+        services.AddSingleton<IOcrEngine, TesseractOcrEngine>();
 
         return services;
     }
