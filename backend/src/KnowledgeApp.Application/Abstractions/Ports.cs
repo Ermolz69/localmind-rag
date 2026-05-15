@@ -26,9 +26,10 @@ public interface IIngestionQueue { Task EnqueueAsync(Guid documentId, Cancellati
 public interface INetworkStatusService { Task<bool> IsOnlineAsync(CancellationToken cancellationToken = default); }
 public interface IRagAnswerGenerator { Task<RagAnswerDto> AnswerAsync(Guid conversationId, string question, CancellationToken cancellationToken = default); }
 public interface IRagContextBuilder { Task<IReadOnlyList<RagSourceDto>> BuildAsync(string question, CancellationToken cancellationToken = default); }
+public sealed record VectorSearchOptions(int Limit = 8, Guid? BucketId = null, Guid? DocumentId = null);
 public interface ISyncClient { Task PushAsync(CancellationToken cancellationToken = default); Task PullAsync(CancellationToken cancellationToken = default); }
 public interface ISyncQueue { Task EnqueueAsync(Guid entityId, SyncOperation operation, CancellationToken cancellationToken = default); }
 public interface ISyncService { Task<SyncStatusDto> GetStatusAsync(CancellationToken cancellationToken = default); Task RunAsync(CancellationToken cancellationToken = default); }
 public interface IUnitOfWork { Task<int> SaveChangesAsync(CancellationToken cancellationToken = default); }
 public interface IVectorIndex { Task UpsertAsync(Guid chunkId, float[] vector, CancellationToken cancellationToken = default); }
-public interface IVectorSearchService { Task<IReadOnlyList<RagSourceDto>> SearchAsync(float[] queryVector, int limit, CancellationToken cancellationToken = default); }
+public interface IVectorSearchService { Task<IReadOnlyList<RagSourceDto>> SearchAsync(float[] queryVector, VectorSearchOptions options, CancellationToken cancellationToken = default); }

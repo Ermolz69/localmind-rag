@@ -238,8 +238,16 @@ app.MapPost("/api/chats/{id:guid}/messages", async (Guid id, ChatMessageRequest 
     return Results.Ok(answer);
 });
 
-app.MapPost("/api/search/semantic", async (SemanticSearchRequest request, IRagContextBuilder rag, CancellationToken cancellationToken) =>
-    Results.Ok(await rag.BuildAsync(request.Query, cancellationToken)));
+app.MapPost("/api/search/semantic", async (
+        SemanticSearchRequest request,
+        IEmbeddingGenerator embeddings,
+        IVectorSearchService search,
+        CancellationToken cancellationToken) =>
+    {
+        var vector = await embeddings.GenerateAsync(request.Query, cancellationToken);
+        var options = new VectorSearchOptions(request.Limit, request.BucketId, request.DocumentId);
+        return Results.Ok(await search.SearchAsync(vector, options, cancellationToken));
+    });
 
 app.MapGet("/api/settings", SettingsApi.GetAsync)
     .WithName("GetSettings");

@@ -585,13 +585,78 @@ public sealed class ExactVectorSearchService(AppDbContext dbContext) : IVectorSe
 {
     public Task UpsertAsync(Guid chunkId, float[] vector, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-    public async Task<IReadOnlyList<RagSourceDto>> SearchAsync(float[] queryVector, int limit, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<RagSourceDto>> SearchAsync(float[] queryVector, VectorSearchOptions options, CancellationToken cancellationToken = default)
     {
-        return await dbContext.DocumentChunks
-            .OrderBy(x => x.Index)
-            .Take(limit)
-            .Select(x => new RagSourceDto(x.DocumentId, "Document", x.Id, x.PageNumber, 0, x.Text))
-            .ToArrayAsync(cancellationToken);
+        if (queryVector.Length == 0 || options.Limit <= 0)
+        {
+            return [];
+        }
+
+        var rowsQuery =
+            from embedding in dbContext.DocumentEmbeddings
+            join chunk in dbContext.DocumentChunks on embedding.DocumentChunkId equals chunk.Id
+            join document in dbContext.Documents on chunk.DocumentId equals document.Id
+            select new
+            {
+                DocumentId = document.Id,
+                DocumentName = document.Name,
+                DocumentBucketId = document.BucketId,
+                ChunkId = chunk.Id,
+                chunk.PageNumber,
+                chunk.Text,
+                embedding.Dimension,
+                embedding.Embedding,
+            };
+
+        if (options.DocumentId is { } documentId)
+        {
+            rowsQuery = rowsQuery.Where(x => x.DocumentId == documentId);
+        }
+
+        if (options.BucketId is { } bucketId)
+        {
+            rowsQuery = rowsQuery.Where(x => x.DocumentBucketId == bucketId);
+        }
+
+        var rows = await rowsQuery.ToArrayAsync(cancellationToken);
+
+        return rows
+            .Where(x => x.Dimension == queryVector.Length)
+            .Select(x =>
+            {
+                var chunkVector = EmbeddingVectorSerializer.FromBytes(x.Embedding);
+                var score = CosineSimilarity(queryVector, chunkVector);
+                return new RagSourceDto(x.DocumentId, x.DocumentName, x.ChunkId, x.PageNumber, score, x.Text);
+            })
+            .OrderByDescending(x => x.Score)
+            .Take(options.Limit)
+            .ToArray();
+    }
+
+    private static double CosineSimilarity(float[] left, float[] right)
+    {
+        if (left.Length == 0 || left.Length != right.Length)
+        {
+            return 0;
+        }
+
+        double dotProduct = 0;
+        double leftMagnitude = 0;
+        double rightMagnitude = 0;
+
+        for (var i = 0; i < left.Length; i++)
+        {
+            dotProduct += left[i] * right[i];
+            leftMagnitude += left[i] * left[i];
+            rightMagnitude += right[i] * right[i];
+        }
+
+        if (leftMagnitude == 0 || rightMagnitude == 0)
+        {
+            return 0;
+        }
+
+        return dotProduct / (Math.Sqrt(leftMagnitude) * Math.Sqrt(rightMagnitude));
     }
 }
 
@@ -600,7 +665,7 @@ public sealed class RagContextBuilder(IVectorSearchService search, IEmbeddingGen
     public async Task<IReadOnlyList<RagSourceDto>> BuildAsync(string question, CancellationToken cancellationToken = default)
     {
         var vector = await embeddings.GenerateAsync(question, cancellationToken);
-        return await search.SearchAsync(vector, 8, cancellationToken);
+        return await search.SearchAsync(vector, new VectorSearchOptions(), cancellationToken);
     }
 }
 
