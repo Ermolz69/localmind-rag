@@ -11,6 +11,7 @@ using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using A = DocumentFormat.OpenXml.Drawing;
@@ -90,6 +91,42 @@ public sealed class DocumentsApiTests : IClassFixture<WebApplicationFactory<Prog
         using var response = await client.GetAsync($"/api/documents/{Guid.NewGuid()}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UploadDocument_Should_Return_ValidationProblemDetails_For_Unsupported_File()
+    {
+        using var client = factory.CreateClient();
+        using var form = new MultipartFormDataContent();
+        using var file = new ByteArrayContent("unsupported"u8.ToArray());
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+        form.Add(file, "file", "unsupported.exe");
+
+        using var response = await client.PostAsync("/api/documents/upload", form);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        Assert.NotNull(problem);
+        Assert.Equal("documents.unsupportedFileType", problem.Extensions["code"]?.ToString());
+        Assert.Contains("fileName", problem.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task UploadDocument_Should_Return_ProblemDetails_For_Missing_Selected_Bucket()
+    {
+        using var client = factory.CreateClient();
+        using var form = new MultipartFormDataContent();
+        using var file = new ByteArrayContent("content"u8.ToArray());
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+        form.Add(file, "file", "notes.txt");
+
+        using var response = await client.PostAsync($"/api/documents/upload?bucketId={Guid.NewGuid()}", form);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.NotNull(problem);
+        Assert.Equal("buckets.notFound", problem.Extensions["code"]?.ToString());
+        Assert.False(string.IsNullOrWhiteSpace(problem.Extensions["traceId"]?.ToString()));
     }
 
     [Fact]

@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddHostedService<LocalRuntimeInitializer>();
 
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
+        services.AddScoped<ILocalDiagnosticsService, LocalDiagnosticsService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IFileStorageService, LocalFileStorageService>();
         services.AddScoped<IIngestionQueue, IngestionQueue>();

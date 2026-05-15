@@ -13,6 +13,7 @@ public interface IAppPathProvider { string AppRootDirectory { get; } string Data
 public interface IChatModelClient { Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default); }
 public interface ICurrentUserService { Guid? UserId { get; } }
 public interface IDateTimeProvider { DateTimeOffset UtcNow { get; } }
+public interface ILocalDiagnosticsService { Task<DiagnosticsDto> GetAsync(CancellationToken cancellationToken = default); }
 public interface IDocumentChunker { IReadOnlyList<string> Split(string text); }
 public sealed record DocumentTextExtractionResult(IReadOnlyList<DocumentTextSegment> Segments);
 public sealed record DocumentTextSegment(string Text, int? PageNumber = null, string? SectionTitle = null, string SourceKind = "Document");

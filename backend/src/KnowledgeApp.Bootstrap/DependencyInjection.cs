@@ -1,4 +1,5 @@
 using KnowledgeApp.Application;
+using KnowledgeApp.Bootstrap.ProblemDetails;
 using KnowledgeApp.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -18,6 +19,7 @@ public static class DependencyInjection
             logger.ReadFrom.Configuration(context.Configuration, readerOptions);
         });
         builder.Services.AddProblemDetails();
+        builder.Services.AddExceptionHandler<AppExceptionHandler>();
         builder.Services.AddCors(options =>
         {
             options.AddDefaultPolicy(policy => policy

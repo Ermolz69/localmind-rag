@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,7 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
             var requestedBucket = await dbContext.Buckets.FindAsync([requestedBucketId.Value], cancellationToken);
             if (requestedBucket is null)
             {
-                throw new InvalidOperationException("Selected bucket was not found.");
+                throw new NotFoundAppException("buckets.notFound", "Selected bucket was not found.");
             }
 
             await SetLastSelectedBucketAsync(requestedBucket.Id, cancellationToken);

@@ -1,6 +1,7 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Buckets;
 using KnowledgeApp.Application.Documents;
+using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
@@ -101,10 +102,11 @@ public sealed class UploadDocumentHandlerTests
         var handler = CreateHandler(database);
         await using var content = new MemoryStream("missing bucket"u8.ToArray());
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var exception = await Assert.ThrowsAsync<NotFoundAppException>(() =>
             handler.HandleAsync(new UploadDocumentCommand(content, "missing.txt", "text/plain", content.Length, Guid.NewGuid())));
 
         Assert.Equal("Selected bucket was not found.", exception.Message);
+        Assert.Equal("buckets.notFound", exception.Code);
     }
 
     [Fact]
@@ -114,8 +116,9 @@ public sealed class UploadDocumentHandlerTests
         var handler = CreateHandler(database);
         await using var content = new MemoryStream();
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        var exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
             handler.HandleAsync(new UploadDocumentCommand(content, "empty.txt", "text/plain", 0, null)));
+        Assert.Equal("documents.fileEmpty", exception.Code);
     }
 
     [Fact]
@@ -125,8 +128,9 @@ public sealed class UploadDocumentHandlerTests
         var handler = CreateHandler(database);
         await using var content = new MemoryStream("nope"u8.ToArray());
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        var exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
             handler.HandleAsync(new UploadDocumentCommand(content, "archive.zip", "application/zip", content.Length, null)));
+        Assert.Equal("documents.unsupportedFileType", exception.Code);
     }
 
     [Fact]
@@ -136,8 +140,9 @@ public sealed class UploadDocumentHandlerTests
         var handler = CreateHandler(database);
         await using var content = new MemoryStream([1]);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
+        var exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
             handler.HandleAsync(new UploadDocumentCommand(content, "large.txt", "text/plain", UploadDocumentCommandValidator.MaxFileSizeBytes + 1, null)));
+        Assert.Equal("documents.fileTooLarge", exception.Code);
     }
 
     private static UploadDocumentHandler CreateHandler(TestDatabase database, FakeFileStorageService? storage = null)

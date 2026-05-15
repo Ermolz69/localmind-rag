@@ -152,12 +152,45 @@ export type DiagnosticsPaths = {
   logsPath: string;
 };
 
-export type DiagnosticsStatus = {
-  paths: DiagnosticsPaths;
+export type DiagnosticsStorage = {
+  databaseSizeBytes: number;
+  filesSizeBytes: number;
+  indexSizeBytes: number;
+  logsSizeBytes: number;
+};
+
+export type DiagnosticsCounts = {
+  bucketsCount: number;
+  documentsCount: number;
+  documentFilesCount: number;
+  documentChunksCount: number;
+  documentEmbeddingsCount: number;
+  notesCount: number;
+  conversationsCount: number;
+  pendingIngestionJobsCount: number;
+  failedIngestionJobsCount: number;
+};
+
+export type DiagnosticsIngestionError = {
+  jobId: string;
+  documentId: string;
+  documentName: string;
+  lastError: string;
+  processedAt: string | null;
+};
+
+export type DiagnosticsRuntime = {
   runtimeMode: string;
   localApiVersion: string;
   aiRuntimeStatus: RuntimeStatus;
-  pendingIngestionJobsCount: number;
+};
+
+export type DiagnosticsStatus = {
+  paths: DiagnosticsPaths;
+  storage: DiagnosticsStorage;
+  counts: DiagnosticsCounts;
+  latestErrors: DiagnosticsIngestionError[];
+  runtime: DiagnosticsRuntime;
 };
 
 export type AppSettings = {
