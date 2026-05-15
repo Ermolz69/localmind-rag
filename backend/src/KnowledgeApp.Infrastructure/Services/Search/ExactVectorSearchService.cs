@@ -37,6 +37,7 @@ public sealed class ExactVectorSearchService(AppDbContext dbContext) : IVectorSe
             from embedding in dbContext.DocumentEmbeddings
             join chunk in dbContext.DocumentChunks on embedding.DocumentChunkId equals chunk.Id
             join document in dbContext.Documents on chunk.DocumentId equals document.Id
+            where document.DeletedAt == null
             select new
             {
                 DocumentId = document.Id,

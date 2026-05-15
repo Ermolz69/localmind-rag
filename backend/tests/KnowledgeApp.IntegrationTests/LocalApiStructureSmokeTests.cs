@@ -74,6 +74,37 @@ public sealed class LocalApiStructureSmokeTests : IClassFixture<WebApplicationFa
     }
 
     [Fact]
+    public async Task DeleteChat_Should_Soft_Delete_Conversation_And_Hide_Messages()
+    {
+        using HttpClient client = factory.CreateClient();
+        HttpResponseMessage createResponse = await client.PostAsJsonAsync(
+            "/api/chats",
+            new CreateConversationRequest("Delete me"));
+        ConversationDto? created = await createResponse.Content.ReadFromJsonAsync<ConversationDto>();
+        Assert.NotNull(created);
+        HttpResponseMessage sendResponse = await client.PostAsJsonAsync(
+            $"/api/chats/{created.Id}/messages",
+            new KnowledgeApp.Contracts.Rag.ChatMessageRequest("Before delete"));
+        Assert.Equal(HttpStatusCode.OK, sendResponse.StatusCode);
+
+        HttpResponseMessage deleteResponse = await client.DeleteAsync($"/api/chats/{created.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        using HttpResponseMessage getResponse = await client.GetAsync($"/api/chats/{created.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Conversation storedConversation = await db.Conversations.SingleAsync(item => item.Id == created.Id);
+        ChatMessage[] storedMessages = await db.ChatMessages
+            .Where(message => message.ConversationId == created.Id)
+            .ToArrayAsync();
+
+        Assert.NotNull(storedConversation.DeletedAt);
+        Assert.All(storedMessages, message => Assert.NotNull(message.DeletedAt));
+    }
+
+    [Fact]
     public async Task ReindexDocumentEndpoint_Should_Create_Queued_Ingestion_Job()
     {
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();

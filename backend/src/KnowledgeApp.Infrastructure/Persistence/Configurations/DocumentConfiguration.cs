@@ -10,5 +10,7 @@ public sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
     {
         builder.ToTable("documents");
         builder.HasIndex(document => document.BucketId);
+        builder.HasIndex(document => document.DeletedAt);
+        builder.HasIndex(document => document.LocalDeviceId);
     }
 }

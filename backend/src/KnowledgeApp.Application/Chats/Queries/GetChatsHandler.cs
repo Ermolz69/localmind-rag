@@ -22,6 +22,7 @@ public sealed class GetChatsHandler(IAppDbContext dbContext)
 
         Conversation[] conversations = await dbContext.Conversations
             .AsNoTracking()
+            .Where(conversation => conversation.DeletedAt == null)
             .ToArrayAsync(cancellationToken);
         Conversation[] sortedConversations = conversations
             .OrderByDescending(conversation => conversation.UpdatedAt.HasValue)

@@ -4,7 +4,10 @@ using KnowledgeApp.Domain.Entities;
 
 namespace KnowledgeApp.Application.Chats;
 
-public sealed class CreateChatHandler(IAppDbContext dbContext, ChatRequestValidator validator)
+public sealed class CreateChatHandler(
+    IAppDbContext dbContext,
+    ChatRequestValidator validator,
+    ILocalDeviceResolver localDeviceResolver)
 {
     public async Task<ConversationDto> HandleAsync(
         CreateConversationRequest request,
@@ -12,9 +15,11 @@ public sealed class CreateChatHandler(IAppDbContext dbContext, ChatRequestValida
     {
         validator.Validate(request);
 
+        Guid localDeviceId = await localDeviceResolver.ResolveCurrentDeviceIdAsync(cancellationToken);
         Conversation conversation = new()
         {
             Title = request.Title.Trim(),
+            LocalDeviceId = localDeviceId,
         };
 
         dbContext.Conversations.Add(conversation);

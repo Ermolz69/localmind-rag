@@ -58,6 +58,20 @@ public static class ChatEndpoints
             return TypedResults.NoContent();
         });
 
+        app.MapDelete("/api/chats/{id:guid}", async Task<Results<NoContent, NotFound>> (
+            Guid id,
+            DeleteConversationHandler handler,
+            CancellationToken cancellationToken) =>
+        {
+            DeleteConversationResult result = await handler.HandleAsync(id, cancellationToken);
+            if (!result.Found)
+            {
+                return TypedResults.NotFound();
+            }
+
+            return TypedResults.NoContent();
+        });
+
         app.MapPost("/api/chats/{id:guid}/messages", async (
             Guid id,
             ChatMessageRequest request,

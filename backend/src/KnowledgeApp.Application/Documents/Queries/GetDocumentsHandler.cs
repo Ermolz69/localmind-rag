@@ -21,7 +21,9 @@ public sealed class GetDocumentsHandler(IAppDbContext dbContext)
         string filterHash = CursorPagination.CreateFilterHash(new { query.BucketId, Status = status?.ToString() });
         CursorPayload? cursor = CursorPagination.Decode(query.Cursor, CursorKind, filterHash);
 
-        IQueryable<Document> documents = dbContext.Documents.AsNoTracking();
+        IQueryable<Document> documents = dbContext.Documents
+            .AsNoTracking()
+            .Where(document => document.DeletedAt == null);
 
         if (query.BucketId.HasValue)
         {

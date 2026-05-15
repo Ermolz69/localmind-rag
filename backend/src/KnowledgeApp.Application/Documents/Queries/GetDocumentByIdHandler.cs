@@ -10,7 +10,7 @@ public sealed class GetDocumentByIdHandler(IAppDbContext dbContext)
     {
         Domain.Entities.Document? document = await dbContext.Documents
             .AsNoTracking()
-            .Where(document => document.Id == query.DocumentId)
+            .Where(document => document.Id == query.DocumentId && document.DeletedAt == null)
             .SingleOrDefaultAsync(cancellationToken);
 
         if (document is null)

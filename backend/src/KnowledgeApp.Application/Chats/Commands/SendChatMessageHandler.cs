@@ -10,7 +10,9 @@ namespace KnowledgeApp.Application.Chats;
 public sealed class SendChatMessageHandler(
     IAppDbContext dbContext,
     IRagAnswerGenerator ragAnswerGenerator,
-    ChatRequestValidator validator)
+    ChatRequestValidator validator,
+    IDateTimeProvider dateTimeProvider,
+    ILocalDeviceResolver localDeviceResolver)
 {
     public async Task<SendChatMessageResult> HandleAsync(
         Guid conversationId,
@@ -21,15 +23,19 @@ public sealed class SendChatMessageHandler(
 
         bool conversationExists = await dbContext.Conversations
             .AsNoTracking()
-            .AnyAsync(conversation => conversation.Id == conversationId, cancellationToken);
+            .AnyAsync(conversation => conversation.Id == conversationId && conversation.DeletedAt == null, cancellationToken);
         if (!conversationExists)
         {
             throw new NotFoundAppException("chats.notFound", "Conversation was not found.");
         }
 
+        DateTimeOffset now = dateTimeProvider.UtcNow;
+        Guid localDeviceId = await localDeviceResolver.ResolveCurrentDeviceIdAsync(cancellationToken);
         dbContext.ChatMessages.Add(new ChatMessage
         {
             ConversationId = conversationId,
+            CreatedAt = now,
+            LocalDeviceId = localDeviceId,
             Role = ChatRole.User,
             Content = request.Content.Trim(),
         });
@@ -39,6 +45,8 @@ public sealed class SendChatMessageHandler(
         dbContext.ChatMessages.Add(new ChatMessage
         {
             ConversationId = conversationId,
+            CreatedAt = now,
+            LocalDeviceId = localDeviceId,
             Role = ChatRole.Assistant,
             Content = answer.Answer,
         });

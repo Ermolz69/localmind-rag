@@ -11,7 +11,7 @@ public sealed class GetConversationByIdHandler(IAppDbContext dbContext)
     {
         Conversation? conversation = await dbContext.Conversations
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Id == conversationId, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == conversationId && item.DeletedAt == null, cancellationToken);
 
         return conversation is null ? null : ConversationMapper.ToDto(conversation);
     }

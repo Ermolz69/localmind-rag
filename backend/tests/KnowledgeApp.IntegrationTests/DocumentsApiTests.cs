@@ -50,11 +50,13 @@ public sealed class DocumentsApiTests : IClassFixture<WebApplicationFactory<Prog
         using IServiceScope? scope = factory.Services.CreateScope();
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         Document? storedDocument = await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
+        LocalDevice? localDevice = await db.LocalDevices.SingleAsync(x => x.Id == storedDocument.LocalDeviceId);
         Bucket? defaultBucket = await db.Buckets.SingleAsync(x => x.Id == storedDocument.BucketId);
         DocumentFile? storedFile = await db.DocumentFiles.SingleAsync(x => x.DocumentId == upload.DocumentId);
         IngestionJob? ingestionJob = await db.IngestionJobs.SingleAsync(x => x.DocumentId == upload.DocumentId);
 
         Assert.Equal(BucketConstants.DefaultBucketName, defaultBucket.Name);
+        Assert.False(string.IsNullOrWhiteSpace(localDevice.DeviceKey));
         Assert.Equal(fileName, storedFile.FileName);
         Assert.Equal(upload.IngestionJobId, ingestionJob.Id);
     }

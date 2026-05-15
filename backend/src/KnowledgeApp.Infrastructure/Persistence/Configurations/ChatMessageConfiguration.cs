@@ -10,5 +10,7 @@ public sealed class ChatMessageConfiguration : IEntityTypeConfiguration<ChatMess
     {
         builder.ToTable("chat_messages");
         builder.HasIndex(message => message.ConversationId);
+        builder.HasIndex(message => message.DeletedAt);
+        builder.HasIndex(message => message.LocalDeviceId);
     }
 }

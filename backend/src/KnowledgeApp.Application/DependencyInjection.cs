@@ -7,6 +7,7 @@ public static partial class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         return services
+            .AddCommonApplication()
             .AddBucketApplication()
             .AddDocumentApplication()
             .AddNoteApplication()

@@ -153,6 +153,7 @@ public sealed class UploadDocumentHandlerTests
             storage ?? new FakeFileStorageService(),
             clock,
             new BucketResolver(database.Context, clock),
+            new FakeLocalDeviceResolver(),
             new UploadDocumentCommandValidator());
     }
 

@@ -17,7 +17,7 @@ public sealed class DocumentCommandHandlersTests
         await database.Context.SaveChangesAsync();
 
         ReindexDocumentHandler? reindex = new ReindexDocumentHandler(database.Context);
-        DeleteDocumentHandler? delete = new DeleteDocumentHandler(database.Context);
+        DeleteDocumentHandler? delete = new DeleteDocumentHandler(database.Context, new FixedDateTimeProvider());
 
         ReindexDocumentResult? reindexResult = await reindex.HandleAsync(document.Id);
         ReindexDocumentResult? missingReindexResult = await reindex.HandleAsync(Guid.NewGuid());
@@ -33,6 +33,7 @@ public sealed class DocumentCommandHandlersTests
         Assert.Null(missingReindexResult.JobId);
         Assert.True(deleteResult.Found);
         Assert.False(missingDeleteResult.Found);
+        Assert.NotNull(storedDocument.DeletedAt);
         Assert.Equal(DocumentStatus.Deleted, storedDocument.Status);
         Assert.Equal(SyncStatus.DeletedLocal, storedDocument.SyncStatus);
         Assert.Equal(IngestionJobStatus.Queued, job.Status);

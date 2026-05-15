@@ -9,5 +9,7 @@ public sealed class BucketConfiguration : IEntityTypeConfiguration<Bucket>
     public void Configure(EntityTypeBuilder<Bucket> builder)
     {
         builder.ToTable("buckets");
+        builder.HasIndex(bucket => bucket.DeletedAt);
+        builder.HasIndex(bucket => bucket.LocalDeviceId);
     }
 }

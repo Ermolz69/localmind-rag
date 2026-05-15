@@ -13,7 +13,8 @@ public sealed class UpdateNoteHandler(IAppDbContext dbContext, NoteRequestValida
     {
         validator.Validate(request);
 
-        Domain.Entities.Note? note = await dbContext.Notes.FirstOrDefaultAsync(x => x.Id == noteId, cancellationToken);
+        Domain.Entities.Note? note = await dbContext.Notes
+            .FirstOrDefaultAsync(x => x.Id == noteId && x.DeletedAt == null, cancellationToken);
         if (note is null)
         {
             return new UpdateNoteResult(false);

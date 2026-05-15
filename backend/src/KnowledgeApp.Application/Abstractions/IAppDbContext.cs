@@ -15,6 +15,7 @@ public interface IAppDbContext
     DbSet<DocumentEmbedding> DocumentEmbeddings { get; }
     DbSet<DocumentFile> DocumentFiles { get; }
     DbSet<IngestionJob> IngestionJobs { get; }
+    DbSet<LocalDevice> LocalDevices { get; }
     DbSet<Note> Notes { get; }
     DbSet<NoteLink> NoteLinks { get; }
     DbSet<SyncOutboxItem> SyncOutbox { get; }

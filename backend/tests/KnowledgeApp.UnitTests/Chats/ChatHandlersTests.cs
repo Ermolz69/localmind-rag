@@ -16,9 +16,14 @@ public sealed class ChatHandlersTests
     {
         await using ApplicationTestDatabase? database = await ApplicationTestDatabase.CreateAsync();
         ChatRequestValidator validator = new();
-        CreateChatHandler create = new(database.Context, validator);
+        CreateChatHandler create = new(database.Context, validator, new FakeLocalDeviceResolver());
         GetChatsHandler list = new(database.Context);
-        SendChatMessageHandler send = new(database.Context, new FakeRagAnswerGenerator(), validator);
+        SendChatMessageHandler send = new(
+            database.Context,
+            new FakeRagAnswerGenerator(),
+            validator,
+            new FixedDateTimeProvider(),
+            new FakeLocalDeviceResolver());
 
         ConversationDto? conversation = await create.HandleAsync(new CreateConversationRequest("Question"));
         Contracts.Common.CursorPage<ConversationDto> conversations = await list.HandleAsync(new GetChatsQuery());
@@ -36,7 +41,12 @@ public sealed class ChatHandlersTests
     public async Task SendChatMessageHandler_Should_Reject_Missing_Conversation()
     {
         await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
-        SendChatMessageHandler send = new(database.Context, new FakeRagAnswerGenerator(), new ChatRequestValidator());
+        SendChatMessageHandler send = new(
+            database.Context,
+            new FakeRagAnswerGenerator(),
+            new ChatRequestValidator(),
+            new FixedDateTimeProvider(),
+            new FakeLocalDeviceResolver());
 
         NotFoundAppException exception = await Assert.ThrowsAsync<NotFoundAppException>(
             () => send.HandleAsync(Guid.NewGuid(), new ChatMessageRequest("Hello")));

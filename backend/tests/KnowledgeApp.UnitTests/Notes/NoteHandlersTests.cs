@@ -1,6 +1,8 @@
 using KnowledgeApp.Application.Notes;
 using KnowledgeApp.Contracts.Notes;
+using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.UnitTests;
+using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.UnitTests.Notes;
 
@@ -11,10 +13,10 @@ public sealed class NoteHandlersTests
     {
         await using ApplicationTestDatabase? database = await ApplicationTestDatabase.CreateAsync();
         NoteRequestValidator validator = new();
-        CreateNoteHandler create = new(database.Context, validator);
+        CreateNoteHandler create = new(database.Context, validator, new FakeLocalDeviceResolver());
         GetNotesHandler list = new(database.Context);
         UpdateNoteHandler update = new(database.Context, validator);
-        DeleteNoteHandler delete = new(database.Context);
+        DeleteNoteHandler delete = new(database.Context, new FixedDateTimeProvider());
 
         NoteDto? note = await create.HandleAsync(new CreateNoteRequest(BucketId: null, "Draft", "Body"));
         Contracts.Common.CursorPage<NoteDto> notes = await list.HandleAsync(new GetNotesQuery());
@@ -22,11 +24,16 @@ public sealed class NoteHandlersTests
         UpdateNoteResult? missingUpdateResult = await update.HandleAsync(Guid.NewGuid(), new UpdateNoteRequest("Missing", "Body"));
         DeleteNoteResult? deleteResult = await delete.HandleAsync(note.Id);
         DeleteNoteResult? missingDeleteResult = await delete.HandleAsync(note.Id);
+        Domain.Entities.Note storedNote = await database.Context.Notes.SingleAsync(item => item.Id == note.Id);
+        Contracts.Common.CursorPage<NoteDto> visibleNotes = await list.HandleAsync(new GetNotesQuery());
 
         Assert.Contains(notes.Items, item => item.Id == note.Id);
         Assert.True(updateResult.Found);
         Assert.False(missingUpdateResult.Found);
         Assert.True(deleteResult.Found);
         Assert.False(missingDeleteResult.Found);
+        Assert.NotNull(storedNote.DeletedAt);
+        Assert.Equal(SyncStatus.DeletedLocal, storedNote.SyncStatus);
+        Assert.DoesNotContain(visibleNotes.Items, item => item.Id == note.Id);
     }
 }

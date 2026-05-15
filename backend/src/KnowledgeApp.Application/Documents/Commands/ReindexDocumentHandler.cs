@@ -8,7 +8,8 @@ public sealed class ReindexDocumentHandler(IAppDbContext dbContext)
 {
     public async Task<ReindexDocumentResult> HandleAsync(Guid documentId, CancellationToken cancellationToken = default)
     {
-        Document? document = await dbContext.Documents.FirstOrDefaultAsync(x => x.Id == documentId, cancellationToken);
+        Document? document = await dbContext.Documents
+            .FirstOrDefaultAsync(x => x.Id == documentId && x.DeletedAt == null, cancellationToken);
         if (document is null)
         {
             return new ReindexDocumentResult(false, null, null);

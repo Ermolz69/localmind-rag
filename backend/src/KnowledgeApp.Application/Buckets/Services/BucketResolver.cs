@@ -13,7 +13,7 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
         if (requestedBucketId.HasValue)
         {
             Bucket? requestedBucket = await dbContext.Buckets
-                .FirstOrDefaultAsync(x => x.Id == requestedBucketId.Value, cancellationToken);
+                .FirstOrDefaultAsync(x => x.Id == requestedBucketId.Value && x.DeletedAt == null, cancellationToken);
             if (requestedBucket is null)
             {
                 throw new NotFoundAppException("buckets.notFound", "Selected bucket was not found.");
@@ -30,7 +30,7 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
         }
 
         Bucket? defaultBucket = await dbContext.Buckets
-            .FirstOrDefaultAsync(x => x.Name == BucketConstants.DefaultBucketName, cancellationToken);
+            .FirstOrDefaultAsync(x => x.Name == BucketConstants.DefaultBucketName && x.DeletedAt == null, cancellationToken);
 
         if (defaultBucket is null)
         {
@@ -57,7 +57,9 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
             return null;
         }
 
-        return await dbContext.Buckets.FirstOrDefaultAsync(x => x.Id == bucketId, cancellationToken);
+        return await dbContext.Buckets.FirstOrDefaultAsync(
+            x => x.Id == bucketId && x.DeletedAt == null,
+            cancellationToken);
     }
 
     private async Task SetLastSelectedBucketAsync(Guid bucketId, CancellationToken cancellationToken)

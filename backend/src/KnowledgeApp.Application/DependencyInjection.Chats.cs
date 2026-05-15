@@ -9,6 +9,7 @@ public static partial class DependencyInjection
     {
         services.AddScoped<ChatRequestValidator>();
         services.AddScoped<CreateChatHandler>();
+        services.AddScoped<DeleteConversationHandler>();
         services.AddScoped<GetChatMessagesHandler>();
         services.AddScoped<GetChatsHandler>();
         services.AddScoped<GetConversationByIdHandler>();

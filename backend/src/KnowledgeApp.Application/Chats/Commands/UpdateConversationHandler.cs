@@ -18,7 +18,7 @@ public sealed class UpdateConversationHandler(
         validator.Validate(request);
 
         Conversation? conversation = await dbContext.Conversations
-            .FirstOrDefaultAsync(item => item.Id == conversationId, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == conversationId && item.DeletedAt == null, cancellationToken);
         if (conversation is null)
         {
             return new UpdateConversationResult(false);

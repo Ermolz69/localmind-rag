@@ -14,6 +14,7 @@ public static partial class DependencyInjection
         services.AddScoped<ILocalDiagnosticsService, LocalDiagnosticsService>();
         services.AddSingleton<INetworkStatusService, NetworkStatusService>();
         services.AddSingleton<ICurrentUserService, CurrentUserService>();
+        services.AddSingleton<ILocalDeviceIdentityProvider, LocalDeviceIdentityProvider>();
         services.AddSingleton<IAppLockService, AppLockService>();
         services.AddSingleton<ISettingsDefaultsProvider, SettingsDefaultsProvider>();
 

@@ -10,5 +10,7 @@ public sealed class NoteConfiguration : IEntityTypeConfiguration<Note>
     {
         builder.ToTable("notes");
         builder.HasIndex(note => note.BucketId);
+        builder.HasIndex(note => note.DeletedAt);
+        builder.HasIndex(note => note.LocalDeviceId);
     }
 }

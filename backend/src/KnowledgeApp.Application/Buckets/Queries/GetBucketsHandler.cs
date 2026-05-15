@@ -10,6 +10,7 @@ public sealed class GetBucketsHandler(IAppDbContext dbContext)
     {
         Domain.Entities.Bucket[]? buckets = await dbContext.Buckets
             .AsNoTracking()
+            .Where(bucket => bucket.DeletedAt == null)
             .OrderBy(bucket => bucket.Name)
             .ToArrayAsync(cancellationToken);
 

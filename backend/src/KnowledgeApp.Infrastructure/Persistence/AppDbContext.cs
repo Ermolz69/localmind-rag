@@ -16,6 +16,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<DocumentEmbedding> DocumentEmbeddings => Set<DocumentEmbedding>();
     public DbSet<DocumentFile> DocumentFiles => Set<DocumentFile>();
     public DbSet<IngestionJob> IngestionJobs => Set<IngestionJob>();
+    public DbSet<LocalDevice> LocalDevices => Set<LocalDevice>();
     public DbSet<Note> Notes => Set<Note>();
     public DbSet<NoteLink> NoteLinks => Set<NoteLink>();
     public DbSet<SyncOutboxItem> SyncOutbox => Set<SyncOutboxItem>();

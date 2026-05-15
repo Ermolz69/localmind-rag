@@ -23,6 +23,7 @@ public sealed class GetNotesHandler(IAppDbContext dbContext)
 
         IQueryable<Note> notesQuery = dbContext.Notes
             .AsNoTracking()
+            .Where(note => note.DeletedAt == null)
             .AsQueryable();
 
         if (query.BucketId.HasValue)

@@ -13,7 +13,7 @@ public sealed class GetChatMessagesHandler(IAppDbContext dbContext)
     {
         bool conversationExists = await dbContext.Conversations
             .AsNoTracking()
-            .AnyAsync(conversation => conversation.Id == conversationId, cancellationToken);
+            .AnyAsync(conversation => conversation.Id == conversationId && conversation.DeletedAt == null, cancellationToken);
         if (!conversationExists)
         {
             return null;
@@ -21,7 +21,7 @@ public sealed class GetChatMessagesHandler(IAppDbContext dbContext)
 
         ChatMessage[] messages = await dbContext.ChatMessages
             .AsNoTracking()
-            .Where(message => message.ConversationId == conversationId)
+            .Where(message => message.ConversationId == conversationId && message.DeletedAt == null)
             .ToArrayAsync(cancellationToken);
 
         return messages

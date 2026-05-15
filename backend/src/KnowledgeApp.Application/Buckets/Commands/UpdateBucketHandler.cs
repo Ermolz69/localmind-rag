@@ -17,7 +17,7 @@ public sealed class UpdateBucketHandler(
         validator.Validate(request);
 
         Domain.Entities.Bucket? bucket = await dbContext.Buckets
-            .FirstOrDefaultAsync(x => x.Id == bucketId, cancellationToken);
+            .FirstOrDefaultAsync(x => x.Id == bucketId && x.DeletedAt == null, cancellationToken);
         if (bucket is null)
         {
             return new UpdateBucketResult(false);

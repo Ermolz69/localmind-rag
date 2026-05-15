@@ -11,6 +11,7 @@ public sealed class UploadDocumentHandler(
     IFileStorageService fileStorage,
     IDateTimeProvider dateTimeProvider,
     IBucketResolver bucketResolver,
+    ILocalDeviceResolver localDeviceResolver,
     UploadDocumentCommandValidator validator)
 {
     public async Task<UploadDocumentResponse> HandleAsync(UploadDocumentCommand command, CancellationToken cancellationToken = default)
@@ -19,10 +20,12 @@ public sealed class UploadDocumentHandler(
 
         DateTimeOffset now = dateTimeProvider.UtcNow;
         Bucket? bucket = await bucketResolver.ResolveForUploadAsync(command.BucketId, cancellationToken);
+        Guid localDeviceId = await localDeviceResolver.ResolveCurrentDeviceIdAsync(cancellationToken);
         Document? document = new Document
         {
             BucketId = bucket.Id,
             CreatedAt = now,
+            LocalDeviceId = localDeviceId,
             Name = Path.GetFileName(command.FileName.Trim()),
             Status = DocumentStatus.Queued,
             SyncStatus = SyncStatus.LocalOnly,
