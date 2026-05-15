@@ -3,6 +3,9 @@ using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using KnowledgeApp.Infrastructure.Services;
+using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Infrastructure.Options;
+using Microsoft.Extensions.Options;
 using A = DocumentFormat.OpenXml.Drawing;
 using P = DocumentFormat.OpenXml.Presentation;
 using W = DocumentFormat.OpenXml.Wordprocessing;
@@ -17,7 +20,7 @@ public sealed class DocumentTextExtractorTests : IAsyncDisposable
     public async Task PdfTextExtractor_Should_Return_Text_By_Page()
     {
         var filePath = await WriteTempFileAsync("document.pdf", CreatePdfBytes("PDF page text."));
-        var extractor = new PdfTextExtractor();
+        var extractor = new PdfTextExtractor(new NoOpOcrEngine(), Options.Create(new OcrOptions { Enabled = false }));
 
         var result = await extractor.ExtractAsync(filePath);
 
@@ -61,7 +64,7 @@ public sealed class DocumentTextExtractorTests : IAsyncDisposable
     public async Task PdfTextExtractor_Should_Reject_Invalid_Signature()
     {
         var filePath = await WriteTempFileAsync("document.pdf", Encoding.UTF8.GetBytes("not a pdf"));
-        var extractor = new PdfTextExtractor();
+        var extractor = new PdfTextExtractor(new NoOpOcrEngine(), Options.Create(new OcrOptions { Enabled = false }));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => extractor.ExtractAsync(filePath));
 
@@ -168,5 +171,20 @@ public sealed class DocumentTextExtractorTests : IAsyncDisposable
         }
 
         return stream.ToArray();
+    }
+
+    private sealed class NoOpOcrEngine : IOcrEngine
+    {
+        public Task<OcrTextResult> ExtractAsync(
+            string imagePath,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(
+                new OcrTextResult(
+                    Text: string.Empty,
+                    DetectedLanguage: null,
+                    DetectedScript: null,
+                    Confidence: null));
+        }
     }
 }
