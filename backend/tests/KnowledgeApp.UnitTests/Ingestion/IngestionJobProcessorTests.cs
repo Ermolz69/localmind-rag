@@ -24,18 +24,18 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
     [Fact]
     public async Task ProcessAsync_Should_Index_Text_Document_And_Complete_Job()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var document = await CreateDocumentWithJobAsync(database, "notes.txt", FileType.PlainText, "First paragraph.\n\nSecond paragraph.");
-        var processor = CreateProcessor(database);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid JobId) document = await CreateDocumentWithJobAsync(database, "notes.txt", FileType.PlainText, "First paragraph.\n\nSecond paragraph.");
+        IngestionJobProcessor? processor = CreateProcessor(database);
 
         await processor.ProcessAsync(document.JobId);
 
-        var chunks = await database.Context.DocumentChunks
+        DocumentChunk[]? chunks = await database.Context.DocumentChunks
             .Where(x => x.DocumentId == document.DocumentId)
             .OrderBy(x => x.Index)
             .ToArrayAsync();
-        var storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
-        var job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
+        Document? storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
+        IngestionJob? job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
 
         Assert.Single(chunks);
         Assert.Equal("First paragraph.\n\nSecond paragraph.", chunks[0].Text);
@@ -44,7 +44,7 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         Assert.Null(job.LastError);
         Assert.NotNull(job.ProcessedAt);
 
-        var embedding = await database.Context.DocumentEmbeddings.SingleAsync(x => x.DocumentChunkId == chunks[0].Id);
+        DocumentEmbedding? embedding = await database.Context.DocumentEmbeddings.SingleAsync(x => x.DocumentChunkId == chunks[0].Id);
         Assert.Equal("BGE-M3", embedding.ModelName);
         Assert.Equal(32, embedding.Dimension);
         Assert.Equal(32 * sizeof(float), embedding.Embedding.Length);
@@ -53,9 +53,9 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
     [Fact]
     public async Task ProcessAsync_Should_Remove_Existing_Chunks_And_Embeddings_On_Reindex()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var document = await CreateDocumentWithJobAsync(database, "notes.md", FileType.Markdown, "New content.");
-        var oldChunk = new DocumentChunk
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid JobId) document = await CreateDocumentWithJobAsync(database, "notes.md", FileType.Markdown, "New content.");
+        DocumentChunk? oldChunk = new DocumentChunk
         {
             DocumentId = document.DocumentId,
             Index = 0,
@@ -70,19 +70,19 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
             Embedding = new byte[2 * sizeof(float)],
         });
         await database.Context.SaveChangesAsync();
-        var processor = CreateProcessor(database);
+        IngestionJobProcessor? processor = CreateProcessor(database);
 
         await processor.ProcessAsync(document.JobId);
 
-        var chunks = await database.Context.DocumentChunks
+        DocumentChunk[]? chunks = await database.Context.DocumentChunks
             .Where(x => x.DocumentId == document.DocumentId)
             .ToArrayAsync();
-        var embeddings = await database.Context.DocumentEmbeddings.ToArrayAsync();
+        DocumentEmbedding[]? embeddings = await database.Context.DocumentEmbeddings.ToArrayAsync();
 
         Assert.Single(chunks);
         Assert.Equal("New content.", chunks[0].Text);
         Assert.NotEqual(oldChunk.Id, chunks[0].Id);
-        var embedding = Assert.Single(embeddings);
+        DocumentEmbedding? embedding = Assert.Single(embeddings);
         Assert.Equal(chunks[0].Id, embedding.DocumentChunkId);
         Assert.Equal(32, embedding.Dimension);
     }
@@ -90,18 +90,18 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
     [Fact]
     public async Task ProcessAsync_Should_Index_Pdf_Document_And_Complete_Job()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var document = await CreateDocumentWithJobAsync(database, "paper.pdf", FileType.Pdf, CreatePdfBytes("First PDF paragraph."));
-        var processor = CreateProcessor(database);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid JobId) document = await CreateDocumentWithJobAsync(database, "paper.pdf", FileType.Pdf, CreatePdfBytes("First PDF paragraph."));
+        IngestionJobProcessor? processor = CreateProcessor(database);
 
         await processor.ProcessAsync(document.JobId);
 
-        var chunks = await database.Context.DocumentChunks
+        DocumentChunk[]? chunks = await database.Context.DocumentChunks
             .Where(x => x.DocumentId == document.DocumentId)
             .OrderBy(x => x.Index)
             .ToArrayAsync();
-        var storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
-        var job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
+        Document? storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
+        IngestionJob? job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
 
         Assert.Single(chunks);
         Assert.Contains("First PDF paragraph.", chunks[0].Text, StringComparison.OrdinalIgnoreCase);
@@ -114,15 +114,15 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
     [Fact]
     public async Task ProcessAsync_Should_Index_Docx_Document_And_Complete_Job()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var document = await CreateDocumentWithJobAsync(database, "document.docx", FileType.Docx, CreateDocxBytes("First DOCX paragraph."));
-        var processor = CreateProcessor(database);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid JobId) document = await CreateDocumentWithJobAsync(database, "document.docx", FileType.Docx, CreateDocxBytes("First DOCX paragraph."));
+        IngestionJobProcessor? processor = CreateProcessor(database);
 
         await processor.ProcessAsync(document.JobId);
 
-        var chunk = await database.Context.DocumentChunks.SingleAsync(x => x.DocumentId == document.DocumentId);
-        var storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
-        var job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
+        DocumentChunk? chunk = await database.Context.DocumentChunks.SingleAsync(x => x.DocumentId == document.DocumentId);
+        Document? storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
+        IngestionJob? job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
 
         Assert.Equal("First DOCX paragraph.", chunk.Text);
         Assert.Null(chunk.PageNumber);
@@ -134,15 +134,15 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
     [Fact]
     public async Task ProcessAsync_Should_Index_Pptx_Document_And_Complete_Job()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var document = await CreateDocumentWithJobAsync(database, "slides.pptx", FileType.Pptx, CreatePptxBytes("First PPTX paragraph."));
-        var processor = CreateProcessor(database);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid JobId) document = await CreateDocumentWithJobAsync(database, "slides.pptx", FileType.Pptx, CreatePptxBytes("First PPTX paragraph."));
+        IngestionJobProcessor? processor = CreateProcessor(database);
 
         await processor.ProcessAsync(document.JobId);
 
-        var chunk = await database.Context.DocumentChunks.SingleAsync(x => x.DocumentId == document.DocumentId);
-        var storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
-        var job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
+        DocumentChunk? chunk = await database.Context.DocumentChunks.SingleAsync(x => x.DocumentId == document.DocumentId);
+        Document? storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
+        IngestionJob? job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
 
         Assert.Equal("First PPTX paragraph.", chunk.Text);
         Assert.Equal(1, chunk.PageNumber);
@@ -154,14 +154,14 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
     [Fact]
     public async Task ProcessAsync_Should_Fail_Corrupt_Pdf_Document()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var document = await CreateDocumentWithJobAsync(database, "paper.pdf", FileType.Pdf, Encoding.UTF8.GetBytes("%PDF skeleton"));
-        var processor = CreateProcessor(database);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid JobId) document = await CreateDocumentWithJobAsync(database, "paper.pdf", FileType.Pdf, Encoding.UTF8.GetBytes("%PDF skeleton"));
+        IngestionJobProcessor? processor = CreateProcessor(database);
 
         await processor.ProcessAsync(document.JobId);
 
-        var storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
-        var job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
+        Document? storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
+        IngestionJob? job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
 
         Assert.Equal(DocumentStatus.Failed, storedDocument.Status);
         Assert.Equal(IngestionJobStatus.Failed, job.Status);
@@ -171,14 +171,14 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
     [Fact]
     public async Task ProcessAsync_Should_Fail_Corrupt_Docx_Document()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var document = await CreateDocumentWithJobAsync(database, "document.docx", FileType.Docx, Encoding.UTF8.GetBytes("not a docx"));
-        var processor = CreateProcessor(database);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid JobId) document = await CreateDocumentWithJobAsync(database, "document.docx", FileType.Docx, Encoding.UTF8.GetBytes("not a docx"));
+        IngestionJobProcessor? processor = CreateProcessor(database);
 
         await processor.ProcessAsync(document.JobId);
 
-        var storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
-        var job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
+        Document? storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
+        IngestionJob? job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
 
         Assert.Equal(DocumentStatus.Failed, storedDocument.Status);
         Assert.Equal(IngestionJobStatus.Failed, job.Status);
@@ -188,14 +188,14 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
     [Fact]
     public async Task ProcessAsync_Should_Fail_Corrupt_Pptx_Document()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var document = await CreateDocumentWithJobAsync(database, "slides.pptx", FileType.Pptx, Encoding.UTF8.GetBytes("not a pptx"));
-        var processor = CreateProcessor(database);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid JobId) document = await CreateDocumentWithJobAsync(database, "slides.pptx", FileType.Pptx, Encoding.UTF8.GetBytes("not a pptx"));
+        IngestionJobProcessor? processor = CreateProcessor(database);
 
         await processor.ProcessAsync(document.JobId);
 
-        var storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
-        var job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
+        Document? storedDocument = await database.Context.Documents.SingleAsync(x => x.Id == document.DocumentId);
+        IngestionJob? job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
 
         Assert.Equal(DocumentStatus.Failed, storedDocument.Status);
         Assert.Equal(IngestionJobStatus.Failed, job.Status);
@@ -205,17 +205,17 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
     [Fact]
     public async Task ProcessAsync_Should_Throw_When_Job_Is_Missing()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var processor = CreateProcessor(database);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        IngestionJobProcessor? processor = CreateProcessor(database);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync(Guid.NewGuid()));
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync(Guid.NewGuid()));
 
         Assert.Equal("Ingestion job was not found.", exception.Message);
     }
 
     public async ValueTask DisposeAsync()
     {
-        foreach (var filePath in filesToDelete)
+        foreach (string filePath in filesToDelete)
         {
             if (File.Exists(filePath))
             {
@@ -228,7 +228,7 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
 
     private static IngestionJobProcessor CreateProcessor(TestDatabase database)
     {
-        var rawExtractor = new RawTextExtractor();
+        RawTextExtractor? rawExtractor = new RawTextExtractor();
         return new IngestionJobProcessor(
             database.Context,
             new DocumentTextExtractorFactory(rawExtractor, new HtmlTextExtractor(), new PdfTextExtractor(new NoOpOcrEngine(), Options.Create(new OcrOptions { Enabled = false })), new DocxTextExtractor(), new PptxTextExtractor()),
@@ -239,16 +239,16 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
 
     private async Task<(Guid DocumentId, Guid JobId)> CreateDocumentWithJobAsync(TestDatabase database, string fileName, FileType fileType, string content)
     {
-        var document = new Document
+        Document? document = new Document
         {
             Name = fileName,
             Status = DocumentStatus.Queued,
         };
-        var filePath = Path.Combine(Path.GetTempPath(), $"localmind-ingestion-{Guid.NewGuid():N}-{fileName}");
+        string? filePath = Path.Combine(Path.GetTempPath(), $"localmind-ingestion-{Guid.NewGuid():N}-{fileName}");
         await File.WriteAllTextAsync(filePath, content);
         filesToDelete.Add(filePath);
 
-        var documentFile = new DocumentFile
+        DocumentFile? documentFile = new DocumentFile
         {
             DocumentId = document.Id,
             FileName = fileName,
@@ -256,7 +256,7 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
             LocalPath = filePath,
             SizeBytes = content.Length,
         };
-        var job = new IngestionJob
+        IngestionJob? job = new IngestionJob
         {
             DocumentId = document.Id,
             Status = IngestionJobStatus.Queued,
@@ -271,16 +271,16 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
 
     private async Task<(Guid DocumentId, Guid JobId)> CreateDocumentWithJobAsync(TestDatabase database, string fileName, FileType fileType, byte[] content)
     {
-        var document = new Document
+        Document? document = new Document
         {
             Name = fileName,
             Status = DocumentStatus.Queued,
         };
-        var filePath = Path.Combine(Path.GetTempPath(), $"localmind-ingestion-{Guid.NewGuid():N}-{fileName}");
+        string? filePath = Path.Combine(Path.GetTempPath(), $"localmind-ingestion-{Guid.NewGuid():N}-{fileName}");
         await File.WriteAllBytesAsync(filePath, content);
         filesToDelete.Add(filePath);
 
-        var documentFile = new DocumentFile
+        DocumentFile? documentFile = new DocumentFile
         {
             DocumentId = document.Id,
             FileName = fileName,
@@ -288,7 +288,7 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
             LocalPath = filePath,
             SizeBytes = content.Length,
         };
-        var job = new IngestionJob
+        IngestionJob? job = new IngestionJob
         {
             DocumentId = document.Id,
             Status = IngestionJobStatus.Queued,
@@ -303,11 +303,11 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
 
     private static byte[] CreatePdfBytes(string text)
     {
-        var escapedText = text.Replace(@"\", @"\\", StringComparison.Ordinal)
+        string? escapedText = text.Replace(@"\", @"\\", StringComparison.Ordinal)
             .Replace("(", @"\(", StringComparison.Ordinal)
             .Replace(")", @"\)", StringComparison.Ordinal);
-        var content = $"BT /F1 12 Tf 72 720 Td ({escapedText}) Tj ET";
-        var objects = new[]
+        string? content = $"BT /F1 12 Tf 72 720 Td ({escapedText}) Tj ET";
+        string[]? objects = new[]
         {
             "<< /Type /Catalog /Pages 2 0 R >>",
             "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -315,18 +315,18 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
             $"<< /Length {Encoding.ASCII.GetByteCount(content)} >>\nstream\n{content}\nendstream",
             "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
         };
-        var builder = new StringBuilder("%PDF-1.4\n");
-        var offsets = new List<int> { 0 };
-        for (var index = 0; index < objects.Length; index++)
+        StringBuilder? builder = new StringBuilder("%PDF-1.4\n");
+        List<int>? offsets = new List<int> { 0 };
+        for (int index = 0; index < objects.Length; index++)
         {
             offsets.Add(Encoding.ASCII.GetByteCount(builder.ToString()));
             builder.Append(CultureInfo.InvariantCulture, $"{index + 1} 0 obj\n{objects[index]}\nendobj\n");
         }
 
-        var xrefOffset = Encoding.ASCII.GetByteCount(builder.ToString());
+        int xrefOffset = Encoding.ASCII.GetByteCount(builder.ToString());
         builder.Append(CultureInfo.InvariantCulture, $"xref\n0 {objects.Length + 1}\n");
         builder.Append("0000000000 65535 f \n");
-        foreach (var offset in offsets.Skip(1))
+        foreach (int offset in offsets.Skip(1))
         {
             builder.Append(CultureInfo.InvariantCulture, $"{offset:D10} 00000 n \n");
         }
@@ -337,10 +337,10 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
 
     private static byte[] CreateDocxBytes(string text)
     {
-        using var stream = new MemoryStream();
-        using (var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true))
+        using MemoryStream? stream = new MemoryStream();
+        using (WordprocessingDocument? document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true))
         {
-            var mainDocumentPart = document.AddMainDocumentPart();
+            MainDocumentPart? mainDocumentPart = document.AddMainDocumentPart();
             mainDocumentPart.Document = new W.Document(new W.Body(new W.Paragraph(new W.Run(new W.Text(text)))));
             mainDocumentPart.Document.Save();
         }
@@ -350,12 +350,12 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
 
     private static byte[] CreatePptxBytes(string text)
     {
-        using var stream = new MemoryStream();
-        using (var document = PresentationDocument.Create(stream, PresentationDocumentType.Presentation, true))
+        using MemoryStream? stream = new MemoryStream();
+        using (PresentationDocument? document = PresentationDocument.Create(stream, PresentationDocumentType.Presentation, true))
         {
-            var presentationPart = document.AddPresentationPart();
+            PresentationPart? presentationPart = document.AddPresentationPart();
             presentationPart.Presentation = new P.Presentation();
-            var slidePart = presentationPart.AddNewPart<SlidePart>("rId1");
+            SlidePart? slidePart = presentationPart.AddNewPart<SlidePart>("rId1");
             slidePart.Slide = new P.Slide(
                 new P.CommonSlideData(
                     new P.ShapeTree(
@@ -401,12 +401,12 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
 
         public static async Task<TestDatabase> CreateAsync()
         {
-            var connection = new SqliteConnection("Data Source=:memory:");
+            SqliteConnection? connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
-            var options = new DbContextOptionsBuilder<AppDbContext>()
+            DbContextOptions<AppDbContext>? options = new DbContextOptionsBuilder<AppDbContext>()
                 .UseSqlite(connection)
                 .Options;
-            var context = new AppDbContext(options);
+            AppDbContext? context = new AppDbContext(options);
             await context.Database.EnsureCreatedAsync();
             return new TestDatabase(connection, context);
         }

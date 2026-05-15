@@ -7,7 +7,7 @@ public sealed class DeleteBucketHandler(IAppDbContext dbContext)
 {
     public async Task<DeleteBucketResult> HandleAsync(Guid bucketId, CancellationToken cancellationToken = default)
     {
-        var bucket = await dbContext.Buckets.FirstOrDefaultAsync(x => x.Id == bucketId, cancellationToken);
+        Domain.Entities.Bucket? bucket = await dbContext.Buckets.FirstOrDefaultAsync(x => x.Id == bucketId, cancellationToken);
         if (bucket is null)
         {
             return new DeleteBucketResult(false);

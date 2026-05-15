@@ -26,7 +26,7 @@ public sealed class RawTextExtractor : IDocumentTextExtractor
 {
     public async Task<DocumentTextExtractionResult> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        var text = await File.ReadAllTextAsync(filePath, cancellationToken);
+        string? text = await File.ReadAllTextAsync(filePath, cancellationToken);
         return ExtractedText.FromSingle(text);
     }
 }

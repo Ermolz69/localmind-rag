@@ -8,15 +8,21 @@ public static class NoteEndpoints
 {
     public static IEndpointRouteBuilder MapNoteEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/notes", async (GetNotesHandler handler, CancellationToken cancellationToken) =>
-            Results.Ok(await handler.HandleAsync(cancellationToken)));
+        app.MapGet("/api/notes", async (
+                Guid? bucketId,
+                string? query,
+                string? cursor,
+                int? limit,
+                GetNotesHandler handler,
+                CancellationToken cancellationToken) =>
+            Results.Ok(await handler.HandleAsync(new GetNotesQuery(bucketId, query, cursor, limit ?? 50), cancellationToken)));
 
         app.MapPost("/api/notes", async (
             CreateNoteRequest request,
             CreateNoteHandler handler,
             CancellationToken cancellationToken) =>
         {
-            var created = await handler.HandleAsync(request, cancellationToken);
+            NoteDto created = await handler.HandleAsync(request, cancellationToken);
             return Results.Created($"/api/notes/{created.Id}", created);
         });
 
@@ -26,7 +32,7 @@ public static class NoteEndpoints
             UpdateNoteHandler handler,
             CancellationToken cancellationToken) =>
         {
-            var result = await handler.HandleAsync(id, request, cancellationToken);
+            UpdateNoteResult result = await handler.HandleAsync(id, request, cancellationToken);
             if (!result.Found)
             {
                 return TypedResults.NotFound();
@@ -40,7 +46,7 @@ public static class NoteEndpoints
             DeleteNoteHandler handler,
             CancellationToken cancellationToken) =>
         {
-            var result = await handler.HandleAsync(id, cancellationToken);
+            DeleteNoteResult result = await handler.HandleAsync(id, cancellationToken);
             if (!result.Found)
             {
                 return TypedResults.NotFound();

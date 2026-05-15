@@ -15,9 +15,9 @@ public sealed class LocalApiHealthTests : IClassFixture<WebApplicationFactory<Pr
     [Fact]
     public async Task HealthEndpoint_Should_Return_Ok()
     {
-        using var client = factory.CreateClient();
+        using HttpClient? client = factory.CreateClient();
 
-        using var response = await client.GetAsync("/api/health", CancellationToken.None);
+        using HttpResponseMessage? response = await client.GetAsync("/api/health", CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
@@ -25,15 +25,15 @@ public sealed class LocalApiHealthTests : IClassFixture<WebApplicationFactory<Pr
     [Fact]
     public async Task CorsPreflight_Should_Allow_Tauri_Localhost_Origin()
     {
-        using var client = factory.CreateClient();
-        using var request = new HttpRequestMessage(HttpMethod.Options, "/api/buckets");
+        using HttpClient? client = factory.CreateClient();
+        using HttpRequestMessage? request = new HttpRequestMessage(HttpMethod.Options, "/api/buckets");
         request.Headers.Add("Origin", "http://tauri.localhost");
         request.Headers.Add("Access-Control-Request-Method", "GET");
 
-        using var response = await client.SendAsync(request, CancellationToken.None);
+        using HttpResponseMessage? response = await client.SendAsync(request, CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        Assert.True(response.Headers.TryGetValues("Access-Control-Allow-Origin", out var values));
+        Assert.True(response.Headers.TryGetValues("Access-Control-Allow-Origin", out IEnumerable<string>? values));
         Assert.Contains("http://tauri.localhost", values);
     }
 }

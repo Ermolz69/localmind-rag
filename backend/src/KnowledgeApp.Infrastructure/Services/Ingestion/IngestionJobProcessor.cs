@@ -31,7 +31,7 @@ public sealed class IngestionJobProcessor(
 {
     public async Task ProcessAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
-        var job = await dbContext.IngestionJobs.FindAsync([jobId], cancellationToken);
+        IngestionJob? job = await dbContext.IngestionJobs.FindAsync([jobId], cancellationToken);
         if (job is null)
         {
             throw new InvalidOperationException("Ingestion job was not found.");
@@ -42,7 +42,7 @@ public sealed class IngestionJobProcessor(
             return;
         }
 
-        var document = await dbContext.Documents.FindAsync([job.DocumentId], cancellationToken);
+        Document? document = await dbContext.Documents.FindAsync([job.DocumentId], cancellationToken);
         if (document is null)
         {
             job.Status = IngestionJobStatus.Failed;
@@ -58,7 +58,7 @@ public sealed class IngestionJobProcessor(
 
         try
         {
-            var documentFile = await dbContext.DocumentFiles
+            DocumentFile? documentFile = await dbContext.DocumentFiles
                 .Where(x => x.DocumentId == document.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
@@ -67,23 +67,23 @@ public sealed class IngestionJobProcessor(
                 throw new InvalidOperationException("Document file was not found.");
             }
 
-            var extension = Path.GetExtension(documentFile.FileName);
-            var extractor = extractorFactory.GetExtractor(documentFile.FileType, extension, null);
-            var extraction = await extractor.ExtractAsync(documentFile.LocalPath, cancellationToken);
-            var existingChunks = await dbContext.DocumentChunks
+            string? extension = Path.GetExtension(documentFile.FileName);
+            IDocumentTextExtractor? extractor = extractorFactory.GetExtractor(documentFile.FileType, extension, null);
+            DocumentTextExtractionResult? extraction = await extractor.ExtractAsync(documentFile.LocalPath, cancellationToken);
+            DocumentChunk[]? existingChunks = await dbContext.DocumentChunks
                 .Where(x => x.DocumentId == document.Id)
                 .ToArrayAsync(cancellationToken);
-            var existingChunkIds = existingChunks.Select(x => x.Id).ToArray();
-            var existingEmbeddings = await dbContext.DocumentEmbeddings
+            Guid[]? existingChunkIds = existingChunks.Select(x => x.Id).ToArray();
+            DocumentEmbedding[]? existingEmbeddings = await dbContext.DocumentEmbeddings
                 .Where(x => existingChunkIds.Contains(x.DocumentChunkId))
                 .ToArrayAsync(cancellationToken);
 
             dbContext.DocumentEmbeddings.RemoveRange(existingEmbeddings);
             dbContext.DocumentChunks.RemoveRange(existingChunks);
-            var newChunks = new List<DocumentChunk>();
-            foreach (var segment in extraction.Segments)
+            List<DocumentChunk>? newChunks = new List<DocumentChunk>();
+            foreach (DocumentTextSegment segment in extraction.Segments)
             {
-                foreach (var chunkText in chunker.Split(segment.Text))
+                foreach (string chunkText in chunker.Split(segment.Text))
                 {
                     newChunks.Add(new DocumentChunk
                     {
@@ -102,7 +102,7 @@ public sealed class IngestionJobProcessor(
             }
 
             dbContext.DocumentChunks.AddRange(newChunks);
-            var newEmbeddings = await documentEmbeddingService.GenerateAsync(newChunks, cancellationToken);
+            IReadOnlyList<DocumentEmbedding>? newEmbeddings = await documentEmbeddingService.GenerateAsync(newChunks, cancellationToken);
             dbContext.DocumentEmbeddings.AddRange(newEmbeddings);
 
             job.Status = IngestionJobStatus.Completed;

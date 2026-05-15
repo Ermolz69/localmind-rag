@@ -8,7 +8,7 @@ public sealed class GetBucketsHandler(IAppDbContext dbContext)
 {
     public async Task<IReadOnlyList<BucketDto>> HandleAsync(CancellationToken cancellationToken = default)
     {
-        var buckets = await dbContext.Buckets
+        Domain.Entities.Bucket[]? buckets = await dbContext.Buckets
             .AsNoTracking()
             .OrderBy(bucket => bucket.Name)
             .ToArrayAsync(cancellationToken);

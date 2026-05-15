@@ -17,9 +17,9 @@ public sealed class UploadDocumentHandler(
     {
         validator.Validate(command);
 
-        var now = dateTimeProvider.UtcNow;
-        var bucket = await bucketResolver.ResolveForUploadAsync(command.BucketId, cancellationToken);
-        var document = new Document
+        DateTimeOffset now = dateTimeProvider.UtcNow;
+        Bucket? bucket = await bucketResolver.ResolveForUploadAsync(command.BucketId, cancellationToken);
+        Document? document = new Document
         {
             BucketId = bucket.Id,
             CreatedAt = now,
@@ -27,8 +27,8 @@ public sealed class UploadDocumentHandler(
             Status = DocumentStatus.Queued,
             SyncStatus = SyncStatus.LocalOnly,
         };
-        var storedFile = await fileStorage.SaveAsync(command.Content, document.Id, command.FileName.Trim(), cancellationToken);
-        var documentFile = new DocumentFile
+        StoredFileDto? storedFile = await fileStorage.SaveAsync(command.Content, document.Id, command.FileName.Trim(), cancellationToken);
+        DocumentFile? documentFile = new DocumentFile
         {
             ContentHash = storedFile.ContentHash,
             CreatedAt = now,
@@ -38,7 +38,7 @@ public sealed class UploadDocumentHandler(
             LocalPath = storedFile.LocalPath,
             SizeBytes = storedFile.SizeBytes,
         };
-        var ingestionJob = new IngestionJob
+        IngestionJob? ingestionJob = new IngestionJob
         {
             CreatedAt = now,
             DocumentId = document.Id,

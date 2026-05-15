@@ -65,8 +65,8 @@ public sealed class ExactVectorSearchService(AppDbContext dbContext) : IVectorSe
             .Where(x => x.Dimension == queryVector.Length)
             .Select(x =>
             {
-                var chunkVector = EmbeddingVectorSerializer.FromBytes(x.Embedding);
-                var score = CosineSimilarity(queryVector, chunkVector);
+                float[]? chunkVector = EmbeddingVectorSerializer.FromBytes(x.Embedding);
+                double score = CosineSimilarity(queryVector, chunkVector);
                 return new RagSourceDto(x.DocumentId, x.DocumentName, x.ChunkId, x.PageNumber, score, x.Text);
             })
             .OrderByDescending(x => x.Score)
@@ -85,7 +85,7 @@ public sealed class ExactVectorSearchService(AppDbContext dbContext) : IVectorSe
         double leftMagnitude = 0;
         double rightMagnitude = 0;
 
-        for (var i = 0; i < left.Length; i++)
+        for (int i = 0; i < left.Length; i++)
         {
             dotProduct += left[i] * right[i];
             leftMagnitude += left[i] * left[i];

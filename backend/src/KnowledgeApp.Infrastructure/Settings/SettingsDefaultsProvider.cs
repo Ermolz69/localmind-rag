@@ -12,8 +12,8 @@ public sealed class SettingsDefaultsProvider(
 {
     public AppSettingsDto GetDefaults()
     {
-        var runtime = runtimeOptions.Value;
-        var ai = aiOptions.Value;
+        LocalRuntimeOptions? runtime = runtimeOptions.Value;
+        AiOptions? ai = aiOptions.Value;
 
         return new AppSettingsDto(
             Appearance: new AppearanceSettingsDto(AppTheme.System.ToString()),

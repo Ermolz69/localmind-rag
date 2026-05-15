@@ -13,11 +13,11 @@ public sealed class SettingsService(
 {
     public async Task<AppSettingsDto> GetAsync(CancellationToken cancellationToken = default)
     {
-        var storedSettings = await dbContext.AppSettings
+        Dictionary<string, string>? storedSettings = await dbContext.AppSettings
             .Where(x => SettingsKeys.KnownKeys.Contains(x.Key))
             .ToDictionaryAsync(x => x.Key, x => x.Value, cancellationToken);
 
-        var defaults = defaultsProvider.GetDefaults();
+        AppSettingsDto? defaults = defaultsProvider.GetDefaults();
 
         return new AppSettingsDto(
             Appearance: new AppearanceSettingsDto(
@@ -43,7 +43,7 @@ public sealed class SettingsService(
     {
         validator.Validate(request);
 
-        var storedSettings = await dbContext.AppSettings
+        Dictionary<string, AppSetting>? storedSettings = await dbContext.AppSettings
             .Where(x => SettingsKeys.KnownKeys.Contains(x.Key))
             .ToDictionaryAsync(x => x.Key, x => x, cancellationToken);
 
@@ -66,21 +66,21 @@ public sealed class SettingsService(
 
     private static string GetString(IReadOnlyDictionary<string, string> settings, string key, string fallback)
     {
-        return settings.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
+        return settings.TryGetValue(key, out string? value) && !string.IsNullOrWhiteSpace(value)
             ? value
             : fallback;
     }
 
     private static bool GetBool(IReadOnlyDictionary<string, string> settings, string key, bool fallback)
     {
-        return settings.TryGetValue(key, out var value) && bool.TryParse(value, out var parsed)
+        return settings.TryGetValue(key, out string? value) && bool.TryParse(value, out bool parsed)
             ? parsed
             : fallback;
     }
 
     private void Upsert(IReadOnlyDictionary<string, AppSetting> storedSettings, string key, string value)
     {
-        if (storedSettings.TryGetValue(key, out var setting))
+        if (storedSettings.TryGetValue(key, out AppSetting? setting))
         {
             setting.Value = value;
             setting.UpdatedAt = dateTimeProvider.UtcNow;

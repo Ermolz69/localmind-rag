@@ -16,16 +16,16 @@ public sealed class UploadDocumentHandlerTests
     [Fact]
     public async Task HandleAsync_Should_Create_Document_File_And_IngestionJob()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var storage = new FakeFileStorageService();
-        var handler = CreateHandler(database, storage);
-        await using var content = new MemoryStream("hello localmind"u8.ToArray());
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        FakeFileStorageService? storage = new FakeFileStorageService();
+        UploadDocumentHandler? handler = CreateHandler(database, storage);
+        await using MemoryStream? content = new MemoryStream("hello localmind"u8.ToArray());
 
-        var response = await handler.HandleAsync(new UploadDocumentCommand(content, "notes.txt", "text/plain", content.Length, null));
+        UploadDocumentResponse? response = await handler.HandleAsync(new UploadDocumentCommand(content, "notes.txt", "text/plain", content.Length, null));
 
-        var document = await database.Context.Documents.SingleAsync();
-        var documentFile = await database.Context.DocumentFiles.SingleAsync();
-        var ingestionJob = await database.Context.IngestionJobs.SingleAsync();
+        Document? document = await database.Context.Documents.SingleAsync();
+        DocumentFile? documentFile = await database.Context.DocumentFiles.SingleAsync();
+        IngestionJob? ingestionJob = await database.Context.IngestionJobs.SingleAsync();
 
         Assert.Equal(document.Id, response.DocumentId);
         Assert.Equal(ingestionJob.Id, response.IngestionJobId);
@@ -43,14 +43,14 @@ public sealed class UploadDocumentHandlerTests
     [Fact]
     public async Task HandleAsync_Should_Create_Default_Bucket_When_Bucket_Is_Not_Provided()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var handler = CreateHandler(database);
-        await using var content = new MemoryStream("bucket me"u8.ToArray());
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        UploadDocumentHandler? handler = CreateHandler(database);
+        await using MemoryStream? content = new MemoryStream("bucket me"u8.ToArray());
 
         await handler.HandleAsync(new UploadDocumentCommand(content, "default.md", "text/markdown", content.Length, null));
 
-        var bucket = await database.Context.Buckets.SingleAsync();
-        var document = await database.Context.Documents.SingleAsync();
+        Bucket? bucket = await database.Context.Buckets.SingleAsync();
+        Document? document = await database.Context.Documents.SingleAsync();
         Assert.Equal(BucketConstants.DefaultBucketName, bucket.Name);
         Assert.Equal(bucket.Id, document.BucketId);
     }
@@ -58,17 +58,17 @@ public sealed class UploadDocumentHandlerTests
     [Fact]
     public async Task HandleAsync_Should_Assign_Requested_Bucket_And_Save_Last_Selected_Bucket()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var bucket = new Bucket { Name = "Research" };
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        Bucket? bucket = new Bucket { Name = "Research" };
         database.Context.Buckets.Add(bucket);
         await database.Context.SaveChangesAsync();
-        var handler = CreateHandler(database);
-        await using var content = new MemoryStream("selected bucket"u8.ToArray());
+        UploadDocumentHandler? handler = CreateHandler(database);
+        await using MemoryStream? content = new MemoryStream("selected bucket"u8.ToArray());
 
         await handler.HandleAsync(new UploadDocumentCommand(content, "paper.pdf", "application/pdf", content.Length, bucket.Id));
 
-        var document = await database.Context.Documents.SingleAsync();
-        var setting = await database.Context.AppSettings.SingleAsync(x => x.Key == BucketSettingsKeys.LastSelectedBucketId);
+        Document? document = await database.Context.Documents.SingleAsync();
+        AppSetting? setting = await database.Context.AppSettings.SingleAsync(x => x.Key == BucketSettingsKeys.LastSelectedBucketId);
         Assert.Equal(bucket.Id, document.BucketId);
         Assert.Equal(bucket.Id.ToString(), setting.Value);
     }
@@ -76,8 +76,8 @@ public sealed class UploadDocumentHandlerTests
     [Fact]
     public async Task HandleAsync_Should_Use_Last_Selected_Bucket_When_Bucket_Is_Not_Provided()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var lastSelectedBucket = new Bucket { Name = "Inbox" };
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        Bucket? lastSelectedBucket = new Bucket { Name = "Inbox" };
         database.Context.Buckets.Add(lastSelectedBucket);
         database.Context.AppSettings.Add(new AppSetting
         {
@@ -85,12 +85,12 @@ public sealed class UploadDocumentHandlerTests
             Value = lastSelectedBucket.Id.ToString(),
         });
         await database.Context.SaveChangesAsync();
-        var handler = CreateHandler(database);
-        await using var content = new MemoryStream("last selected"u8.ToArray());
+        UploadDocumentHandler? handler = CreateHandler(database);
+        await using MemoryStream? content = new MemoryStream("last selected"u8.ToArray());
 
         await handler.HandleAsync(new UploadDocumentCommand(content, "last.txt", "text/plain", content.Length, null));
 
-        var document = await database.Context.Documents.SingleAsync();
+        Document? document = await database.Context.Documents.SingleAsync();
         Assert.Equal(lastSelectedBucket.Id, document.BucketId);
         Assert.Empty(await database.Context.Buckets.Where(x => x.Name == BucketConstants.DefaultBucketName).ToArrayAsync());
     }
@@ -98,11 +98,11 @@ public sealed class UploadDocumentHandlerTests
     [Fact]
     public async Task HandleAsync_Should_Reject_Missing_Requested_Bucket()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var handler = CreateHandler(database);
-        await using var content = new MemoryStream("missing bucket"u8.ToArray());
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        UploadDocumentHandler? handler = CreateHandler(database);
+        await using MemoryStream? content = new MemoryStream("missing bucket"u8.ToArray());
 
-        var exception = await Assert.ThrowsAsync<NotFoundAppException>(() =>
+        NotFoundAppException? exception = await Assert.ThrowsAsync<NotFoundAppException>(() =>
             handler.HandleAsync(new UploadDocumentCommand(content, "missing.txt", "text/plain", content.Length, Guid.NewGuid())));
 
         Assert.Equal("Selected bucket was not found.", exception.Message);
@@ -112,11 +112,11 @@ public sealed class UploadDocumentHandlerTests
     [Fact]
     public async Task HandleAsync_Should_Reject_Empty_File()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var handler = CreateHandler(database);
-        await using var content = new MemoryStream();
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        UploadDocumentHandler? handler = CreateHandler(database);
+        await using MemoryStream? content = new MemoryStream();
 
-        var exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
+        ValidationAppException? exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
             handler.HandleAsync(new UploadDocumentCommand(content, "empty.txt", "text/plain", 0, null)));
         Assert.Equal("documents.fileEmpty", exception.Code);
     }
@@ -124,11 +124,11 @@ public sealed class UploadDocumentHandlerTests
     [Fact]
     public async Task HandleAsync_Should_Reject_Unsupported_Extension()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var handler = CreateHandler(database);
-        await using var content = new MemoryStream("nope"u8.ToArray());
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        UploadDocumentHandler? handler = CreateHandler(database);
+        await using MemoryStream? content = new MemoryStream("nope"u8.ToArray());
 
-        var exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
+        ValidationAppException? exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
             handler.HandleAsync(new UploadDocumentCommand(content, "archive.zip", "application/zip", content.Length, null)));
         Assert.Equal("documents.unsupportedFileType", exception.Code);
     }
@@ -136,18 +136,18 @@ public sealed class UploadDocumentHandlerTests
     [Fact]
     public async Task HandleAsync_Should_Reject_Too_Large_File()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var handler = CreateHandler(database);
-        await using var content = new MemoryStream([1]);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        UploadDocumentHandler? handler = CreateHandler(database);
+        await using MemoryStream? content = new MemoryStream([1]);
 
-        var exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
+        ValidationAppException? exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
             handler.HandleAsync(new UploadDocumentCommand(content, "large.txt", "text/plain", UploadDocumentCommandValidator.MaxFileSizeBytes + 1, null)));
         Assert.Equal("documents.fileTooLarge", exception.Code);
     }
 
     private static UploadDocumentHandler CreateHandler(TestDatabase database, FakeFileStorageService? storage = null)
     {
-        var clock = new FixedDateTimeProvider();
+        FixedDateTimeProvider? clock = new FixedDateTimeProvider();
         return new UploadDocumentHandler(
             database.Context,
             storage ?? new FakeFileStorageService(),
@@ -186,12 +186,12 @@ public sealed class UploadDocumentHandlerTests
 
         public static async Task<TestDatabase> CreateAsync()
         {
-            var connection = new SqliteConnection("Data Source=:memory:");
+            SqliteConnection? connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
-            var options = new DbContextOptionsBuilder<AppDbContext>()
+            DbContextOptions<AppDbContext>? options = new DbContextOptionsBuilder<AppDbContext>()
                 .UseSqlite(connection)
                 .Options;
-            var context = new AppDbContext(options);
+            AppDbContext? context = new AppDbContext(options);
             await context.Database.EnsureCreatedAsync();
             return new TestDatabase(connection, context);
         }

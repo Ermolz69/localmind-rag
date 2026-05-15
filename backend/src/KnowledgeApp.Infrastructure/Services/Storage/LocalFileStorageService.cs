@@ -26,25 +26,25 @@ public sealed class LocalFileStorageService(IAppPathProvider paths) : IFileStora
 {
     public async Task<StoredFileDto> SaveAsync(Stream content, Guid documentId, string fileName, CancellationToken cancellationToken = default)
     {
-        var safeFileName = Path.GetFileName(fileName);
+        string? safeFileName = Path.GetFileName(fileName);
         if (string.IsNullOrWhiteSpace(safeFileName))
         {
             throw new ArgumentException("Document file name is required.", nameof(fileName));
         }
 
-        var documentDirectory = Path.Combine(paths.FilesDirectory, documentId.ToString());
+        string? documentDirectory = Path.Combine(paths.FilesDirectory, documentId.ToString());
         Directory.CreateDirectory(documentDirectory);
-        var localPath = Path.Combine(documentDirectory, safeFileName);
+        string? localPath = Path.Combine(documentDirectory, safeFileName);
         long sizeBytes;
-        await using (var output = File.Create(localPath))
+        await using (FileStream? output = File.Create(localPath))
         {
             await content.CopyToAsync(output, cancellationToken);
             await output.FlushAsync(cancellationToken);
             sizeBytes = output.Length;
         }
 
-        await using var input = File.OpenRead(localPath);
-        var hash = Convert.ToHexString(await SHA256.HashDataAsync(input, cancellationToken));
+        await using FileStream? input = File.OpenRead(localPath);
+        string? hash = Convert.ToHexString(await SHA256.HashDataAsync(input, cancellationToken));
         return new StoredFileDto(safeFileName, localPath, sizeBytes, hash);
     }
 }

@@ -26,8 +26,8 @@ public sealed class RagAnswerGenerator(IRagContextBuilder contextBuilder, IChatM
 {
     public async Task<RagAnswerDto> AnswerAsync(Guid conversationId, string question, CancellationToken cancellationToken = default)
     {
-        var sources = await contextBuilder.BuildAsync(question, cancellationToken);
-        var answer = await chatClient.GenerateAsync(question, cancellationToken);
+        IReadOnlyList<RagSourceDto>? sources = await contextBuilder.BuildAsync(question, cancellationToken);
+        string? answer = await chatClient.GenerateAsync(question, cancellationToken);
         return new RagAnswerDto(answer, sources);
     }
 }

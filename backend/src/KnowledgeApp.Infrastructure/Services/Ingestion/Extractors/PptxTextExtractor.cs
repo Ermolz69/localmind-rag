@@ -31,27 +31,27 @@ public sealed class PptxTextExtractor : IDocumentTextExtractor
         try
         {
             FileSignatureValidator.EnsureZipPackage(filePath, "PPTX");
-            using var document = PresentationDocument.Open(filePath, false);
-            var presentationPart = document.PresentationPart;
-            var slideIdList = presentationPart?.Presentation?.SlideIdList;
+            using PresentationDocument? document = PresentationDocument.Open(filePath, false);
+            PresentationPart? presentationPart = document.PresentationPart;
+            DocumentFormat.OpenXml.Presentation.SlideIdList? slideIdList = presentationPart?.Presentation?.SlideIdList;
             if (presentationPart is null || slideIdList is null)
             {
                 throw new InvalidOperationException("PPTX slide list was not found.");
             }
 
-            var slides = new List<DocumentTextSegment>();
-            var slideNumber = 1;
-            foreach (var slideId in slideIdList.Elements<PresentationSlideId>())
+            List<DocumentTextSegment>? slides = new List<DocumentTextSegment>();
+            int slideNumber = 1;
+            foreach (PresentationSlideId slideId in slideIdList.Elements<PresentationSlideId>())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var relationshipId = slideId.RelationshipId?.Value;
+                string? relationshipId = slideId.RelationshipId?.Value;
                 if (string.IsNullOrWhiteSpace(relationshipId))
                 {
                     continue;
                 }
 
-                var slidePart = (SlidePart)presentationPart.GetPartById(relationshipId);
-                var slideText = ExtractSlideText(slidePart).Trim();
+                SlidePart? slidePart = (SlidePart)presentationPart.GetPartById(relationshipId);
+                string? slideText = ExtractSlideText(slidePart).Trim();
                 if (slideText.Length > 0)
                 {
                     slides.Add(new DocumentTextSegment(slideText, slideNumber, $"Slide {slideNumber}", "PptxSlide"));
@@ -78,7 +78,7 @@ public sealed class PptxTextExtractor : IDocumentTextExtractor
 
     private static string ExtractSlideText(SlidePart slidePart)
     {
-        var textBlocks = new List<string>();
+        List<string>? textBlocks = new List<string>();
         if (slidePart.Slide is not null)
         {
             textBlocks.AddRange(slidePart.Slide

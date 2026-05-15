@@ -36,10 +36,10 @@ public sealed class PdfTextExtractor(
         {
             FileSignatureValidator.EnsurePdf(filePath);
 
-            using var document = PdfDocument.Open(filePath);
-            var segments = new List<DocumentTextSegment>();
+            using PdfDocument? document = PdfDocument.Open(filePath);
+            List<DocumentTextSegment>? segments = new List<DocumentTextSegment>();
 
-            foreach (var page in document.GetPages())
+            foreach (UglyToad.PdfPig.Content.Page page in document.GetPages())
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -57,9 +57,9 @@ public sealed class PdfTextExtractor(
                     continue;
                 }
 
-                var imageNumber = 1;
+                int imageNumber = 1;
 
-                foreach (var image in page.GetImages())
+                foreach (UglyToad.PdfPig.Content.IPdfImage image in page.GetImages())
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
@@ -70,7 +70,7 @@ public sealed class PdfTextExtractor(
                         continue;
                     }
 
-                    var temporaryImagePath = TryWritePdfImageToTemporaryFile(image, page.Number, imageNumber);
+                    string? temporaryImagePath = TryWritePdfImageToTemporaryFile(image, page.Number, imageNumber);
 
                     if (temporaryImagePath is null)
                     {
@@ -80,11 +80,11 @@ public sealed class PdfTextExtractor(
 
                     try
                     {
-                        var ocrResult = await ocrEngine.ExtractAsync(temporaryImagePath, cancellationToken);
+                        OcrTextResult? ocrResult = await ocrEngine.ExtractAsync(temporaryImagePath, cancellationToken);
 
                         if (!string.IsNullOrWhiteSpace(ocrResult.Text))
                         {
-                            var languageSuffix = string.IsNullOrWhiteSpace(ocrResult.DetectedLanguage)
+                            string? languageSuffix = string.IsNullOrWhiteSpace(ocrResult.DetectedLanguage)
                                 ? string.Empty
                                 : $" ({ocrResult.DetectedLanguage})";
 
@@ -125,12 +125,12 @@ public sealed class PdfTextExtractor(
         int pageNumber,
         int imageNumber)
     {
-        var temporaryDirectory = Path.Combine(Path.GetTempPath(), "localmind-rag-ocr");
+        string? temporaryDirectory = Path.Combine(Path.GetTempPath(), "localmind-rag-ocr");
         Directory.CreateDirectory(temporaryDirectory);
 
-        if (image.TryGetPng(out var pngBytes))
+        if (image.TryGetPng(out byte[]? pngBytes))
         {
-            var pngPath = Path.Combine(
+            string? pngPath = Path.Combine(
                 temporaryDirectory,
                 $"pdf-page-{pageNumber}-image-{imageNumber}-{Guid.NewGuid():N}.png");
 
@@ -138,11 +138,11 @@ public sealed class PdfTextExtractor(
             return pngPath;
         }
 
-        var rawBytes = image.RawBytes.ToArray();
+        byte[]? rawBytes = image.RawBytes.ToArray();
 
         if (IsJpeg(rawBytes))
         {
-            var jpgPath = Path.Combine(
+            string? jpgPath = Path.Combine(
                 temporaryDirectory,
                 $"pdf-page-{pageNumber}-image-{imageNumber}-{Guid.NewGuid():N}.jpg");
 

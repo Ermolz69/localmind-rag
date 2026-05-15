@@ -26,9 +26,9 @@ public sealed partial class HtmlTextExtractor : IDocumentTextExtractor
 {
     public async Task<DocumentTextExtractionResult> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        var html = await File.ReadAllTextAsync(filePath, cancellationToken);
-        var withoutScripts = ScriptOrStyleRegex().Replace(html, " ");
-        var withoutTags = HtmlTagRegex().Replace(withoutScripts, " ");
+        string? html = await File.ReadAllTextAsync(filePath, cancellationToken);
+        string? withoutScripts = ScriptOrStyleRegex().Replace(html, " ");
+        string? withoutTags = HtmlTagRegex().Replace(withoutScripts, " ");
         return ExtractedText.FromSingle(WebUtility.HtmlDecode(withoutTags), "Document", "HtmlDocument");
     }
 

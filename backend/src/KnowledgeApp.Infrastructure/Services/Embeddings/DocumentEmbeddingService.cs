@@ -30,10 +30,10 @@ public sealed class DocumentEmbeddingService(
         IReadOnlyList<DocumentChunk> chunks,
         CancellationToken cancellationToken = default)
     {
-        var embeddings = new List<DocumentEmbedding>(chunks.Count);
-        foreach (var chunk in chunks)
+        List<DocumentEmbedding>? embeddings = new List<DocumentEmbedding>(chunks.Count);
+        foreach (DocumentChunk chunk in chunks)
         {
-            var vector = await embeddingGenerator.GenerateAsync(chunk.Text, cancellationToken);
+            float[]? vector = await embeddingGenerator.GenerateAsync(chunk.Text, cancellationToken);
             embeddings.Add(new DocumentEmbedding
             {
                 CreatedAt = dateTimeProvider.UtcNow,

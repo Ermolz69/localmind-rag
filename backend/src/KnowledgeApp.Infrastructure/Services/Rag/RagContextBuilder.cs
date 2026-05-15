@@ -26,7 +26,7 @@ public sealed class RagContextBuilder(IVectorSearchService search, IEmbeddingGen
 {
     public async Task<IReadOnlyList<RagSourceDto>> BuildAsync(string question, CancellationToken cancellationToken = default)
     {
-        var vector = await embeddings.GenerateAsync(question, cancellationToken);
+        float[]? vector = await embeddings.GenerateAsync(question, cancellationToken);
         return await search.SearchAsync(vector, new VectorSearchOptions(), cancellationToken);
     }
 }

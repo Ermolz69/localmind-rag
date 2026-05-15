@@ -21,9 +21,9 @@ public sealed class SettingsEndpointsTests : IClassFixture<WebApplicationFactory
     [Fact]
     public async Task GetSettings_Should_Return_Typed_Settings_Model()
     {
-        using var client = factory.CreateClient();
+        using HttpClient? client = factory.CreateClient();
 
-        var settings = await client.GetFromJsonAsync<AppSettingsDto>("/api/settings");
+        AppSettingsDto? settings = await client.GetFromJsonAsync<AppSettingsDto>("/api/settings");
 
         Assert.NotNull(settings);
         Assert.NotNull(settings.Appearance);
@@ -40,9 +40,9 @@ public sealed class SettingsEndpointsTests : IClassFixture<WebApplicationFactory
     [Fact]
     public async Task PutSettings_Should_Save_Settings_In_Sqlite()
     {
-        using var client = factory.CreateClient();
+        using HttpClient? client = factory.CreateClient();
 
-        var request = new AppSettingsDto(
+        AppSettingsDto? request = new AppSettingsDto(
             Appearance: new AppearanceSettingsDto("Dark"),
             Ai: new AiSettingsDto(
                 Provider: "Ollama",
@@ -60,11 +60,11 @@ public sealed class SettingsEndpointsTests : IClassFixture<WebApplicationFactory
                 Enabled: true,
                 AutoSync: false));
 
-        using var response = await client.PutAsJsonAsync("/api/settings", request);
+        using HttpResponseMessage? response = await client.PutAsJsonAsync("/api/settings", request);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        var saved = await client.GetFromJsonAsync<AppSettingsDto>("/api/settings");
+        AppSettingsDto? saved = await client.GetFromJsonAsync<AppSettingsDto>("/api/settings");
 
         Assert.NotNull(saved);
         Assert.Equal("Dark", saved.Appearance.Theme);
@@ -73,12 +73,12 @@ public sealed class SettingsEndpointsTests : IClassFixture<WebApplicationFactory
         Assert.True(saved.Sync.Enabled);
         Assert.False(saved.Sync.AutoSync);
 
-        await using var scope = factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var storedTheme = await db.AppSettings.SingleAsync(x => x.Key == "App.Theme");
-        var storedProvider = await db.AppSettings.SingleAsync(x => x.Key == "Ai.Provider");
-        var storedSyncEnabled = await db.AppSettings.SingleAsync(x => x.Key == "Sync.Enabled");
+        Domain.Entities.AppSetting? storedTheme = await db.AppSettings.SingleAsync(x => x.Key == "App.Theme");
+        Domain.Entities.AppSetting? storedProvider = await db.AppSettings.SingleAsync(x => x.Key == "Ai.Provider");
+        Domain.Entities.AppSetting? storedSyncEnabled = await db.AppSettings.SingleAsync(x => x.Key == "Sync.Enabled");
 
         Assert.Equal("Dark", storedTheme.Value);
         Assert.Equal("Ollama", storedProvider.Value);
@@ -88,9 +88,9 @@ public sealed class SettingsEndpointsTests : IClassFixture<WebApplicationFactory
     [Fact]
     public async Task PutSettings_Should_Return_ProblemDetails_For_Invalid_Settings()
     {
-        using var client = factory.CreateClient();
+        using HttpClient? client = factory.CreateClient();
 
-        var request = new AppSettingsDto(
+        AppSettingsDto? request = new AppSettingsDto(
             Appearance: new AppearanceSettingsDto("Blue"),
             Ai: new AiSettingsDto(
                 Provider: "UnknownProvider",
@@ -108,11 +108,11 @@ public sealed class SettingsEndpointsTests : IClassFixture<WebApplicationFactory
                 Enabled: false,
                 AutoSync: false));
 
-        using var response = await client.PutAsJsonAsync("/api/settings", request);
+        using HttpResponseMessage? response = await client.PutAsJsonAsync("/api/settings", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
-        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        ValidationProblemDetails? problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
 
         Assert.NotNull(problem);
         Assert.Contains("appearance.theme", problem.Errors.Keys);

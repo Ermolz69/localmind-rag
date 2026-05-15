@@ -7,6 +7,7 @@ public static partial class DependencyInjection
 {
     private static IServiceCollection AddNoteApplication(this IServiceCollection services)
     {
+        services.AddScoped<NoteRequestValidator>();
         services.AddScoped<CreateNoteHandler>();
         services.AddScoped<DeleteNoteHandler>();
         services.AddScoped<GetNotesHandler>();

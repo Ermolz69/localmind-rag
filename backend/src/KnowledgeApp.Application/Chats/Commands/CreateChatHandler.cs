@@ -4,15 +4,17 @@ using KnowledgeApp.Domain.Entities;
 
 namespace KnowledgeApp.Application.Chats;
 
-public sealed class CreateChatHandler(IAppDbContext dbContext)
+public sealed class CreateChatHandler(IAppDbContext dbContext, ChatRequestValidator validator)
 {
     public async Task<ConversationDto> HandleAsync(
         CreateConversationRequest request,
         CancellationToken cancellationToken = default)
     {
-        var conversation = new Conversation
+        validator.Validate(request);
+
+        Conversation conversation = new()
         {
-            Title = request.Title,
+            Title = request.Title.Trim(),
         };
 
         dbContext.Conversations.Add(conversation);

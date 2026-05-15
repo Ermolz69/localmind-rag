@@ -26,7 +26,7 @@ public sealed class SyncService(AppDbContext dbContext) : ISyncService, ISyncQue
 {
     public async Task<SyncStatusDto> GetStatusAsync(CancellationToken cancellationToken = default)
     {
-        var pending = await dbContext.SyncOutbox.CountAsync(x => x.Status == SyncStatus.PendingUpload, cancellationToken);
+        int pending = await dbContext.SyncOutbox.CountAsync(x => x.Status == SyncStatus.PendingUpload, cancellationToken);
         return new SyncStatusDto(false, false, pending, "Sync disabled");
     }
 

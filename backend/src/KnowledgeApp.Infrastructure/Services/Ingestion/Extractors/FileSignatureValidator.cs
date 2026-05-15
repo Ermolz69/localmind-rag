@@ -27,7 +27,7 @@ internal static class FileSignatureValidator
     public static void EnsurePdf(string filePath)
     {
         Span<byte> signature = stackalloc byte[5];
-        using var input = File.OpenRead(filePath);
+        using FileStream? input = File.OpenRead(filePath);
         if (input.Read(signature) != signature.Length || !signature.SequenceEqual("%PDF-"u8))
         {
             throw new InvalidOperationException("PDF file signature is invalid.");
@@ -37,7 +37,7 @@ internal static class FileSignatureValidator
     public static void EnsureZipPackage(string filePath, string format)
     {
         Span<byte> signature = stackalloc byte[4];
-        using var input = File.OpenRead(filePath);
+        using FileStream? input = File.OpenRead(filePath);
         if (input.Read(signature) != signature.Length
             || signature[0] != (byte)'P'
             || signature[1] != (byte)'K')

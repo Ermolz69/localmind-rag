@@ -26,7 +26,7 @@ internal static class EmbeddingVectorSerializer
 {
     public static byte[] ToBytes(float[] vector)
     {
-        var bytes = new byte[vector.Length * sizeof(float)];
+        byte[]? bytes = new byte[vector.Length * sizeof(float)];
         Buffer.BlockCopy(vector, 0, bytes, 0, bytes.Length);
         return bytes;
     }
@@ -38,7 +38,7 @@ internal static class EmbeddingVectorSerializer
             throw new InvalidOperationException("Embedding byte length is not a multiple of float size.");
         }
 
-        var vector = new float[bytes.Length / sizeof(float)];
+        float[]? vector = new float[bytes.Length / sizeof(float)];
         Buffer.BlockCopy(bytes, 0, vector, 0, bytes.Length);
         return vector;
     }

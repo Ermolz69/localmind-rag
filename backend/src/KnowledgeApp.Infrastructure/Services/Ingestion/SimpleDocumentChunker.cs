@@ -33,15 +33,15 @@ public sealed class SimpleDocumentChunker : IDocumentChunker
             return [];
         }
 
-        var normalizedText = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
-        var paragraphs = normalizedText
+        string? normalizedText = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        IEnumerable<string>? paragraphs = normalizedText
             .Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(paragraph => Regex.Replace(paragraph, @"\s+", " ").Trim())
             .Where(paragraph => paragraph.Length > 0);
 
-        var chunks = new List<string>();
-        var current = new StringBuilder();
-        foreach (var paragraph in paragraphs)
+        List<string>? chunks = new List<string>();
+        StringBuilder? current = new StringBuilder();
+        foreach (string paragraph in paragraphs)
         {
             if (paragraph.Length > TargetChunkSize)
             {
@@ -69,7 +69,7 @@ public sealed class SimpleDocumentChunker : IDocumentChunker
 
     private static IEnumerable<string> SplitLongParagraph(string paragraph)
     {
-        for (var index = 0; index < paragraph.Length; index += TargetChunkSize)
+        for (int index = 0; index < paragraph.Length; index += TargetChunkSize)
         {
             yield return paragraph.Substring(index, Math.Min(TargetChunkSize, paragraph.Length - index));
         }

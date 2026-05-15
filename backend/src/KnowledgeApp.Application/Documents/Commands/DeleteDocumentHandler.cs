@@ -8,7 +8,7 @@ public sealed class DeleteDocumentHandler(IAppDbContext dbContext)
 {
     public async Task<DeleteDocumentResult> HandleAsync(Guid documentId, CancellationToken cancellationToken = default)
     {
-        var document = await dbContext.Documents.FirstOrDefaultAsync(x => x.Id == documentId, cancellationToken);
+        Domain.Entities.Document? document = await dbContext.Documents.FirstOrDefaultAsync(x => x.Id == documentId, cancellationToken);
         if (document is null)
         {
             return new DeleteDocumentResult(false);

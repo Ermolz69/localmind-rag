@@ -15,7 +15,7 @@ public sealed class AppExceptionHandler(
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
-        var problemDetails = CreateProblemDetails(httpContext, exception);
+        MvcProblemDetails? problemDetails = CreateProblemDetails(httpContext, exception);
         if (problemDetails.Status >= StatusCodes.Status500InternalServerError)
         {
             logger.LogError(exception, "Unhandled API exception.");
@@ -36,8 +36,8 @@ public sealed class AppExceptionHandler(
 
     private MvcProblemDetails CreateProblemDetails(HttpContext httpContext, Exception exception)
     {
-        var traceId = httpContext.TraceIdentifier;
-        var problem = exception switch
+        string? traceId = httpContext.TraceIdentifier;
+        MvcProblemDetails? problem = exception switch
         {
             ValidationAppException validationException => CreateValidationProblem(validationException),
             NotFoundAppException appException => Create(StatusCodes.Status404NotFound, "Resource was not found.", appException.Message, appException.Code),
@@ -59,7 +59,7 @@ public sealed class AppExceptionHandler(
 
     private static MvcProblemDetails Create(int status, string title, string detail, string code)
     {
-        var problem = new MvcProblemDetails
+        MvcProblemDetails? problem = new MvcProblemDetails
         {
             Detail = detail,
             Status = status,
@@ -71,7 +71,7 @@ public sealed class AppExceptionHandler(
 
     private static ValidationProblemDetails CreateValidationProblem(ValidationAppException exception)
     {
-        var problem = new ValidationProblemDetails(exception.Errors.ToDictionary(x => x.Key, x => x.Value))
+        ValidationProblemDetails? problem = new ValidationProblemDetails(exception.Errors.ToDictionary(x => x.Key, x => x.Value))
         {
             Detail = exception.Message,
             Status = StatusCodes.Status400BadRequest,

@@ -7,13 +7,14 @@ public sealed class ProcessIngestionJobHandler(IAppDbContext dbContext, IIngesti
 {
     public async Task<ProcessIngestionJobResult> HandleAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
-        var exists = await dbContext.IngestionJobs.AnyAsync(job => job.Id == jobId, cancellationToken);
-        if (!exists)
+        Domain.Entities.IngestionJob? job = await dbContext.IngestionJobs
+            .FirstOrDefaultAsync(item => item.Id == jobId, cancellationToken);
+        if (job is null)
         {
-            return new ProcessIngestionJobResult(false);
+            return new ProcessIngestionJobResult(false, null, null);
         }
 
         await processor.ProcessAsync(jobId, cancellationToken);
-        return new ProcessIngestionJobResult(true);
+        return new ProcessIngestionJobResult(true, jobId, job.Status.ToString());
     }
 }

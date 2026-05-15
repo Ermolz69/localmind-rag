@@ -11,15 +11,15 @@ public sealed class LocalFileStorageServiceTests : IDisposable
     [Fact]
     public async Task SaveAsync_Should_Save_File_Under_Document_Directory_And_Hash_Saved_Content()
     {
-        var paths = new TestAppPathProvider(root);
-        var storage = new LocalFileStorageService(paths);
-        var documentId = Guid.NewGuid();
-        var bytes = "saved content"u8.ToArray();
-        await using var content = new MemoryStream(bytes);
+        TestAppPathProvider? paths = new TestAppPathProvider(root);
+        LocalFileStorageService? storage = new LocalFileStorageService(paths);
+        Guid documentId = Guid.NewGuid();
+        byte[]? bytes = "saved content"u8.ToArray();
+        await using MemoryStream? content = new MemoryStream(bytes);
 
-        var stored = await storage.SaveAsync(content, documentId, "../notes.txt");
+        Contracts.Documents.StoredFileDto? stored = await storage.SaveAsync(content, documentId, "../notes.txt");
 
-        var expectedPath = Path.Combine(paths.FilesDirectory, documentId.ToString(), "notes.txt");
+        string? expectedPath = Path.Combine(paths.FilesDirectory, documentId.ToString(), "notes.txt");
         Assert.Equal("notes.txt", stored.FileName);
         Assert.Equal(expectedPath, stored.LocalPath);
         Assert.True(File.Exists(expectedPath));

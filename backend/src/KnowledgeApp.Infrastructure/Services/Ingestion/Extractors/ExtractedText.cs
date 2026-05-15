@@ -31,7 +31,7 @@ internal static class ExtractedText
 
     public static DocumentTextExtractionResult FromSegments(IEnumerable<DocumentTextSegment> segments)
     {
-        var cleanSegments = segments
+        DocumentTextSegment[]? cleanSegments = segments
             .Select(segment => segment with { Text = segment.Text.Trim() })
             .Where(segment => segment.Text.Length > 0)
             .ToArray();

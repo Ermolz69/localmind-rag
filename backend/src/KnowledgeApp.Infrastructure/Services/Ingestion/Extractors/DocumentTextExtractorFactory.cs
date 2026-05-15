@@ -31,7 +31,7 @@ public sealed class DocumentTextExtractorFactory(
 {
     public IDocumentTextExtractor GetExtractor(FileType fileType, string extension, string? mimeType)
     {
-        var normalizedExtension = extension.ToLowerInvariant();
+        string? normalizedExtension = extension.ToLowerInvariant();
         return fileType switch
         {
             FileType.Pdf => pdfTextExtractor,

@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using KnowledgeApp.Contracts.Buckets;
 using KnowledgeApp.Contracts.Chats;
+using KnowledgeApp.Contracts.Common;
+using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Notes;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
@@ -24,38 +26,70 @@ public sealed class LocalApiStructureSmokeTests : IClassFixture<WebApplicationFa
     [Fact]
     public async Task Bucket_Note_And_Chat_Endpoints_Should_Keep_Current_Wire_Shape()
     {
-        using var client = factory.CreateClient();
+        using HttpClient? client = factory.CreateClient();
 
-        var bucketResponse = await client.PostAsJsonAsync(
+        HttpResponseMessage? bucketResponse = await client.PostAsJsonAsync(
             "/api/buckets",
             new CreateBucketRequest($"Bucket-{Guid.NewGuid():N}", Description: null));
-        var noteResponse = await client.PostAsJsonAsync(
+        HttpResponseMessage? noteResponse = await client.PostAsJsonAsync(
             "/api/notes",
             new CreateNoteRequest(BucketId: null, "Note", "Body"));
-        var chatResponse = await client.PostAsJsonAsync("/api/chats", new CreateConversationRequest("Chat"));
+        HttpResponseMessage? chatResponse = await client.PostAsJsonAsync("/api/chats", new CreateConversationRequest("Chat"));
 
         Assert.Equal(HttpStatusCode.Created, bucketResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Created, noteResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Created, chatResponse.StatusCode);
         Assert.NotNull(await client.GetFromJsonAsync<BucketDto[]>("/api/buckets"));
-        Assert.NotNull(await client.GetFromJsonAsync<NoteDto[]>("/api/notes"));
-        Assert.NotNull(await client.GetFromJsonAsync<ConversationDto[]>("/api/chats"));
+        Assert.NotNull(await client.GetFromJsonAsync<CursorPage<NoteDto>>("/api/notes"));
+        Assert.NotNull(await client.GetFromJsonAsync<CursorPage<ConversationDto>>("/api/chats"));
+    }
+
+    [Fact]
+    public async Task Chat_Endpoints_Should_Get_Update_And_List_Messages()
+    {
+        using HttpClient client = factory.CreateClient();
+        HttpResponseMessage createResponse = await client.PostAsJsonAsync(
+            "/api/chats",
+            new CreateConversationRequest("Initial chat"));
+        ConversationDto? created = await createResponse.Content.ReadFromJsonAsync<ConversationDto>();
+        Assert.NotNull(created);
+
+        ConversationDto? fetched = await client.GetFromJsonAsync<ConversationDto>($"/api/chats/{created.Id}");
+        Assert.NotNull(fetched);
+        Assert.Equal("Initial chat", fetched.Title);
+
+        HttpResponseMessage updateResponse = await client.PutAsJsonAsync(
+            $"/api/chats/{created.Id}",
+            new UpdateConversationRequest("Renamed chat"));
+        Assert.Equal(HttpStatusCode.NoContent, updateResponse.StatusCode);
+
+        HttpResponseMessage sendResponse = await client.PostAsJsonAsync(
+            $"/api/chats/{created.Id}/messages",
+            new KnowledgeApp.Contracts.Rag.ChatMessageRequest("Hello"));
+        Assert.Equal(HttpStatusCode.OK, sendResponse.StatusCode);
+
+        ChatMessageDto[]? messages = await client.GetFromJsonAsync<ChatMessageDto[]>($"/api/chats/{created.Id}/messages");
+        Assert.NotNull(messages);
+        Assert.Contains(messages, message => message.Content == "Hello");
     }
 
     [Fact]
     public async Task ReindexDocumentEndpoint_Should_Create_Queued_Ingestion_Job()
     {
-        await using var scope = factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var document = new Document { Name = $"reindex-{Guid.NewGuid():N}.txt", Status = DocumentStatus.Indexed };
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Document? document = new Document { Name = $"reindex-{Guid.NewGuid():N}.txt", Status = DocumentStatus.Indexed };
         db.Documents.Add(document);
         await db.SaveChangesAsync();
 
-        using var client = factory.CreateClient();
+        using HttpClient? client = factory.CreateClient();
 
-        var response = await client.PostAsync($"/api/documents/{document.Id}/reindex", content: null);
+        HttpResponseMessage response = await client.PostAsync($"/api/documents/{document.Id}/reindex", content: null);
 
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        ReindexDocumentResponse? body = await response.Content.ReadFromJsonAsync<ReindexDocumentResponse>();
+        Assert.NotNull(body);
+        Assert.Equal(document.Id, body.DocumentId);
         Assert.True(await db.IngestionJobs.AnyAsync(job => job.DocumentId == document.Id));
     }
 }

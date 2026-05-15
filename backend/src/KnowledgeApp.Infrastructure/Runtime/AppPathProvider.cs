@@ -20,13 +20,13 @@ public sealed class AppPathProvider(IOptions<LocalRuntimeOptions> options) : IAp
 
     private static string ResolveRootPath()
     {
-        var configured = Environment.GetEnvironmentVariable("KNOWLEDGE_APP_ROOT");
+        string? configured = Environment.GetEnvironmentVariable("KNOWLEDGE_APP_ROOT");
         if (!string.IsNullOrWhiteSpace(configured))
         {
             return Path.GetFullPath(configured);
         }
 
-        var current = new DirectoryInfo(Directory.GetCurrentDirectory());
+        DirectoryInfo? current = new DirectoryInfo(Directory.GetCurrentDirectory());
         while (current is not null)
         {
             if (File.Exists(Path.Combine(current.FullName, "pnpm-workspace.yaml")) ||

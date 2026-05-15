@@ -9,18 +9,19 @@ public sealed class BucketHandlersTests
     [Fact]
     public async Task BucketHandlers_Should_List_Create_Update_And_Delete()
     {
-        await using var database = await ApplicationTestDatabase.CreateAsync();
-        var create = new CreateBucketHandler(database.Context);
-        var list = new GetBucketsHandler(database.Context);
-        var update = new UpdateBucketHandler(database.Context, new FixedDateTimeProvider());
-        var delete = new DeleteBucketHandler(database.Context);
+        await using ApplicationTestDatabase? database = await ApplicationTestDatabase.CreateAsync();
+        BucketRequestValidator validator = new();
+        CreateBucketHandler create = new(database.Context, validator);
+        GetBucketsHandler list = new(database.Context);
+        UpdateBucketHandler update = new(database.Context, new FixedDateTimeProvider(), validator);
+        DeleteBucketHandler delete = new(database.Context);
 
-        var bucket = await create.HandleAsync(new CreateBucketRequest("Work", "Initial"));
-        var buckets = await list.HandleAsync();
-        var updateResult = await update.HandleAsync(bucket.Id, new UpdateBucketRequest("Personal", "Updated"));
-        var missingUpdateResult = await update.HandleAsync(Guid.NewGuid(), new UpdateBucketRequest("Missing", null));
-        var deleteResult = await delete.HandleAsync(bucket.Id);
-        var missingDeleteResult = await delete.HandleAsync(bucket.Id);
+        BucketDto? bucket = await create.HandleAsync(new CreateBucketRequest("Work", "Initial"));
+        IReadOnlyList<BucketDto>? buckets = await list.HandleAsync();
+        UpdateBucketResult? updateResult = await update.HandleAsync(bucket.Id, new UpdateBucketRequest("Personal", "Updated"));
+        UpdateBucketResult? missingUpdateResult = await update.HandleAsync(Guid.NewGuid(), new UpdateBucketRequest("Missing", null));
+        DeleteBucketResult? deleteResult = await delete.HandleAsync(bucket.Id);
+        DeleteBucketResult? missingDeleteResult = await delete.HandleAsync(bucket.Id);
 
         Assert.Contains(buckets, item => item.Id == bucket.Id);
         Assert.True(updateResult.Found);

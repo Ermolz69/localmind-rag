@@ -12,7 +12,7 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
     {
         if (requestedBucketId.HasValue)
         {
-            var requestedBucket = await dbContext.Buckets
+            Bucket? requestedBucket = await dbContext.Buckets
                 .FirstOrDefaultAsync(x => x.Id == requestedBucketId.Value, cancellationToken);
             if (requestedBucket is null)
             {
@@ -23,13 +23,13 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
             return requestedBucket;
         }
 
-        var lastSelectedBucket = await GetLastSelectedBucketAsync(cancellationToken);
+        Bucket? lastSelectedBucket = await GetLastSelectedBucketAsync(cancellationToken);
         if (lastSelectedBucket is not null)
         {
             return lastSelectedBucket;
         }
 
-        var defaultBucket = await dbContext.Buckets
+        Bucket? defaultBucket = await dbContext.Buckets
             .FirstOrDefaultAsync(x => x.Name == BucketConstants.DefaultBucketName, cancellationToken);
 
         if (defaultBucket is null)
@@ -49,10 +49,10 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
 
     private async Task<Bucket?> GetLastSelectedBucketAsync(CancellationToken cancellationToken)
     {
-        var setting = await dbContext.AppSettings
+        AppSetting? setting = await dbContext.AppSettings
             .FirstOrDefaultAsync(x => x.Key == BucketSettingsKeys.LastSelectedBucketId, cancellationToken);
 
-        if (setting is null || !Guid.TryParse(setting.Value, out var bucketId))
+        if (setting is null || !Guid.TryParse(setting.Value, out Guid bucketId))
         {
             return null;
         }
@@ -62,7 +62,7 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
 
     private async Task SetLastSelectedBucketAsync(Guid bucketId, CancellationToken cancellationToken)
     {
-        var setting = await dbContext.AppSettings
+        AppSetting? setting = await dbContext.AppSettings
             .FirstOrDefaultAsync(x => x.Key == BucketSettingsKeys.LastSelectedBucketId, cancellationToken);
 
         if (setting is null)

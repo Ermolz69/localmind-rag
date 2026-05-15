@@ -15,7 +15,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`LocalApi request failed: ${response.status}`);
   }
 
-  if (response.status === 202 || response.status === 204) {
+  if (response.status === 204) {
     return undefined as T;
   }
 
@@ -35,9 +35,9 @@ export const localApi = {
       body: JSON.stringify({ name }),
     }),
   getDocuments: (bucketId?: string) =>
-    request<DocumentSummary[]>(
+    request<CursorPage<DocumentSummary>>(
       `/api/documents${bucketId ? `?bucketId=${bucketId}` : ""}`,
-    ),
+    ).then((page) => page.items),
   uploadDocument: (file: File, bucketId?: string) => {
     const form = new FormData();
     form.append("file", file);
@@ -55,15 +55,19 @@ export const localApi = {
       body: JSON.stringify(settings),
     }),
   processIngestionJob: (jobId: string) =>
-    request<void>(`/api/ingestion/jobs/${jobId}/process`, {
-      method: "POST",
-    }),
+    request<ProcessIngestionJobResponse>(
+      `/api/ingestion/jobs/${jobId}/process`,
+      {
+        method: "POST",
+      },
+    ),
   semanticSearch: (query: string) =>
-    request<RagSource[]>("/api/search/semantic", {
+    request<SemanticSearchResponse>("/api/search/semantic", {
       method: "POST",
       body: JSON.stringify({ query }),
-    }),
-  getNotes: () => request<NoteDto[]>("/api/notes"),
+    }).then((response) => response.sources),
+  getNotes: () =>
+    request<CursorPage<NoteDto>>("/api/notes").then((page) => page.items),
   createNote: (note: {
     title: string;
     markdown: string;
@@ -109,6 +113,13 @@ export type DocumentSummary = {
   lastError: string | null;
 };
 
+export type CursorPage<T> = {
+  items: T[];
+  nextCursor: string | null;
+  limit: number;
+  hasMore: boolean;
+};
+
 export type NoteDto = {
   id: string;
   title: string;
@@ -119,6 +130,11 @@ export type NoteDto = {
 export type UploadDocumentResponse = {
   documentId: string;
   ingestionJobId: string;
+  status: string;
+};
+
+export type ProcessIngestionJobResponse = {
+  jobId: string;
   status: string;
 };
 
@@ -143,6 +159,10 @@ export type RagSource = {
   pageNumber: number | null;
   score: number;
   snippet: string;
+};
+
+export type SemanticSearchResponse = {
+  sources: RagSource[];
 };
 
 export type DiagnosticsPaths = {

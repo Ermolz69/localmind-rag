@@ -1,12 +1,12 @@
 using KnowledgeApp.Bootstrap;
 using KnowledgeApp.LocalApi.Endpoints;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.AddKnowledgeAppBootstrap();
 builder.Services.AddOpenApi();
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 app.UseKnowledgeAppBootstrap();
 

@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Documents;
+using KnowledgeApp.Contracts.Documents;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
@@ -9,9 +10,14 @@ public static class DocumentEndpoints
     {
         app.MapGet("/api/documents", async (
                 Guid? bucketId,
+                string? status,
+                string? cursor,
+                int? limit,
                 GetDocumentsHandler handler,
                 CancellationToken cancellationToken) =>
-            Results.Ok(await handler.HandleAsync(new GetDocumentsQuery(bucketId), cancellationToken)));
+            Results.Ok(await handler.HandleAsync(
+                new GetDocumentsQuery(bucketId, status, cursor, limit ?? 50),
+                cancellationToken)));
 
         app.MapPost("/api/documents/upload", async (
             IFormFile file,
@@ -19,8 +25,8 @@ public static class DocumentEndpoints
             UploadDocumentHandler handler,
             CancellationToken cancellationToken) =>
         {
-            await using var stream = file.OpenReadStream();
-            var response = await handler.HandleAsync(
+            await using Stream? stream = file.OpenReadStream();
+            UploadDocumentResponse? response = await handler.HandleAsync(
                 new UploadDocumentCommand(stream, file.FileName, file.ContentType, file.Length, bucketId),
                 cancellationToken);
 
@@ -32,7 +38,7 @@ public static class DocumentEndpoints
             GetDocumentByIdHandler handler,
             CancellationToken cancellationToken) =>
         {
-            var document = await handler.HandleAsync(new GetDocumentByIdQuery(id), cancellationToken);
+            DocumentDto? document = await handler.HandleAsync(new GetDocumentByIdQuery(id), cancellationToken);
             return document is null ? Results.NotFound() : Results.Ok(document);
         });
 
@@ -41,7 +47,7 @@ public static class DocumentEndpoints
             DeleteDocumentHandler handler,
             CancellationToken cancellationToken) =>
         {
-            var result = await handler.HandleAsync(id, cancellationToken);
+            DeleteDocumentResult result = await handler.HandleAsync(id, cancellationToken);
             if (!result.Found)
             {
                 return TypedResults.NotFound();
@@ -55,13 +61,15 @@ public static class DocumentEndpoints
             ReindexDocumentHandler handler,
             CancellationToken cancellationToken) =>
         {
-            var result = await handler.HandleAsync(id, cancellationToken);
+            ReindexDocumentResult result = await handler.HandleAsync(id, cancellationToken);
             if (!result.Found)
             {
                 return Results.NotFound();
             }
 
-            return Results.Accepted();
+            return Results.Accepted(
+                $"/api/ingestion/jobs/{result.JobId}",
+                new ReindexDocumentResponse(id, result.JobId!.Value, result.Status ?? "Queued"));
         });
 
         return app;

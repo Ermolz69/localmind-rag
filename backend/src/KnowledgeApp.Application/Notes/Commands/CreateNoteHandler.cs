@@ -4,14 +4,16 @@ using KnowledgeApp.Domain.Entities;
 
 namespace KnowledgeApp.Application.Notes;
 
-public sealed class CreateNoteHandler(IAppDbContext dbContext)
+public sealed class CreateNoteHandler(IAppDbContext dbContext, NoteRequestValidator validator)
 {
     public async Task<NoteDto> HandleAsync(CreateNoteRequest request, CancellationToken cancellationToken = default)
     {
-        var note = new Note
+        validator.Validate(request);
+
+        Note note = new()
         {
             BucketId = request.BucketId,
-            Title = request.Title,
+            Title = request.Title.Trim(),
             Markdown = request.Markdown,
         };
 

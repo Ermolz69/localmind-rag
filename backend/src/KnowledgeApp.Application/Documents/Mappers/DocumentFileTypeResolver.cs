@@ -19,5 +19,5 @@ public static class DocumentFileTypeResolver
     public static bool IsSupported(string fileName) => ExtensionMap.ContainsKey(Path.GetExtension(fileName));
 
     public static FileType Resolve(string fileName) =>
-        ExtensionMap.TryGetValue(Path.GetExtension(fileName), out var fileType) ? fileType : FileType.Unknown;
+        ExtensionMap.TryGetValue(Path.GetExtension(fileName), out FileType fileType) ? fileType : FileType.Unknown;
 }

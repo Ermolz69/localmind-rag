@@ -16,7 +16,7 @@ public static class BucketEndpoints
             CreateBucketHandler handler,
             CancellationToken cancellationToken) =>
         {
-            var created = await handler.HandleAsync(request, cancellationToken);
+            BucketDto created = await handler.HandleAsync(request, cancellationToken);
             return Results.Created($"/api/buckets/{created.Id}", created);
         });
 
@@ -26,7 +26,7 @@ public static class BucketEndpoints
             UpdateBucketHandler handler,
             CancellationToken cancellationToken) =>
         {
-            var result = await handler.HandleAsync(id, request, cancellationToken);
+            UpdateBucketResult result = await handler.HandleAsync(id, request, cancellationToken);
             if (!result.Found)
             {
                 return TypedResults.NotFound();
@@ -40,7 +40,7 @@ public static class BucketEndpoints
             DeleteBucketHandler handler,
             CancellationToken cancellationToken) =>
         {
-            var result = await handler.HandleAsync(id, cancellationToken);
+            DeleteBucketResult result = await handler.HandleAsync(id, cancellationToken);
             if (!result.Found)
             {
                 return TypedResults.NotFound();

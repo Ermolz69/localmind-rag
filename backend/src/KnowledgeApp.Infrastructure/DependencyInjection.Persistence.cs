@@ -12,7 +12,7 @@ public static partial class DependencyInjection
     {
         services.AddDbContext<AppDbContext>((provider, options) =>
         {
-            var paths = provider.GetRequiredService<IAppPathProvider>();
+            IAppPathProvider? paths = provider.GetRequiredService<IAppPathProvider>();
             options.UseSqlite($"Data Source={paths.DatabasePath}");
         });
 

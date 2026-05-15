@@ -4,13 +4,15 @@ using KnowledgeApp.Domain.Entities;
 
 namespace KnowledgeApp.Application.Buckets;
 
-public sealed class CreateBucketHandler(IAppDbContext dbContext)
+public sealed class CreateBucketHandler(IAppDbContext dbContext, BucketRequestValidator validator)
 {
     public async Task<BucketDto> HandleAsync(CreateBucketRequest request, CancellationToken cancellationToken = default)
     {
-        var bucket = new Bucket
+        validator.Validate(request);
+
+        Bucket bucket = new()
         {
-            Name = request.Name,
+            Name = request.Name.Trim(),
             Description = request.Description,
         };
 

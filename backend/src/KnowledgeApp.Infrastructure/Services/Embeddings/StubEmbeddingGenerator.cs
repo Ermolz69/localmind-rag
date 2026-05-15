@@ -44,7 +44,7 @@ public sealed class StubEmbeddingGenerator : IEmbeddingGenerator
 
     public Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(text));
+        byte[]? bytes = SHA256.HashData(Encoding.UTF8.GetBytes(text));
         return Task.FromResult(bytes.Select(x => (float)x / byte.MaxValue).ToArray());
     }
 }

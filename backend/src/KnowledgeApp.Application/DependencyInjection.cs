@@ -11,6 +11,7 @@ public static partial class DependencyInjection
             .AddDocumentApplication()
             .AddNoteApplication()
             .AddChatApplication()
+            .AddSearchApplication()
             .AddSettingsApplication()
             .AddIngestionApplication();
     }

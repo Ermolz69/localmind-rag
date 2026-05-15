@@ -20,13 +20,13 @@ public sealed class DiagnosticsApiTests : IClassFixture<WebApplicationFactory<Pr
     [Fact]
     public async Task DiagnosticsEndpoint_Should_Return_Runtime_Diagnostics()
     {
-        using var client = factory.CreateClient();
+        using HttpClient? client = factory.CreateClient();
 
-        using var response = await client.GetAsync("/api/diagnostics");
+        using HttpResponseMessage? response = await client.GetAsync("/api/diagnostics");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var diagnostics = await response.Content.ReadFromJsonAsync<DiagnosticsResponse>();
+        DiagnosticsResponse? diagnostics = await response.Content.ReadFromJsonAsync<DiagnosticsResponse>();
 
         Assert.NotNull(diagnostics);
         Assert.False(string.IsNullOrWhiteSpace(diagnostics.Paths.DatabasePath));
@@ -47,14 +47,14 @@ public sealed class DiagnosticsApiTests : IClassFixture<WebApplicationFactory<Pr
     [Fact]
     public async Task DiagnosticsEndpoint_Should_Return_Counts_And_Latest_Errors()
     {
-        await using var scope = factory.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var document = new Document
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Document? document = new Document
         {
             Name = $"failed-{Guid.NewGuid():N}.pdf",
             Status = DocumentStatus.Failed,
         };
-        var failedJob = new IngestionJob
+        IngestionJob? failedJob = new IngestionJob
         {
             DocumentId = document.Id,
             LastError = "PDF file signature is invalid.",
@@ -65,9 +65,9 @@ public sealed class DiagnosticsApiTests : IClassFixture<WebApplicationFactory<Pr
         db.IngestionJobs.Add(failedJob);
         await db.SaveChangesAsync();
 
-        using var client = factory.CreateClient();
+        using HttpClient? client = factory.CreateClient();
 
-        var diagnostics = await client.GetFromJsonAsync<DiagnosticsResponse>("/api/diagnostics");
+        DiagnosticsResponse? diagnostics = await client.GetFromJsonAsync<DiagnosticsResponse>("/api/diagnostics");
 
         Assert.NotNull(diagnostics);
         Assert.True(diagnostics.Counts.DocumentsCount >= 1);

@@ -8,7 +8,7 @@ public sealed class GetDocumentByIdHandler(IAppDbContext dbContext)
 {
     public async Task<DocumentDto?> HandleAsync(GetDocumentByIdQuery query, CancellationToken cancellationToken = default)
     {
-        var document = await dbContext.Documents
+        Domain.Entities.Document? document = await dbContext.Documents
             .AsNoTracking()
             .Where(document => document.Id == query.DocumentId)
             .SingleOrDefaultAsync(cancellationToken);
@@ -18,7 +18,7 @@ public sealed class GetDocumentByIdHandler(IAppDbContext dbContext)
             return null;
         }
 
-        var failedJobs = await dbContext.IngestionJobs
+        Domain.Entities.IngestionJob[]? failedJobs = await dbContext.IngestionJobs
             .AsNoTracking()
             .Where(job => job.DocumentId == document.Id && job.LastError != null)
             .ToArrayAsync(cancellationToken);

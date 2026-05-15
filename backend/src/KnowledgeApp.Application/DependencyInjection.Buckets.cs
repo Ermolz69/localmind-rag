@@ -8,6 +8,7 @@ public static partial class DependencyInjection
     private static IServiceCollection AddBucketApplication(this IServiceCollection services)
     {
         services.AddScoped<IBucketResolver, BucketResolver>();
+        services.AddScoped<BucketRequestValidator>();
         services.AddScoped<CreateBucketHandler>();
         services.AddScoped<DeleteBucketHandler>();
         services.AddScoped<GetBucketsHandler>();

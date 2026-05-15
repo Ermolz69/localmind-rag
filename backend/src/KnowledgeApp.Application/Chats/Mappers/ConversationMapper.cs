@@ -1,5 +1,6 @@
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Domain.Enums;
 
 namespace KnowledgeApp.Application.Chats;
 
@@ -12,5 +13,16 @@ public static class ConversationMapper
             conversation.Title,
             conversation.CreatedAt,
             conversation.UpdatedAt);
+    }
+
+    public static ChatMessageDto ToDto(ChatMessage message)
+    {
+        return new ChatMessageDto(
+            message.Id,
+            message.ConversationId,
+            message.Role.ToString(),
+            message.Content,
+            message.CreatedAt,
+            message.UpdatedAt);
     }
 }

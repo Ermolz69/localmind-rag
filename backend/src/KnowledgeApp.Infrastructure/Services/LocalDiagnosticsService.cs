@@ -17,9 +17,9 @@ public sealed class LocalDiagnosticsService(
 {
     public async Task<DiagnosticsDto> GetAsync(CancellationToken cancellationToken = default)
     {
-        var aiRuntimeStatus = await GetAiRuntimeStatusAsync(cancellationToken);
-        var counts = await GetCountsAsync(cancellationToken);
-        var latestErrors = await GetLatestErrorsAsync(cancellationToken);
+        RuntimeStatusDto? aiRuntimeStatus = await GetAiRuntimeStatusAsync(cancellationToken);
+        DiagnosticsCountsDto? counts = await GetCountsAsync(cancellationToken);
+        IReadOnlyList<DiagnosticsIngestionErrorDto>? latestErrors = await GetLatestErrorsAsync(cancellationToken);
 
         return new DiagnosticsDto(
             Paths: new DiagnosticsPathsDto(
@@ -58,10 +58,10 @@ public sealed class LocalDiagnosticsService(
 
     private async Task<DiagnosticsCountsDto> GetCountsAsync(CancellationToken cancellationToken)
     {
-        var pendingJobs = await dbContext.IngestionJobs.CountAsync(
+        int pendingJobs = await dbContext.IngestionJobs.CountAsync(
             job => job.Status == IngestionJobStatus.Queued || job.Status == IngestionJobStatus.Running,
             cancellationToken);
-        var failedJobs = await dbContext.IngestionJobs.CountAsync(
+        int failedJobs = await dbContext.IngestionJobs.CountAsync(
             job => job.Status == IngestionJobStatus.Failed,
             cancellationToken);
 
@@ -79,12 +79,12 @@ public sealed class LocalDiagnosticsService(
 
     private async Task<IReadOnlyList<DiagnosticsIngestionErrorDto>> GetLatestErrorsAsync(CancellationToken cancellationToken)
     {
-        var failedJobs = await dbContext.IngestionJobs
+        Domain.Entities.IngestionJob[]? failedJobs = await dbContext.IngestionJobs
             .AsNoTracking()
             .Where(job => job.Status == IngestionJobStatus.Failed && job.LastError != null)
             .ToArrayAsync(cancellationToken);
-        var documentIds = failedJobs.Select(job => job.DocumentId).Distinct().ToArray();
-        var documentNames = await dbContext.Documents
+        Guid[]? documentIds = failedJobs.Select(job => job.DocumentId).Distinct().ToArray();
+        Dictionary<Guid, string>? documentNames = await dbContext.Documents
             .AsNoTracking()
             .Where(document => documentIds.Contains(document.Id))
             .ToDictionaryAsync(document => document.Id, document => document.Name, cancellationToken);
@@ -103,7 +103,7 @@ public sealed class LocalDiagnosticsService(
 
     private static string GetLocalApiVersion()
     {
-        var assembly = AppDomain.CurrentDomain.GetAssemblies()
+        Assembly? assembly = AppDomain.CurrentDomain.GetAssemblies()
             .FirstOrDefault(assembly => assembly.GetName().Name == "KnowledgeApp.LocalApi");
 
         return assembly?

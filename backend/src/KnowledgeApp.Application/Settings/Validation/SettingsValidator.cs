@@ -8,7 +8,7 @@ public sealed class SettingsValidator
 {
     public void Validate(AppSettingsDto request)
     {
-        var errors = new Dictionary<string, string[]>();
+        Dictionary<string, string[]>? errors = new Dictionary<string, string[]>();
 
         if (!Enum.TryParse<AppTheme>(request.Appearance.Theme, ignoreCase: true, out _))
         {

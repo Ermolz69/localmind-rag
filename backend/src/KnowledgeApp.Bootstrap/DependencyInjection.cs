@@ -15,7 +15,7 @@ public static class DependencyInjection
     {
         builder.Host.UseSerilog((context, logger) =>
         {
-            var readerOptions = new ConfigurationReaderOptions(typeof(ConsoleLoggerConfigurationExtensions).Assembly);
+            ConfigurationReaderOptions? readerOptions = new ConfigurationReaderOptions(typeof(ConsoleLoggerConfigurationExtensions).Assembly);
             logger.ReadFrom.Configuration(context.Configuration, readerOptions);
         });
         builder.Services.AddProblemDetails();
@@ -42,7 +42,7 @@ public static class DependencyInjection
 
     private static bool IsAllowedDesktopOrigin(string origin)
     {
-        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri))
         {
             return false;
         }

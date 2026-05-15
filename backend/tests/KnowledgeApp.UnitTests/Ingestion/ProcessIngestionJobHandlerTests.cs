@@ -10,15 +10,15 @@ public sealed class ProcessIngestionJobHandlerTests
     [Fact]
     public async Task ProcessIngestionJobHandler_Should_Return_NotFound_Or_Call_Processor()
     {
-        await using var database = await ApplicationTestDatabase.CreateAsync();
-        var job = new IngestionJob { DocumentId = Guid.NewGuid() };
+        await using ApplicationTestDatabase? database = await ApplicationTestDatabase.CreateAsync();
+        IngestionJob? job = new IngestionJob { DocumentId = Guid.NewGuid() };
         database.Context.IngestionJobs.Add(job);
         await database.Context.SaveChangesAsync();
-        var processor = new FakeIngestionJobProcessor();
-        var handler = new ProcessIngestionJobHandler(database.Context, processor);
+        FakeIngestionJobProcessor? processor = new FakeIngestionJobProcessor();
+        ProcessIngestionJobHandler? handler = new ProcessIngestionJobHandler(database.Context, processor);
 
-        var missingResult = await handler.HandleAsync(Guid.NewGuid());
-        var result = await handler.HandleAsync(job.Id);
+        ProcessIngestionJobResult? missingResult = await handler.HandleAsync(Guid.NewGuid());
+        ProcessIngestionJobResult? result = await handler.HandleAsync(job.Id);
 
         Assert.False(missingResult.Found);
         Assert.True(result.Found);

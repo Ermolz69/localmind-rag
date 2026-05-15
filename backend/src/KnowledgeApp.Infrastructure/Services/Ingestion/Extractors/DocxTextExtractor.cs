@@ -31,14 +31,14 @@ public sealed class DocxTextExtractor : IDocumentTextExtractor
         try
         {
             FileSignatureValidator.EnsureZipPackage(filePath, "DOCX");
-            using var document = WordprocessingDocument.Open(filePath, false);
-            var body = document.MainDocumentPart?.Document?.Body;
+            using WordprocessingDocument? document = WordprocessingDocument.Open(filePath, false);
+            DocumentFormat.OpenXml.Wordprocessing.Body? body = document.MainDocumentPart?.Document?.Body;
             if (body is null)
             {
                 throw new InvalidOperationException("DOCX document body was not found.");
             }
 
-            var paragraphs = body
+            IEnumerable<string>? paragraphs = body
                 .Descendants<WordParagraph>()
                 .Select(ExtractWordParagraphText)
                 .Where(paragraph => paragraph.Length > 0);
@@ -61,8 +61,8 @@ public sealed class DocxTextExtractor : IDocumentTextExtractor
 
     private static string ExtractWordParagraphText(WordParagraph paragraph)
     {
-        var text = string.Concat(paragraph.Descendants<WordText>().Select(text => text.Text)).Trim();
-        var style = paragraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value;
+        string? text = string.Concat(paragraph.Descendants<WordText>().Select(text => text.Text)).Trim();
+        string? style = paragraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value;
         return string.IsNullOrWhiteSpace(style) ? text : $"{style}: {text}";
     }
 }

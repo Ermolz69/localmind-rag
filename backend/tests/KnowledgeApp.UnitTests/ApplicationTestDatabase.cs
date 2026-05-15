@@ -18,12 +18,12 @@ internal sealed class ApplicationTestDatabase : IAsyncDisposable
 
     public static async Task<ApplicationTestDatabase> CreateAsync()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
+        SqliteConnection? connection = new SqliteConnection("DataSource=:memory:");
         await connection.OpenAsync();
-        var options = new DbContextOptionsBuilder<AppDbContext>()
+        DbContextOptions<AppDbContext>? options = new DbContextOptionsBuilder<AppDbContext>()
             .UseSqlite(connection)
             .Options;
-        var context = new AppDbContext(options);
+        AppDbContext? context = new AppDbContext(options);
         await context.Database.EnsureCreatedAsync();
         return new ApplicationTestDatabase(connection, context);
     }

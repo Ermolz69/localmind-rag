@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Ingestion;
+using KnowledgeApp.Contracts.Ingestion;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
 
@@ -11,13 +12,15 @@ public static class IngestionEndpoints
             ProcessIngestionJobHandler handler,
             CancellationToken cancellationToken) =>
         {
-            var result = await handler.HandleAsync(id, cancellationToken);
+            ProcessIngestionJobResult result = await handler.HandleAsync(id, cancellationToken);
             if (!result.Found)
             {
                 return Results.NotFound();
             }
 
-            return Results.Accepted();
+            return Results.Accepted(
+                $"/api/ingestion/jobs/{id}",
+                new ProcessIngestionJobResponse(result.JobId!.Value, result.Status ?? "Queued"));
         });
 
         return app;
