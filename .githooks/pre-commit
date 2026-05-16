@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+set -euo pipefail
+
+# Repo-level pre-commit hook: run repository CI check scripts before allowing a commit.
+# Runs POSIX shell `scripts/check.sh` (macOS / Linux). On Windows, the PowerShell hooks
+# are available in `scripts/*.ps1` but Git for Windows will invoke the appropriate shell.
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT" || exit 1
+
+echo "[pre-commit] Running repository CI checks..."
+
+if [ -x "$ROOT/scripts/check.sh" ]; then
+  echo "[pre-commit] Executing scripts/check.sh"
+  "$ROOT/scripts/check.sh"
+  RC=$?
+  if [ $RC -ne 0 ]; then
+    echo "[pre-commit] scripts/check.sh failed with exit code $RC"
+    exit $RC
+  fi
+else
+  echo "[pre-commit] Warning: scripts/check.sh not found or not executable. Skipping."
+fi
+
+echo "[pre-commit] All checks passed. Proceeding with commit."
+exit 0
