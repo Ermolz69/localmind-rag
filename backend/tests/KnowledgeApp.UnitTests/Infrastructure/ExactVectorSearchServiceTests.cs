@@ -13,10 +13,10 @@ public sealed class ExactVectorSearchServiceTests
     [Fact]
     public async Task SearchAsync_Should_Return_Empty_List_When_Index_Is_Empty()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var search = new ExactVectorSearchService(database.Context);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        ExactVectorSearchService? search = new ExactVectorSearchService(database.Context);
 
-        var results = await search.SearchAsync([1, 0], new VectorSearchOptions());
+        IReadOnlyList<Contracts.Rag.RagSourceDto>? results = await search.SearchAsync([1, 0], new VectorSearchOptions());
 
         Assert.Empty(results);
     }
@@ -24,12 +24,12 @@ public sealed class ExactVectorSearchServiceTests
     [Fact]
     public async Task SearchAsync_Should_Rank_Relevant_Chunk_Higher_Than_Irrelevant_Chunk()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var relevant = await AddEmbeddedChunkAsync(database.Context, "Relevant document", "Needle chunk", [1, 0]);
-        var irrelevant = await AddEmbeddedChunkAsync(database.Context, "Irrelevant document", "Other chunk", [0, 1]);
-        var search = new ExactVectorSearchService(database.Context);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid ChunkId) relevant = await AddEmbeddedChunkAsync(database.Context, "Relevant document", "Needle chunk", [1, 0]);
+        (Guid DocumentId, Guid ChunkId) irrelevant = await AddEmbeddedChunkAsync(database.Context, "Irrelevant document", "Other chunk", [0, 1]);
+        ExactVectorSearchService? search = new ExactVectorSearchService(database.Context);
 
-        var results = await search.SearchAsync([1, 0], new VectorSearchOptions(Limit: 2));
+        IReadOnlyList<Contracts.Rag.RagSourceDto>? results = await search.SearchAsync([1, 0], new VectorSearchOptions(Limit: 2));
 
         Assert.Collection(
             results,
@@ -52,14 +52,14 @@ public sealed class ExactVectorSearchServiceTests
     [Fact]
     public async Task SearchAsync_Should_Return_Only_Selected_Document_When_Document_Filter_Is_Set()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var selected = await AddEmbeddedChunkAsync(database.Context, "Selected document", "Selected chunk", [1, 0]);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid ChunkId) selected = await AddEmbeddedChunkAsync(database.Context, "Selected document", "Selected chunk", [1, 0]);
         await AddEmbeddedChunkAsync(database.Context, "Other document", "Other chunk", [1, 0]);
-        var search = new ExactVectorSearchService(database.Context);
+        ExactVectorSearchService? search = new ExactVectorSearchService(database.Context);
 
-        var results = await search.SearchAsync([1, 0], new VectorSearchOptions(DocumentId: selected.DocumentId));
+        IReadOnlyList<Contracts.Rag.RagSourceDto>? results = await search.SearchAsync([1, 0], new VectorSearchOptions(DocumentId: selected.DocumentId));
 
-        var result = Assert.Single(results);
+        Contracts.Rag.RagSourceDto? result = Assert.Single(results);
         Assert.Equal(selected.DocumentId, result.DocumentId);
         Assert.Equal(selected.ChunkId, result.ChunkId);
     }
@@ -67,15 +67,15 @@ public sealed class ExactVectorSearchServiceTests
     [Fact]
     public async Task SearchAsync_Should_Return_Only_Selected_Bucket_When_Bucket_Filter_Is_Set()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var selectedBucketId = Guid.NewGuid();
-        var selected = await AddEmbeddedChunkAsync(database.Context, "Selected bucket document", "Selected bucket chunk", [1, 0], selectedBucketId);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        Guid selectedBucketId = Guid.NewGuid();
+        (Guid DocumentId, Guid ChunkId) selected = await AddEmbeddedChunkAsync(database.Context, "Selected bucket document", "Selected bucket chunk", [1, 0], selectedBucketId);
         await AddEmbeddedChunkAsync(database.Context, "Other bucket document", "Other bucket chunk", [1, 0], Guid.NewGuid());
-        var search = new ExactVectorSearchService(database.Context);
+        ExactVectorSearchService? search = new ExactVectorSearchService(database.Context);
 
-        var results = await search.SearchAsync([1, 0], new VectorSearchOptions(BucketId: selectedBucketId));
+        IReadOnlyList<Contracts.Rag.RagSourceDto>? results = await search.SearchAsync([1, 0], new VectorSearchOptions(BucketId: selectedBucketId));
 
-        var result = Assert.Single(results);
+        Contracts.Rag.RagSourceDto? result = Assert.Single(results);
         Assert.Equal(selected.DocumentId, result.DocumentId);
         Assert.Equal(selected.ChunkId, result.ChunkId);
     }
@@ -87,9 +87,9 @@ public sealed class ExactVectorSearchServiceTests
         float[] vector,
         Guid? bucketId = null)
     {
-        var document = new Document { BucketId = bucketId, Name = documentName, Status = DocumentStatus.Indexed };
-        var chunk = new DocumentChunk { DocumentId = document.Id, Index = 0, Text = chunkText };
-        var embedding = new DocumentEmbedding
+        Document? document = new Document { BucketId = bucketId, Name = documentName, Status = DocumentStatus.Indexed };
+        DocumentChunk? chunk = new DocumentChunk { DocumentId = document.Id, Index = 0, Text = chunkText };
+        DocumentEmbedding? embedding = new DocumentEmbedding
         {
             DocumentChunkId = chunk.Id,
             ModelName = "test-model",
@@ -107,7 +107,7 @@ public sealed class ExactVectorSearchServiceTests
 
     private static byte[] ToBytes(float[] vector)
     {
-        var bytes = new byte[vector.Length * sizeof(float)];
+        byte[]? bytes = new byte[vector.Length * sizeof(float)];
         Buffer.BlockCopy(vector, 0, bytes, 0, bytes.Length);
         return bytes;
     }
@@ -126,12 +126,12 @@ public sealed class ExactVectorSearchServiceTests
 
         public static async Task<TestDatabase> CreateAsync()
         {
-            var connection = new SqliteConnection("Data Source=:memory:");
+            SqliteConnection? connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
-            var options = new DbContextOptionsBuilder<AppDbContext>()
+            DbContextOptions<AppDbContext>? options = new DbContextOptionsBuilder<AppDbContext>()
                 .UseSqlite(connection)
                 .Options;
-            var context = new AppDbContext(options);
+            AppDbContext? context = new AppDbContext(options);
             await context.Database.EnsureCreatedAsync();
             return new TestDatabase(connection, context);
         }

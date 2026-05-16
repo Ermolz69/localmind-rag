@@ -1,4 +1,5 @@
 using KnowledgeApp.Application;
+using KnowledgeApp.Bootstrap.ProblemDetails;
 using KnowledgeApp.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -14,10 +15,11 @@ public static class DependencyInjection
     {
         builder.Host.UseSerilog((context, logger) =>
         {
-            var readerOptions = new ConfigurationReaderOptions(typeof(ConsoleLoggerConfigurationExtensions).Assembly);
+            ConfigurationReaderOptions? readerOptions = new ConfigurationReaderOptions(typeof(ConsoleLoggerConfigurationExtensions).Assembly);
             logger.ReadFrom.Configuration(context.Configuration, readerOptions);
         });
         builder.Services.AddProblemDetails();
+        builder.Services.AddExceptionHandler<AppExceptionHandler>();
         builder.Services.AddCors(options =>
         {
             options.AddDefaultPolicy(policy => policy
@@ -40,7 +42,7 @@ public static class DependencyInjection
 
     private static bool IsAllowedDesktopOrigin(string origin)
     {
-        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri))
         {
             return false;
         }

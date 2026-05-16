@@ -1,0 +1,84 @@
+using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
+
+namespace KnowledgeApp.Application.Buckets;
+
+public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider dateTimeProvider) : IBucketResolver
+{
+    public async Task<Bucket> ResolveForUploadAsync(Guid? requestedBucketId, CancellationToken cancellationToken = default)
+    {
+        if (requestedBucketId.HasValue)
+        {
+            Bucket? requestedBucket = await dbContext.Buckets
+                .FirstOrDefaultAsync(x => x.Id == requestedBucketId.Value && x.DeletedAt == null, cancellationToken);
+            if (requestedBucket is null)
+            {
+                throw new NotFoundAppException("buckets.notFound", "Selected bucket was not found.");
+            }
+
+            await SetLastSelectedBucketAsync(requestedBucket.Id, cancellationToken);
+            return requestedBucket;
+        }
+
+        Bucket? lastSelectedBucket = await GetLastSelectedBucketAsync(cancellationToken);
+        if (lastSelectedBucket is not null)
+        {
+            return lastSelectedBucket;
+        }
+
+        Bucket? defaultBucket = await dbContext.Buckets
+            .FirstOrDefaultAsync(x => x.Name == BucketConstants.DefaultBucketName && x.DeletedAt == null, cancellationToken);
+
+        if (defaultBucket is null)
+        {
+            defaultBucket = new Bucket
+            {
+                CreatedAt = dateTimeProvider.UtcNow,
+                Name = BucketConstants.DefaultBucketName,
+                SyncStatus = SyncStatus.LocalOnly,
+            };
+            dbContext.Buckets.Add(defaultBucket);
+        }
+
+        await SetLastSelectedBucketAsync(defaultBucket.Id, cancellationToken);
+        return defaultBucket;
+    }
+
+    private async Task<Bucket?> GetLastSelectedBucketAsync(CancellationToken cancellationToken)
+    {
+        AppSetting? setting = await dbContext.AppSettings
+            .FirstOrDefaultAsync(x => x.Key == BucketSettingsKeys.LastSelectedBucketId, cancellationToken);
+
+        if (setting is null || !Guid.TryParse(setting.Value, out Guid bucketId))
+        {
+            return null;
+        }
+
+        return await dbContext.Buckets.FirstOrDefaultAsync(
+            x => x.Id == bucketId && x.DeletedAt == null,
+            cancellationToken);
+    }
+
+    private async Task SetLastSelectedBucketAsync(Guid bucketId, CancellationToken cancellationToken)
+    {
+        AppSetting? setting = await dbContext.AppSettings
+            .FirstOrDefaultAsync(x => x.Key == BucketSettingsKeys.LastSelectedBucketId, cancellationToken);
+
+        if (setting is null)
+        {
+            dbContext.AppSettings.Add(new AppSetting
+            {
+                CreatedAt = dateTimeProvider.UtcNow,
+                Key = BucketSettingsKeys.LastSelectedBucketId,
+                Value = bucketId.ToString(),
+            });
+            return;
+        }
+
+        setting.Value = bucketId.ToString();
+        setting.UpdatedAt = dateTimeProvider.UtcNow;
+    }
+}

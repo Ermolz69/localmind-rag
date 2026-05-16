@@ -14,7 +14,7 @@ public sealed class TesseractOcrEngine(
         string imagePath,
         CancellationToken cancellationToken = default)
     {
-        var ocrOptions = options.Value;
+        OcrOptions? ocrOptions = options.Value;
 
         if (!ocrOptions.Enabled)
         {
@@ -30,7 +30,7 @@ public sealed class TesseractOcrEngine(
             throw new FileNotFoundException("OCR image file was not found.", imagePath);
         }
 
-        var languages = string.Join(
+        string? languages = string.Join(
             "+",
             ocrOptions.Languages.Where(language => !string.IsNullOrWhiteSpace(language)));
 
@@ -39,17 +39,17 @@ public sealed class TesseractOcrEngine(
             languages = "eng";
         }
 
-        var enginePath = ResolveExecutablePath(ocrOptions.EnginePath);
-        var tessDataPath = ResolveRuntimePath(ocrOptions.TessDataPath);
+        string? enginePath = ResolveExecutablePath(ocrOptions.EnginePath);
+        string? tessDataPath = ResolveRuntimePath(ocrOptions.TessDataPath);
 
-        var text = await RunTesseractAsync(
+        string? text = await RunTesseractAsync(
             enginePath,
             tessDataPath,
             imagePath,
             languages,
             cancellationToken);
 
-        var cleanText = NormalizeText(text);
+        string? cleanText = NormalizeText(text);
 
         if (string.IsNullOrWhiteSpace(cleanText))
         {
@@ -112,7 +112,7 @@ public sealed class TesseractOcrEngine(
             throw new DirectoryNotFoundException($"OCR tessdata directory was not found: {tessDataPath}");
         }
 
-        var startInfo = new ProcessStartInfo
+        ProcessStartInfo? startInfo = new ProcessStartInfo
         {
             FileName = enginePath,
             RedirectStandardOutput = true,
@@ -132,16 +132,16 @@ public sealed class TesseractOcrEngine(
         startInfo.ArgumentList.Add("--tessdata-dir");
         startInfo.ArgumentList.Add(tessDataPath);
 
-        using var process = Process.Start(startInfo)
+        using Process? process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Failed to start OCR process.");
 
-        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        Task<string>? outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        Task<string>? errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
 
         await process.WaitForExitAsync(cancellationToken);
 
-        var output = await outputTask;
-        var error = await errorTask;
+        string? output = await outputTask;
+        string? error = await errorTask;
 
         if (process.ExitCode != 0)
         {
@@ -161,7 +161,7 @@ public sealed class TesseractOcrEngine(
 
     private static string? DetectLanguage(string text)
     {
-        var lower = text.ToLowerInvariant();
+        string? lower = text.ToLowerInvariant();
 
         if (lower.Any(ch => ch is 'ї' or 'є' or 'і' or 'ґ'))
         {
