@@ -103,7 +103,7 @@ export function SettingsSections({ draft, onChange }: SettingsSectionsProps) {
       </Section>
 
       <Section title="Sync">
-        <label className="space-y-2 text-sm">
+        <label className="flex flex-col gap-2 text-sm">
           <span className="font-medium">Sync enabled</span>
           <Select
             value={String(draft.sync.enabled)}
@@ -118,7 +118,7 @@ export function SettingsSections({ draft, onChange }: SettingsSectionsProps) {
             <option value="true">Enabled</option>
           </Select>
         </label>
-        <label className="space-y-2 text-sm">
+        <label className="flex flex-col gap-2 text-sm">
           <span className="font-medium">Auto sync</span>
           <Select
             value={String(draft.sync.autoSync)}
@@ -143,7 +143,7 @@ export function SettingsSections({ draft, onChange }: SettingsSectionsProps) {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="space-y-3 rounded-md border border-border bg-card p-5">
+    <section className="space-y-4 rounded-md border border-border bg-card p-5">
       <h2 className="text-base font-semibold text-card-foreground">{title}</h2>
       {children}
     </section>
@@ -160,7 +160,7 @@ function TextField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="space-y-2 text-sm">
+    <label className="flex flex-col gap-2 text-sm">
       <span className="font-medium">{label}</span>
       <Input value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
