@@ -8,17 +8,16 @@ using KnowledgeApp.Contracts.Notes;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace KnowledgeApp.IntegrationTests;
 
-public sealed class LocalApiStructureSmokeTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class LocalApiStructureSmokeTests : IClassFixture<LocalApiTestFactory>
 {
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly LocalApiTestFactory factory;
 
-    public LocalApiStructureSmokeTests(WebApplicationFactory<Program> factory)
+    public LocalApiStructureSmokeTests(LocalApiTestFactory factory)
     {
         this.factory = factory;
     }
@@ -51,6 +50,7 @@ public sealed class LocalApiStructureSmokeTests : IClassFixture<WebApplicationFa
         HttpResponseMessage createResponse = await client.PostAsJsonAsync(
             "/api/chats",
             new CreateConversationRequest("Initial chat"));
+        createResponse.EnsureSuccessStatusCode();
         ConversationDto? created = await createResponse.Content.ReadFromJsonAsync<ConversationDto>();
         Assert.NotNull(created);
 

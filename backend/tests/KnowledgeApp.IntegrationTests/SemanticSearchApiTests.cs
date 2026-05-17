@@ -5,16 +5,15 @@ using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace KnowledgeApp.IntegrationTests;
 
-public sealed class SemanticSearchApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class SemanticSearchApiTests : IClassFixture<LocalApiTestFactory>
 {
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly LocalApiTestFactory factory;
 
-    public SemanticSearchApiTests(WebApplicationFactory<Program> factory)
+    public SemanticSearchApiTests(LocalApiTestFactory factory)
     {
         this.factory = factory;
     }

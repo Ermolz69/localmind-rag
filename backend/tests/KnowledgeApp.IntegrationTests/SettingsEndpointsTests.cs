@@ -3,17 +3,16 @@ using System.Net.Http.Json;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace KnowledgeApp.IntegrationTests;
 
-public sealed class SettingsEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
 {
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly LocalApiTestFactory factory;
 
-    public SettingsEndpointsTests(WebApplicationFactory<Program> factory)
+    public SettingsEndpointsTests(LocalApiTestFactory factory)
     {
         this.factory = factory;
     }

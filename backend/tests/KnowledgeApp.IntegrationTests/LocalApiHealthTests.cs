@@ -1,13 +1,12 @@
 using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace KnowledgeApp.IntegrationTests;
 
-public sealed class LocalApiHealthTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class LocalApiHealthTests : IClassFixture<LocalApiTestFactory>
 {
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly LocalApiTestFactory factory;
 
-    public LocalApiHealthTests(WebApplicationFactory<Program> factory)
+    public LocalApiHealthTests(LocalApiTestFactory factory)
     {
         this.factory = factory;
     }

@@ -12,7 +12,6 @@ using KnowledgeApp.Contracts.Ingestion;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,11 +21,11 @@ using W = DocumentFormat.OpenXml.Wordprocessing;
 
 namespace KnowledgeApp.IntegrationTests;
 
-public sealed class DocumentsApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 {
-    private readonly WebApplicationFactory<Program> factory;
+    private readonly LocalApiTestFactory factory;
 
-    public DocumentsApiTests(WebApplicationFactory<Program> factory)
+    public DocumentsApiTests(LocalApiTestFactory factory)
     {
         this.factory = factory;
     }
