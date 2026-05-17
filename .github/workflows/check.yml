@@ -14,6 +14,13 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   NODE_VERSION: 24
   PNPM_VERSION: 10.0.0
+  TEST_RESULTS_DIR: artifacts/test-results
+  COVERAGE_REPORT_DIR: artifacts/coverage-report
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: read
 
 jobs:
   backend-format:
@@ -54,8 +61,8 @@ jobs:
       - name: Build backend
         run: dotnet build backend/KnowledgeApp.slnx --no-restore
 
-  backend-tests:
-    name: Backend tests
+  backend-unit-tests:
+    name: Backend unit tests
     runs-on: windows-latest
     needs:
       - backend-build
@@ -75,8 +82,188 @@ jobs:
       - name: Build backend
         run: dotnet build backend/KnowledgeApp.slnx --no-restore
 
-      - name: Run backend tests
-        run: dotnet test backend/KnowledgeApp.slnx --no-build
+      - name: Install coverage report generator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Run unit tests with coverage
+        shell: powershell
+        run: >
+          dotnet test backend/tests/KnowledgeApp.UnitTests/KnowledgeApp.UnitTests.csproj
+          --no-build
+          --logger "trx"
+          --results-directory "${{ env.TEST_RESULTS_DIR }}/unit"
+          --collect:"XPlat Code Coverage"
+          --
+          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+      - name: Publish unit test report
+        if: always()
+        uses: dorny/test-reporter@v2
+        with:
+          name: Unit test results
+          path: ${{ env.TEST_RESULTS_DIR }}/unit/**/*.trx
+          reporter: dotnet-trx
+          fail-on-error: false
+
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: ${{ env.TEST_RESULTS_DIR }}/unit
+          if-no-files-found: warn
+
+      - name: Generate unit coverage report
+        if: always()
+        shell: powershell
+        run: >
+          & "$env:USERPROFILE\.dotnet\tools\reportgenerator.exe"
+          -reports:"${{ env.TEST_RESULTS_DIR }}/unit/**/coverage.cobertura.xml"
+          -targetdir:"${{ env.COVERAGE_REPORT_DIR }}/unit"
+          -reporttypes:"Html;Cobertura;MarkdownSummaryGithub"
+          -assemblyfilters:"+KnowledgeApp.*;-*.Tests"
+
+      - name: Add unit coverage summary
+        if: always()
+        shell: powershell
+        run: |
+          $summary = "${{ env.COVERAGE_REPORT_DIR }}/unit/SummaryGithub.md"
+          if (Test-Path $summary) {
+            Get-Content $summary | Add-Content $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Upload unit coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-coverage-report
+          path: ${{ env.COVERAGE_REPORT_DIR }}/unit
+          if-no-files-found: warn
+
+  backend-integration-tests:
+    name: Backend integration tests
+    runs-on: windows-latest
+    needs:
+      - backend-build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore backend
+        run: dotnet restore backend/KnowledgeApp.slnx
+
+      - name: Build backend
+        run: dotnet build backend/KnowledgeApp.slnx --no-restore
+
+      - name: Install coverage report generator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Run integration tests with coverage
+        shell: powershell
+        run: >
+          dotnet test backend/tests/KnowledgeApp.IntegrationTests/KnowledgeApp.IntegrationTests.csproj
+          --no-build
+          --logger "trx"
+          --results-directory "${{ env.TEST_RESULTS_DIR }}/integration"
+          --collect:"XPlat Code Coverage"
+          --
+          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+      - name: Publish integration test report
+        if: always()
+        uses: dorny/test-reporter@v2
+        with:
+          name: Integration test results
+          path: ${{ env.TEST_RESULTS_DIR }}/integration/**/*.trx
+          reporter: dotnet-trx
+          fail-on-error: false
+
+      - name: Upload integration test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: ${{ env.TEST_RESULTS_DIR }}/integration
+          if-no-files-found: warn
+
+      - name: Generate integration coverage report
+        if: always()
+        shell: powershell
+        run: >
+          & "$env:USERPROFILE\.dotnet\tools\reportgenerator.exe"
+          -reports:"${{ env.TEST_RESULTS_DIR }}/integration/**/coverage.cobertura.xml"
+          -targetdir:"${{ env.COVERAGE_REPORT_DIR }}/integration"
+          -reporttypes:"Html;Cobertura;MarkdownSummaryGithub"
+          -assemblyfilters:"+KnowledgeApp.*;-*.Tests"
+
+      - name: Add integration coverage summary
+        if: always()
+        shell: powershell
+        run: |
+          $summary = "${{ env.COVERAGE_REPORT_DIR }}/integration/SummaryGithub.md"
+          if (Test-Path $summary) {
+            Get-Content $summary | Add-Content $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Upload integration coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-coverage-report
+          path: ${{ env.COVERAGE_REPORT_DIR }}/integration
+          if-no-files-found: warn
+
+  backend-architecture-tests:
+    name: Backend architecture tests
+    runs-on: windows-latest
+    needs:
+      - backend-build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore backend
+        run: dotnet restore backend/KnowledgeApp.slnx
+
+      - name: Build backend
+        run: dotnet build backend/KnowledgeApp.slnx --no-restore
+
+      - name: Run architecture tests
+        shell: powershell
+        run: >
+          dotnet test backend/tests/KnowledgeApp.ArchitectureTests/KnowledgeApp.ArchitectureTests.csproj
+          --no-build
+          --logger "trx"
+          --results-directory "${{ env.TEST_RESULTS_DIR }}/architecture"
+
+      - name: Publish architecture test report
+        if: always()
+        uses: dorny/test-reporter@v2
+        with:
+          name: Architecture test results
+          path: ${{ env.TEST_RESULTS_DIR }}/architecture/**/*.trx
+          reporter: dotnet-trx
+          fail-on-error: false
+
+      - name: Upload architecture test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-test-results
+          path: ${{ env.TEST_RESULTS_DIR }}/architecture
+          if-no-files-found: warn
 
   frontend-format:
     name: Frontend format
@@ -211,7 +398,9 @@ jobs:
     needs:
       - backend-format
       - backend-build
-      - backend-tests
+      - backend-unit-tests
+      - backend-integration-tests
+      - backend-architecture-tests
       - frontend-format
       - frontend-lint
       - frontend-typecheck
@@ -227,7 +416,9 @@ jobs:
           echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Backend format | ${{ needs.backend-format.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Backend build | ${{ needs.backend-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Backend tests | ${{ needs.backend-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Backend unit tests | ${{ needs.backend-unit-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Backend integration tests | ${{ needs.backend-integration-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Backend architecture tests | ${{ needs.backend-architecture-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend format | ${{ needs.frontend-format.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend lint | ${{ needs.frontend-lint.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend typecheck | ${{ needs.frontend-typecheck.result }} |" >> "$GITHUB_STEP_SUMMARY"

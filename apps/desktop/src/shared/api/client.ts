@@ -15,7 +15,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`LocalApi request failed: ${response.status}`);
   }
 
-  if (response.status === 202 || response.status === 204) {
+  if (response.status === 204) {
     return undefined as T;
   }
 
@@ -27,7 +27,10 @@ export const localApi = {
   getRuntimeStatus: () => request<RuntimeStatus>("/api/runtime/status"),
   getSyncStatus: () => request<SyncStatus>("/api/sync/status"),
   getBuckets: () => request<BucketDto[]>("/api/buckets"),
-  getChats: () => request<ChatConversation[]>("/api/chats"),
+  getChats: () =>
+    request<CursorPage<ChatConversation>>("/api/chats").then(
+      (page) => page.items,
+    ),
   getDiagnostics: () => request<DiagnosticsStatus>("/api/diagnostics"),
   getSettings: () => request<AppSettings>("/api/settings"),
   createBucket: (name: string) =>
@@ -36,9 +39,9 @@ export const localApi = {
       body: JSON.stringify({ name }),
     }),
   getDocuments: (bucketId?: string) =>
-    request<DocumentSummary[]>(
+    request<CursorPage<DocumentSummary>>(
       `/api/documents${bucketId ? `?bucketId=${bucketId}` : ""}`,
-    ),
+    ).then((page) => page.items),
   uploadDocument: (file: File, bucketId?: string) => {
     const form = new FormData();
     form.append("file", file);
@@ -56,14 +59,17 @@ export const localApi = {
       body: JSON.stringify(settings),
     }),
   processIngestionJob: (jobId: string) =>
-    request<void>(`/api/ingestion/jobs/${jobId}/process`, {
-      method: "POST",
-    }),
+    request<ProcessIngestionJobResponse>(
+      `/api/ingestion/jobs/${jobId}/process`,
+      {
+        method: "POST",
+      },
+    ),
   semanticSearch: (query: string) =>
-    request<RagSource[]>("/api/search/semantic", {
+    request<SemanticSearchResponse>("/api/search/semantic", {
       method: "POST",
       body: JSON.stringify({ query }),
-    }),
+    }).then((response) => response.sources),
   createChat: (conversation: { title: string }) =>
     request<ChatConversation>("/api/chats", {
       method: "POST",
@@ -74,7 +80,8 @@ export const localApi = {
       method: "POST",
       body: JSON.stringify({ content }),
     }),
-  getNotes: () => request<NoteDto[]>("/api/notes"),
+  getNotes: () =>
+    request<CursorPage<NoteDto>>("/api/notes").then((page) => page.items),
   createNote: (note: {
     title: string;
     markdown: string;
@@ -117,6 +124,14 @@ export type DocumentSummary = {
   name: string;
   status: string;
   createdAt: string;
+  lastError: string | null;
+};
+
+export type CursorPage<T> = {
+  items: T[];
+  nextCursor: string | null;
+  limit: number;
+  hasMore: boolean;
 };
 
 export type NoteDto = {
@@ -129,6 +144,11 @@ export type NoteDto = {
 export type UploadDocumentResponse = {
   documentId: string;
   ingestionJobId: string;
+  status: string;
+};
+
+export type ProcessIngestionJobResponse = {
+  jobId: string;
   status: string;
 };
 
@@ -165,6 +185,10 @@ export type RagAnswerDto = {
   sources: RagSource[];
 };
 
+export type SemanticSearchResponse = {
+  sources: RagSource[];
+};
+
 export type DiagnosticsPaths = {
   databasePath: string;
   filesPath: string;
@@ -172,12 +196,45 @@ export type DiagnosticsPaths = {
   logsPath: string;
 };
 
-export type DiagnosticsStatus = {
-  paths: DiagnosticsPaths;
+export type DiagnosticsStorage = {
+  databaseSizeBytes: number;
+  filesSizeBytes: number;
+  indexSizeBytes: number;
+  logsSizeBytes: number;
+};
+
+export type DiagnosticsCounts = {
+  bucketsCount: number;
+  documentsCount: number;
+  documentFilesCount: number;
+  documentChunksCount: number;
+  documentEmbeddingsCount: number;
+  notesCount: number;
+  conversationsCount: number;
+  pendingIngestionJobsCount: number;
+  failedIngestionJobsCount: number;
+};
+
+export type DiagnosticsIngestionError = {
+  jobId: string;
+  documentId: string;
+  documentName: string;
+  lastError: string;
+  processedAt: string | null;
+};
+
+export type DiagnosticsRuntime = {
   runtimeMode: string;
   localApiVersion: string;
   aiRuntimeStatus: RuntimeStatus;
-  pendingIngestionJobsCount: number;
+};
+
+export type DiagnosticsStatus = {
+  paths: DiagnosticsPaths;
+  storage: DiagnosticsStorage;
+  counts: DiagnosticsCounts;
+  latestErrors: DiagnosticsIngestionError[];
+  runtime: DiagnosticsRuntime;
 };
 
 export type AppSettings = {

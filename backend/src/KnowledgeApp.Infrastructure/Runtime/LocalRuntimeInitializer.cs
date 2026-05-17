@@ -10,14 +10,14 @@ public sealed class LocalRuntimeInitializer(IServiceProvider services) : IHosted
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        using var scope = services.CreateScope();
-        var paths = scope.ServiceProvider.GetRequiredService<IAppPathProvider>();
+        using IServiceScope? scope = services.CreateScope();
+        IAppPathProvider? paths = scope.ServiceProvider.GetRequiredService<IAppPathProvider>();
         Directory.CreateDirectory(paths.DataDirectory);
         Directory.CreateDirectory(paths.FilesDirectory);
         Directory.CreateDirectory(paths.IndexDirectory);
         Directory.CreateDirectory(paths.LogsDirectory);
 
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Database.MigrateAsync(cancellationToken);
     }
 

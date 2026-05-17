@@ -9,6 +9,7 @@ public sealed class AppPathProvider(IOptions<LocalRuntimeOptions> options) : IAp
     private readonly LocalRuntimeOptions options = options.Value;
     private readonly string rootPath = ResolveRootPath();
 
+    public string AppRootDirectory => rootPath;
     public string DataDirectory => FullPath(options.DataPath);
     public string DatabasePath => FullPath(options.DatabasePath);
     public string FilesDirectory => FullPath(options.FilesPath);
@@ -19,13 +20,13 @@ public sealed class AppPathProvider(IOptions<LocalRuntimeOptions> options) : IAp
 
     private static string ResolveRootPath()
     {
-        var configured = Environment.GetEnvironmentVariable("KNOWLEDGE_APP_ROOT");
+        string? configured = Environment.GetEnvironmentVariable("KNOWLEDGE_APP_ROOT");
         if (!string.IsNullOrWhiteSpace(configured))
         {
             return Path.GetFullPath(configured);
         }
 
-        var current = new DirectoryInfo(Directory.GetCurrentDirectory());
+        DirectoryInfo? current = new DirectoryInfo(Directory.GetCurrentDirectory());
         while (current is not null)
         {
             if (File.Exists(Path.Combine(current.FullName, "pnpm-workspace.yaml")) ||

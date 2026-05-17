@@ -4,6 +4,9 @@ app/indexes/*
 app/logs/*
 ai/bin/*
 ai/models/*
+ocr/bin/*
+ocr/tessdata/*
 
 !**/.gitkeep
 !ai/README.md
+!ocr/README.md

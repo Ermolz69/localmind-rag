@@ -1,4 +1,6 @@
 using KnowledgeApp.Application.Documents;
+using KnowledgeApp.Contracts.Common;
+using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
@@ -12,28 +14,49 @@ public sealed class GetDocumentsHandlerTests
     [Fact]
     public async Task HandleAsync_Should_Return_Documents_In_CreatedAt_Descending_Order()
     {
-        await using var database = await TestDatabase.CreateAsync();
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
         database.Context.Documents.AddRange(
             new Document { CreatedAt = new DateTimeOffset(2026, 5, 10, 12, 0, 0, TimeSpan.Zero), Name = "older.md", Status = DocumentStatus.Indexed },
             new Document { CreatedAt = new DateTimeOffset(2026, 5, 12, 12, 0, 0, TimeSpan.Zero), Name = "newer.md", Status = DocumentStatus.Queued });
         await database.Context.SaveChangesAsync();
-        var handler = new GetDocumentsHandler(database.Context);
+        GetDocumentsHandler? handler = new GetDocumentsHandler(database.Context);
 
-        var documents = await handler.HandleAsync(new GetDocumentsQuery());
+        CursorPage<DocumentDto> documents = await handler.HandleAsync(new GetDocumentsQuery());
 
         Assert.Collection(
-            documents,
+            documents.Items,
             document => Assert.Equal("newer.md", document.Name),
             document => Assert.Equal("older.md", document.Name));
     }
 
     [Fact]
+    public async Task HandleAsync_Should_Return_Cursor_Page_Without_Duplicates()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        Document newest = new() { CreatedAt = new DateTimeOffset(2026, 5, 13, 12, 0, 0, TimeSpan.Zero), Name = "newest.md" };
+        Document middle = new() { CreatedAt = new DateTimeOffset(2026, 5, 12, 12, 0, 0, TimeSpan.Zero), Name = "middle.md" };
+        Document oldest = new() { CreatedAt = new DateTimeOffset(2026, 5, 11, 12, 0, 0, TimeSpan.Zero), Name = "oldest.md" };
+        database.Context.Documents.AddRange(newest, middle, oldest);
+        await database.Context.SaveChangesAsync();
+        GetDocumentsHandler handler = new(database.Context);
+
+        CursorPage<DocumentDto> firstPage = await handler.HandleAsync(new GetDocumentsQuery(Limit: 2));
+        CursorPage<DocumentDto> secondPage = await handler.HandleAsync(new GetDocumentsQuery(Cursor: firstPage.NextCursor, Limit: 2));
+
+        Assert.True(firstPage.HasMore);
+        Assert.NotNull(firstPage.NextCursor);
+        Assert.Equal(["newest.md", "middle.md"], firstPage.Items.Select(document => document.Name).ToArray());
+        Assert.False(secondPage.HasMore);
+        Assert.Equal(["oldest.md"], secondPage.Items.Select(document => document.Name).ToArray());
+    }
+
+    [Fact]
     public async Task HandleAsync_Should_Return_Null_When_Document_Is_Missing()
     {
-        await using var database = await TestDatabase.CreateAsync();
-        var handler = new GetDocumentByIdHandler(database.Context);
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        GetDocumentByIdHandler? handler = new GetDocumentByIdHandler(database.Context);
 
-        var document = await handler.HandleAsync(new GetDocumentByIdQuery(Guid.NewGuid()));
+        DocumentDto? document = await handler.HandleAsync(new GetDocumentByIdQuery(Guid.NewGuid()));
 
         Assert.Null(document);
     }
@@ -52,12 +75,12 @@ public sealed class GetDocumentsHandlerTests
 
         public static async Task<TestDatabase> CreateAsync()
         {
-            var connection = new SqliteConnection("Data Source=:memory:");
+            SqliteConnection? connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
-            var options = new DbContextOptionsBuilder<AppDbContext>()
+            DbContextOptions<AppDbContext>? options = new DbContextOptionsBuilder<AppDbContext>()
                 .UseSqlite(connection)
                 .Options;
-            var context = new AppDbContext(options);
+            AppDbContext? context = new AppDbContext(options);
             await context.Database.EnsureCreatedAsync();
             return new TestDatabase(connection, context);
         }

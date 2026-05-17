@@ -82,7 +82,13 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LocalDeviceId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
@@ -96,6 +102,10 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DeletedAt");
+
+                    b.HasIndex("LocalDeviceId");
 
                     b.ToTable("buckets", (string)null);
                 });
@@ -116,6 +126,12 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LocalDeviceId")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Role")
                         .HasColumnType("INTEGER");
 
@@ -125,6 +141,10 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ConversationId");
+
+                    b.HasIndex("DeletedAt");
+
+                    b.HasIndex("LocalDeviceId");
 
                     b.ToTable("chat_messages", (string)null);
                 });
@@ -138,6 +158,12 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LocalDeviceId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -146,6 +172,10 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DeletedAt");
+
+                    b.HasIndex("LocalDeviceId");
 
                     b.ToTable("conversations", (string)null);
                 });
@@ -160,6 +190,12 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LocalDeviceId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
@@ -178,6 +214,10 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BucketId");
+
+                    b.HasIndex("DeletedAt");
+
+                    b.HasIndex("LocalDeviceId");
 
                     b.ToTable("documents", (string)null);
                 });
@@ -319,6 +359,34 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.ToTable("ingestion_jobs", (string)null);
                 });
 
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.LocalDevice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeviceKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceKey")
+                        .IsUnique();
+
+                    b.ToTable("local_devices", (string)null);
+                });
+
             modelBuilder.Entity("KnowledgeApp.Domain.Entities.Note", b =>
                 {
                     b.Property<Guid>("Id")
@@ -329,6 +397,12 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LocalDeviceId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Markdown")
@@ -348,6 +422,10 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BucketId");
+
+                    b.HasIndex("DeletedAt");
+
+                    b.HasIndex("LocalDeviceId");
 
                     b.ToTable("notes", (string)null);
                 });
