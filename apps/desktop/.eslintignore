@@ -1,0 +1,7 @@
+# Ignore Tauri generated build artifacts
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icons/
+
+# Vite build output (if present)
+dist/

@@ -27,6 +27,10 @@ export const localApi = {
   getRuntimeStatus: () => request<RuntimeStatus>("/api/runtime/status"),
   getSyncStatus: () => request<SyncStatus>("/api/sync/status"),
   getBuckets: () => request<BucketDto[]>("/api/buckets"),
+  getChats: () =>
+    request<CursorPage<ChatConversation>>("/api/chats").then(
+      (page) => page.items,
+    ),
   getDiagnostics: () => request<DiagnosticsStatus>("/api/diagnostics"),
   getSettings: () => request<AppSettings>("/api/settings"),
   createBucket: (name: string) =>
@@ -66,6 +70,16 @@ export const localApi = {
       method: "POST",
       body: JSON.stringify({ query }),
     }).then((response) => response.sources),
+  createChat: (conversation: { title: string }) =>
+    request<ChatConversation>("/api/chats", {
+      method: "POST",
+      body: JSON.stringify(conversation),
+    }),
+  sendChatMessage: (conversationId: string, content: string) =>
+    request<RagAnswerDto>(`/api/chats/${conversationId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    }),
   getNotes: () =>
     request<CursorPage<NoteDto>>("/api/notes").then((page) => page.items),
   createNote: (note: {
@@ -159,6 +173,16 @@ export type RagSource = {
   pageNumber: number | null;
   score: number;
   snippet: string;
+};
+
+export type ChatConversation = {
+  id: string;
+  title: string;
+};
+
+export type RagAnswerDto = {
+  answer: string;
+  sources: RagSource[];
 };
 
 export type SemanticSearchResponse = {
