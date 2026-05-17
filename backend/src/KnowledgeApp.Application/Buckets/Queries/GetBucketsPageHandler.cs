@@ -1,0 +1,80 @@
+using System.Globalization;
+using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Pagination;
+using KnowledgeApp.Contracts.Buckets;
+using KnowledgeApp.Contracts.Common;
+using KnowledgeApp.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace KnowledgeApp.Application.Buckets;
+
+public sealed class GetBucketsPageHandler(IAppDbContext dbContext)
+{
+    private const string CursorKind = "buckets";
+
+    public async Task<CursorPage<BucketDto>> HandleAsync(
+        GetBucketsPageQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        int limit = CursorPagination.ValidateLimit(query.Limit);
+        string? normalizedQuery = string.IsNullOrWhiteSpace(query.Query) ? null : query.Query.Trim();
+        string filterHash = CursorPagination.CreateFilterHash(new { Query = normalizedQuery });
+        CursorPayload? cursor = CursorPagination.Decode(query.Cursor, CursorKind, filterHash);
+
+        IQueryable<Bucket> bucketsQuery = dbContext.Buckets
+            .AsNoTracking()
+            .Where(bucket => bucket.DeletedAt == null)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(normalizedQuery))
+        {
+            bucketsQuery = bucketsQuery.Where(bucket => bucket.Name.Contains(normalizedQuery));
+        }
+
+        Bucket[] buckets = await bucketsQuery.ToArrayAsync(cancellationToken);
+        Bucket[] sortedBuckets = buckets
+            .OrderByDescending(bucket => bucket.CreatedAt)
+            .ThenByDescending(bucket => bucket.Id.ToString("N", CultureInfo.InvariantCulture))
+            .ToArray();
+
+        CursorPage<Bucket> bucketPage = CursorPagination.CreatePage(
+            sortedBuckets,
+            cursor,
+            limit,
+            CompareBucketToCursor,
+            bucket => new CursorPayload(
+                CursorKind,
+                filterHash,
+                null,
+                bucket.CreatedAt,
+                bucket.Id,
+                false));
+        BucketDto[] bucketDtos = bucketPage.Items.Select(BucketMapper.ToDto).ToArray();
+
+        return new CursorPage<BucketDto>(bucketDtos, bucketPage.NextCursor, bucketPage.Limit, bucketPage.HasMore);
+    }
+
+    private static int CompareBucketToCursor(Bucket bucket, CursorPayload cursor)
+    {
+        if (bucket.Id == cursor.Id)
+        {
+            return 2;
+        }
+
+        if (bucket.CreatedAt < cursor.CreatedAt)
+        {
+            return 1;
+        }
+
+        if (bucket.CreatedAt == cursor.CreatedAt &&
+            string.Compare(
+                bucket.Id.ToString("N", CultureInfo.InvariantCulture),
+                cursor.Id.ToString("N", CultureInfo.InvariantCulture),
+                StringComparison.Ordinal) < 0)
+        {
+            return 1;
+        }
+
+        return 0;
+    }
+}

@@ -11,6 +11,7 @@ public static partial class DependencyInjection
         services.AddScoped<BucketRequestValidator>();
         services.AddScoped<CreateBucketHandler>();
         services.AddScoped<DeleteBucketHandler>();
+        services.AddScoped<GetBucketsPageHandler>();
         services.AddScoped<GetBucketsHandler>();
         services.AddScoped<UpdateBucketHandler>();
 

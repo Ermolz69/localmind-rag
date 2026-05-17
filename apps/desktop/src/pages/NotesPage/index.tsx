@@ -1,4 +1,4 @@
-import { FileText, Plus } from "lucide-react";
+import { FileText, FolderPlus, Plus } from "lucide-react";
 import { BucketSelector, NoteEditor, NoteList } from "@features/note-editor";
 import {
   Button,
@@ -18,10 +18,10 @@ export function NotesPage() {
   const page = useNotesPageViewModel();
 
   return (
-    <section className="space-y-4">
+    <section className="flex min-h-[calc(100dvh-5.5rem)] flex-col space-y-4">
       <PageHeader
-        title="Notes"
-        description="Local markdown notes and document references."
+        title="Notes vault"
+        description="A local markdown workspace with folders, files, and a focused editor."
         actions={
           <Button onClick={() => page.setIsCreateOpen(true)}>
             <Plus size={16} aria-hidden />
@@ -33,34 +33,34 @@ export function NotesPage() {
       <ErrorBanner message={page.error} />
 
       <Toolbar>
-        <Input
-          className="max-w-sm"
-          placeholder="Search notes"
-          value={page.query}
-          onChange={(event) => page.setQuery(event.target.value)}
-        />
         <Select
-          className="max-w-56"
+          className="max-w-60"
           value={page.selectedBucketId}
           onChange={(event) => page.setSelectedBucketId(event.target.value)}
         >
-          <option value="">All buckets</option>
+          <option value="">All folders</option>
           {page.buckets.map((bucket) => (
             <option key={bucket.id} value={bucket.id}>
               {bucket.name}
             </option>
           ))}
         </Select>
+        <Button variant="secondary" onClick={() => page.setIsCreateOpen(true)}>
+          <FolderPlus size={16} aria-hidden />
+          New file
+        </Button>
       </Toolbar>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,300px)_1fr]">
+      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
         <NoteList
           notes={page.notes}
           buckets={page.buckets}
+          query={page.query}
           selectedNoteId={page.selectedNoteId}
           isLoading={page.isLoading}
           hasMore={page.hasMore}
           isLoadingMore={page.isLoadingMore}
+          onQueryChange={page.setQuery}
           onSelect={page.selectNote}
           onLoadMore={() => void page.loadMore()}
         />
@@ -81,15 +81,15 @@ export function NotesPage() {
         ) : (
           <EmptyState
             icon={<FileText size={20} aria-hidden />}
-            title="No note selected"
-            description="Select a note from the list or create a new one to get started."
+            title="No file selected"
+            description="Select a markdown file from the vault or create a new one."
           />
         )}
       </div>
 
       <Modal
-        title="Create note"
-        description="Create a new markdown note."
+        title="Create markdown file"
+        description="Add a local markdown file to your vault."
         open={page.isCreateOpen}
         onClose={() => page.setIsCreateOpen(false)}
       >
@@ -104,7 +104,7 @@ export function NotesPage() {
                   title: event.target.value,
                 })
               }
-              placeholder="Note title"
+              placeholder="File name"
               autoFocus
             />
           </div>
@@ -126,7 +126,7 @@ export function NotesPage() {
                   markdown: event.target.value,
                 })
               }
-              placeholder="Write markdown here..."
+              placeholder="Start writing..."
             />
           </div>
           <div className="flex justify-end gap-2">
@@ -140,7 +140,7 @@ export function NotesPage() {
               onClick={() => void page.createNote()}
               disabled={page.isSubmitting || !page.createDraft.title.trim()}
             >
-              {page.isSubmitting ? "Creating..." : "Create"}
+              {page.isSubmitting ? "Creating..." : "Create file"}
             </Button>
           </div>
         </div>
@@ -148,8 +148,8 @@ export function NotesPage() {
 
       <ConfirmDialog
         open={Boolean(page.deleteTargetId)}
-        title="Delete note"
-        description="This hides the note from your local notes list."
+        title="Delete file"
+        description="This hides the markdown file from your local vault."
         confirmLabel="Delete"
         isPending={page.isSubmitting}
         onConfirm={() => void page.deleteNote()}

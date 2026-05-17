@@ -1,24 +1,35 @@
-import { CheckCircle2, FolderPlus } from "lucide-react";
+import { CheckCircle2, FolderPlus, Search } from "lucide-react";
 import type { BucketDto } from "@entities/bucket";
-import { Button } from "@shared/ui";
-import { Input } from "@shared/ui";
+import { Button, Input } from "@shared/ui";
 import { cn } from "@shared/lib/cn";
 
 type BucketPanelProps = {
   buckets: BucketDto[];
+  bucketQuery: string;
+  hasMore: boolean;
+  isLoading: boolean;
+  isLoadingMore: boolean;
   selectedBucketId: string;
   newBucketName: string;
   onBucketNameChange: (value: string) => void;
   onCreateBucket: () => void;
+  onLoadMore: () => void;
+  onQueryChange: (value: string) => void;
   onSelectBucket: (value: string) => void;
 };
 
 export function BucketPanel({
   buckets,
+  bucketQuery,
+  hasMore,
+  isLoading,
+  isLoadingMore,
   selectedBucketId,
   newBucketName,
   onBucketNameChange,
   onCreateBucket,
+  onLoadMore,
+  onQueryChange,
   onSelectBucket,
 }: BucketPanelProps) {
   return (
@@ -45,20 +56,55 @@ export function BucketPanel({
         </div>
       </div>
 
-      <div className="rounded-md border border-border bg-card p-2">
-        <BucketButton
-          active={!selectedBucketId}
-          label="All buckets"
-          onClick={() => onSelectBucket("")}
-        />
-        {buckets.map((bucket) => (
+      <div className="rounded-xl border border-border bg-card shadow-sm">
+        <div className="border-b border-border p-3">
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              size={16}
+              aria-hidden
+            />
+            <Input
+              className="h-10 pl-9"
+              placeholder="Search buckets"
+              value={bucketQuery}
+              onChange={(event) => onQueryChange(event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="max-h-[32rem] overflow-auto p-2">
           <BucketButton
-            key={bucket.id}
-            active={selectedBucketId === bucket.id}
-            label={bucket.name}
-            onClick={() => onSelectBucket(bucket.id)}
+            active={!selectedBucketId}
+            label="All buckets"
+            onClick={() => onSelectBucket("")}
           />
-        ))}
+          {isLoading ? (
+            <div className="px-3 py-4 text-sm text-muted-foreground">
+              Loading buckets...
+            </div>
+          ) : (
+            buckets.map((bucket) => (
+              <BucketButton
+                key={bucket.id}
+                active={selectedBucketId === bucket.id}
+                label={bucket.name}
+                onClick={() => onSelectBucket(bucket.id)}
+              />
+            ))
+          )}
+        </div>
+        {hasMore ? (
+          <div className="border-t border-border p-2">
+            <Button
+              className="w-full"
+              variant="secondary"
+              onClick={onLoadMore}
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? "Loading..." : "Load more buckets"}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </aside>
   );

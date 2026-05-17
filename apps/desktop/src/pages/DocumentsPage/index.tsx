@@ -118,10 +118,16 @@ export function DocumentsPage() {
 
         <BucketPanel
           buckets={page.buckets}
+          bucketQuery={page.bucketQuery}
+          hasMore={page.bucketsHasMore}
+          isLoading={page.bucketsIsLoading}
+          isLoadingMore={page.bucketsIsLoadingMore}
           newBucketName={page.newBucketName}
           selectedBucketId={page.selectedBucketId}
           onBucketNameChange={page.setNewBucketName}
           onCreateBucket={() => void page.createBucket()}
+          onLoadMore={() => void page.loadMoreBuckets()}
+          onQueryChange={page.setBucketQuery}
           onSelectBucket={page.setSelectedBucketId}
         />
       </div>

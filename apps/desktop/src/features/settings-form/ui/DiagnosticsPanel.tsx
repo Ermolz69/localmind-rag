@@ -10,7 +10,10 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
   }
 
   return (
-    <section className="space-y-4 rounded-md border border-border bg-card p-5">
+    <section
+      id="diagnostics"
+      className="scroll-mt-6 space-y-5 rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6"
+    >
       <div>
         <h2 className="text-base font-semibold text-card-foreground">
           Diagnostics
@@ -52,7 +55,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
           {diagnostics.latestErrors.map((error) => (
             <div
               key={error.jobId}
-              className="rounded-md border border-border bg-background p-3 text-sm"
+              className="rounded-md border border-border bg-muted p-3 text-sm"
             >
               <p className="font-medium">{error.documentName}</p>
               <p className="mt-1 text-muted-foreground">{error.lastError}</p>
@@ -66,7 +69,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-md border border-border bg-background p-3">
+    <div className="rounded-md border border-border bg-muted p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-lg font-semibold">{value}</p>
     </div>

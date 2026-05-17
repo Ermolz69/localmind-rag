@@ -13,7 +13,7 @@ export function BucketSelector({
   onChange,
 }: BucketSelectorProps) {
   return (
-    <label className="space-y-2 text-sm">
+    <label className="flex flex-col gap-2 text-sm">
       <span className="font-medium">Bucket</span>
       <Select
         value={value ?? ""}

@@ -11,6 +11,14 @@ public static class BucketEndpoints
         app.MapGet("/api/buckets", async (GetBucketsHandler handler, CancellationToken cancellationToken) =>
             Results.Ok(await handler.HandleAsync(cancellationToken)));
 
+        app.MapGet("/api/buckets/page", async (
+                string? query,
+                string? cursor,
+                int? limit,
+                GetBucketsPageHandler handler,
+                CancellationToken cancellationToken) =>
+            Results.Ok(await handler.HandleAsync(new GetBucketsPageQuery(query, cursor, limit ?? 30), cancellationToken)));
+
         app.MapPost("/api/buckets", async (
             CreateBucketRequest request,
             CreateBucketHandler handler,

@@ -19,11 +19,19 @@ const themeIcons = {
   system: Monitor,
 };
 
+const settingsNavigation = [
+  { href: "#appearance", label: "Appearance" },
+  { href: "#runtime-paths", label: "Runtime paths" },
+  { href: "#ai", label: "AI" },
+  { href: "#sync", label: "Sync" },
+  { href: "#diagnostics", label: "Diagnostics" },
+];
+
 export function SettingsPage() {
   const page = useSettingsForm();
 
   return (
-    <section className="space-y-5">
+    <section className="mx-auto max-w-7xl space-y-5">
       <PageHeader
         title="Settings"
         description="Local runtime, AI provider, sync, diagnostics, and visual preferences."
@@ -43,52 +51,95 @@ export function SettingsPage() {
 
       <ErrorBanner message={page.error} />
 
-      <section className="rounded-md border border-border bg-card p-5">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-base font-semibold text-card-foreground">
-              Appearance
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Current theme: {themeLabels[page.theme]}
+      <div className="grid items-start gap-5 xl:grid-cols-[15rem_minmax(0,1fr)]">
+        <aside className="sticky top-4 hidden self-start xl:block">
+          <nav className="rounded-xl border border-border bg-card p-2 shadow-sm">
+            <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              On this page
             </p>
-          </div>
-          <Button
-            variant="secondary"
-            onClick={() => page.setThemeModalOpen(true)}
+            <div className="flex flex-col gap-1">
+              {settingsNavigation.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </nav>
+        </aside>
+
+        <div className="min-w-0 space-y-4">
+          <section
+            id="appearance"
+            className="scroll-mt-6 rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6"
           >
-            Change
-          </Button>
-        </div>
-      </section>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-card-foreground">
+                  Appearance
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Current theme: {themeLabels[page.theme]}
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={() => page.setThemeModalOpen(true)}
+              >
+                Change
+              </Button>
+            </div>
+          </section>
 
-      {page.isLoading ? (
-        <div className="rounded-md border border-border bg-card p-5 text-sm text-muted-foreground">
-          Loading settings...
+          {page.isLoading ? (
+            <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground shadow-sm sm:p-6">
+              Loading settings...
+            </div>
+          ) : page.draft ? (
+            <>
+              <SettingsSections draft={page.draft} onChange={page.setDraft} />
+              <DiagnosticsPanel diagnostics={page.diagnostics} />
+              <div className="sticky bottom-4 z-10">
+                <div className="rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-card-foreground">
+                        {page.isDirty
+                          ? "Unsaved settings changes"
+                          : "Settings are saved"}
+                      </p>
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        {page.isDirty
+                          ? "Save when the current setup looks right."
+                          : "This panel stays ready for the next edit."}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        variant="secondary"
+                        onClick={page.resetSettings}
+                        disabled={!page.isDirty || page.isSaving}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={() => void page.saveSettings()}
+                        disabled={page.isSaving || !page.isDirty}
+                      >
+                        <Save size={16} aria-hidden />
+                        {page.isSaving ? "Saving..." : "Save settings"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
-      ) : page.draft ? (
-        <>
-          <SettingsSections draft={page.draft} onChange={page.setDraft} />
-          <div className="flex gap-2">
-            <Button
-              onClick={() => void page.saveSettings()}
-              disabled={page.isSaving || !page.isDirty}
-            >
-              <Save size={16} aria-hidden />
-              {page.isSaving ? "Saving..." : "Save settings"}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={page.resetSettings}
-              disabled={!page.isDirty}
-            >
-              Cancel
-            </Button>
-          </div>
-        </>
-      ) : null}
-
-      <DiagnosticsPanel diagnostics={page.diagnostics} />
+      </div>
 
       <Modal
         open={page.themeModalOpen}
