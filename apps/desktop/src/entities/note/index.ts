@@ -1,6 +1,6 @@
-export type Note = {
-  id: string;
-  title: string;
-  markdown: string;
-  bucketId?: string | null;
-};
+export type {
+  CreateNoteRequest,
+  GetNotesRequest,
+  NoteDto,
+  UpdateNoteRequest,
+} from "./model/types";

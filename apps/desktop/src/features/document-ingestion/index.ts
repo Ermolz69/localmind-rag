@@ -1,1 +1,2 @@
-export const documentIngestionFeature = "document-ingestion";
+export * from "./model";
+export * from "./ui";

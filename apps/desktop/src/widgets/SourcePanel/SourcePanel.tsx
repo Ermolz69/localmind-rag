@@ -1,5 +1,5 @@
-import type { RagSource } from "../../shared/api/client";
-import { EmptyState } from "../../shared/ui/EmptyState";
+import type { RagSource } from "@entities/source";
+import { EmptyState } from "@shared/ui";
 
 export function SourcePanel({ sources }: { sources: RagSource[] }) {
   if (sources.length === 0) {

@@ -1,1 +1,1 @@
-export type Bucket = { id: string; name: string; description?: string };
+export type { BucketDto, CreateBucketRequest } from "./model/types";

@@ -1,1 +1,7 @@
-export type Conversation = { id: string; title: string };
+export type {
+  ChatConversation,
+  ChatMessageDto,
+  CreateConversationRequest,
+  RagAnswerDto,
+  UpdateConversationRequest,
+} from "./model/types";

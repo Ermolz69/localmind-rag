@@ -1,1 +1,2 @@
-export const noteEditorFeature = "note-editor";
+export * from "./model";
+export * from "./ui";

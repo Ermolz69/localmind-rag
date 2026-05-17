@@ -1,1 +1,8 @@
-export type Document = { id: string; name: string; status: string };
+export type {
+  DocumentStatus,
+  DocumentSummary,
+  GetDocumentsRequest,
+  ProcessIngestionJobResponse,
+  ReindexDocumentResponse,
+  UploadDocumentResponse,
+} from "./model/types";

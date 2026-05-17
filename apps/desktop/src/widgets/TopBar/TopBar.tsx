@@ -1,6 +1,6 @@
 import { Moon, Sun } from "lucide-react";
-import { Button } from "../../shared/ui/Button";
-import { useTheme } from "../../shared/theme/theme-provider";
+import { Button } from "@shared/ui";
+import { useTheme } from "@shared/theme/theme-provider";
 
 export function TopBar() {
   const { theme, setTheme } = useTheme();

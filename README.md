@@ -24,6 +24,13 @@ Checks:
 pnpm check
 ```
 
+Storybook UI primitives:
+
+```bash
+pnpm --filter desktop storybook
+pnpm --filter desktop build-storybook
+```
+
 Portable preview:
 
 ```bash

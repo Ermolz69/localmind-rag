@@ -1,5 +1,1 @@
-export type SourceReference = {
-  documentId: string;
-  chunkId: string;
-  snippet: string;
-};
+export type { RagSource, SemanticSearchResponse } from "./model/types";

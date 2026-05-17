@@ -1,1 +1,1 @@
-export type SyncState = { status: string; pendingOperations: number };
+export type { SyncStatus } from "@entities/runtime";

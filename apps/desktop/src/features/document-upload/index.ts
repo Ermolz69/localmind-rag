@@ -1,1 +1,2 @@
-export const documentUploadFeature = "document-upload";
+export * from "./model";
+export * from "./ui";

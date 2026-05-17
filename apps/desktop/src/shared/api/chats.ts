@@ -1,0 +1,41 @@
+import type {
+  ChatConversation,
+  ChatMessageDto,
+  CreateConversationRequest,
+  RagAnswerDto,
+  UpdateConversationRequest,
+} from "@entities/chat";
+import type { CursorPage, CursorPageRequest } from "./common";
+import { toQueryString } from "./common";
+import { request } from "./http";
+
+export const chatsApi = {
+  getChats: (params: CursorPageRequest = {}) =>
+    request<CursorPage<ChatConversation>>(
+      `/api/chats${toQueryString({
+        cursor: params.cursor,
+        limit: params.limit,
+      })}`,
+    ),
+  getChatMessages: (conversationId: string) =>
+    request<ChatMessageDto[]>(`/api/chats/${conversationId}/messages`),
+  createChat: (payload: CreateConversationRequest) =>
+    request<ChatConversation>("/api/chats", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateChat: (conversationId: string, payload: UpdateConversationRequest) =>
+    request<void>(`/api/chats/${conversationId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  deleteChat: (conversationId: string) =>
+    request<void>(`/api/chats/${conversationId}`, {
+      method: "DELETE",
+    }),
+  sendChatMessage: (conversationId: string, content: string) =>
+    request<RagAnswerDto>(`/api/chats/${conversationId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    }),
+};
