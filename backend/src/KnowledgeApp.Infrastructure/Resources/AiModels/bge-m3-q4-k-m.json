@@ -1,0 +1,16 @@
+{
+  "id": "bge-m3-q4-k-m",
+  "modelName": "bge-m3",
+  "displayName": "BGE-M3 Q4_K_M",
+  "format": "gguf",
+  "quantization": "Q4_K_M",
+  "dimension": 1024,
+  "contextSize": 8192,
+  "fileName": "bge-m3-Q4_K_M.gguf",
+  "sourceUrl": "https://huggingface.co/gpustack/bge-m3-GGUF/resolve/main/bge-m3-Q4_K_M.gguf",
+  "sourceRepository": "gpustack/bge-m3-GGUF",
+  "sourceRevision": "main",
+  "sha256": "6d39681b26c61279ac1f82db35a04a05009e94c415b51c858ff571489a82fc06",
+  "sizeBytes": 459276288,
+  "license": "MIT"
+}

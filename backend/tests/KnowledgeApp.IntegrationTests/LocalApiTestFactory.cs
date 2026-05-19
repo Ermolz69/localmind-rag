@@ -19,6 +19,8 @@ public sealed class LocalApiTestFactory : WebApplicationFactory<Program>
                 ["LocalRuntime:FilesPath"] = Path.Combine(runtimeRoot, "runtime", "app", "files"),
                 ["LocalRuntime:IndexPath"] = Path.Combine(runtimeRoot, "runtime", "app", "indexes"),
                 ["LocalRuntime:LogsPath"] = Path.Combine(runtimeRoot, "runtime", "app", "logs"),
+                ["Ai:EmbeddingProvider"] = "Stub",
+                ["Ai:EmbeddingModel"] = "BGE-M3",
             };
 
             configuration.AddInMemoryCollection(settings);

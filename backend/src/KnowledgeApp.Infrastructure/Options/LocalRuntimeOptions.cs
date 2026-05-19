@@ -13,9 +13,11 @@ public sealed class LocalRuntimeOptions
 public sealed class AiOptions
 {
     public string Provider { get; set; } = "LlamaCpp";
+    public string EmbeddingProvider { get; set; } = "LlamaCpp";
     public string BaseUrl { get; set; } = "http://127.0.0.1:11435";
     public string ChatModel { get; set; } = "qwen2.5-3b-instruct";
-    public string EmbeddingModel { get; set; } = "BGE-M3";
+    public string EmbeddingModel { get; set; } = "bge-m3";
+    public string EmbeddingModelManifest { get; set; } = "bge-m3-q4-k-m";
     public double Temperature { get; set; } = 0.2;
     public int TopK { get; set; } = 40;
     public int ContextSize { get; set; } = 8192;
