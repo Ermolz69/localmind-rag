@@ -53,6 +53,16 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm.cmd install --frozen-lockfile
 
+      - name: Cache AI runtime and models
+        uses: actions/cache@v4
+        with:
+          path: |
+            runtime/ai/bin
+            runtime/ai/models
+          key: ai-runtime-${{ runner.os }}-${{ hashFiles('scripts/setup-ai*.ps1', 'backend/src/KnowledgeApp.Infrastructure/Resources/AiModels/*.json') }}
+          restore-keys: |
+            ai-runtime-${{ runner.os }}-
+
       - name: Build portable folder
         shell: powershell
         run: >

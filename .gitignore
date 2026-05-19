@@ -78,6 +78,7 @@ runtime/app/indexes/*
 runtime/app/logs/*
 runtime/ai/bin/*
 runtime/ai/models/*
+!runtime/ai/bin/
 !runtime/**/.gitkeep
 !runtime/ai/README.md
 

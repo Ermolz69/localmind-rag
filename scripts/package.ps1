@@ -24,6 +24,8 @@ if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
     throw "Rust/Cargo is required to build the Tauri desktop executable. Install Rust or run this workflow on GitHub Actions."
 }
 
+& (Join-Path $PSScriptRoot "setup-ai.ps1")
+
 New-Item -ItemType Directory -Force -Path $bin, $config | Out-Null
 New-Item -ItemType Directory -Force -Path `
     (Join-Path $runtimeApp "data"), `
@@ -52,6 +54,8 @@ if (-not (Test-Path $tauriExe)) {
 Copy-Item -Path $tauriExe -Destination (Join-Path $output "localmind.exe") -Force
 Copy-Item -Path (Join-Path $root "backend/src/KnowledgeApp.LocalApi/appsettings.json") -Destination (Join-Path $config "appsettings.json") -Force
 Copy-Item -Path (Join-Path $root "backend/src/KnowledgeApp.LocalApi/appsettings.json") -Destination (Join-Path $output "appsettings.json") -Force
+Copy-Item -Path (Join-Path $root "runtime/ai/bin/*") -Destination (Join-Path $runtimeAi "bin") -Recurse -Force
+Copy-Item -Path (Join-Path $root "runtime/ai/models/*") -Destination (Join-Path $runtimeAi "models") -Recurse -Force
 
 @"
 localmind portable
@@ -81,7 +85,9 @@ $requiredPaths = @(
     (Join-Path $runtimeApp "data"),
     (Join-Path $runtimeApp "files"),
     (Join-Path $runtimeApp "indexes"),
-    (Join-Path $runtimeApp "logs")
+    (Join-Path $runtimeApp "logs"),
+    (Join-Path $runtimeAi "bin/llama-server.exe"),
+    (Join-Path $runtimeAi "models/bge-m3-Q4_K_M.gguf")
 )
 
 foreach ($path in $requiredPaths) {

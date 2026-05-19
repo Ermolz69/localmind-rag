@@ -5,10 +5,13 @@
 ## Quick start
 
 ```bash
-pnpm install
 pnpm setup
 pnpm dev
 ```
+
+`pnpm setup` installs frontend dependencies, downloads the portable llama.cpp
+runtime, and downloads the default local embedding model. Runtime binaries and
+models are stored under `runtime/ai/` and are intentionally not committed.
 
 Backend only:
 
