@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Packaging;
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Contracts.Runtime;
@@ -27,21 +28,50 @@ public sealed class IngestionJobProcessor(
     IDocumentTextExtractorFactory extractorFactory,
     IDocumentChunker chunker,
     IDocumentEmbeddingService documentEmbeddingService,
-    IDateTimeProvider dateTimeProvider) : IIngestionJobProcessor
+    IDateTimeProvider dateTimeProvider,
+    IAppDiagnosticLogger? diagnostics = null) : IIngestionJobProcessor
 {
     public async Task ProcessAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
-        IngestionJob? job = await dbContext.IngestionJobs.FindAsync([jobId], cancellationToken);
-        if (job is null)
+        Guid operationId = diagnostics?.BeginOperation(
+            DiagnosticNames.Areas.Ingestion,
+            DiagnosticNames.Operations.IngestionProcessJob,
+            new Dictionary<string, object?> { [DiagnosticNames.Properties.JobId] = jobId }) ?? Guid.Empty;
+
+        IngestionJob? queuedJob = await dbContext.IngestionJobs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(job => job.Id == jobId, cancellationToken);
+        if (queuedJob is null)
         {
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.JobNotFound);
             throw new InvalidOperationException("Ingestion job was not found.");
         }
 
-        if (job.Status != IngestionJobStatus.Queued)
+        if (queuedJob.Status != IngestionJobStatus.Queued)
         {
+            diagnostics?.LogStep(
+                operationId,
+                DiagnosticNames.Steps.JobSkipped,
+                new Dictionary<string, object?> { [DiagnosticNames.Properties.Status] = queuedJob.Status.ToString() });
             return;
         }
 
+        DateTimeOffset now = dateTimeProvider.UtcNow;
+        int claimed = await dbContext.IngestionJobs
+            .Where(job => job.Id == jobId && job.Status == IngestionJobStatus.Queued)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(job => job.Status, IngestionJobStatus.Running)
+                    .SetProperty(job => job.UpdatedAt, now),
+                cancellationToken);
+
+        if (claimed == 0)
+        {
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.JobClaimSkipped);
+            return;
+        }
+
+        IngestionJob job = await dbContext.IngestionJobs.SingleAsync(x => x.Id == jobId, cancellationToken);
         Document? document = await dbContext.Documents.FindAsync([job.DocumentId], cancellationToken);
         if (document is null)
         {
@@ -49,10 +79,10 @@ public sealed class IngestionJobProcessor(
             job.LastError = "Document was not found.";
             job.ProcessedAt = dateTimeProvider.UtcNow;
             await dbContext.SaveChangesAsync(cancellationToken);
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.DocumentNotFound);
             return;
         }
 
-        job.Status = IngestionJobStatus.Running;
         document.Status = DocumentStatus.Processing;
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -70,6 +100,14 @@ public sealed class IngestionJobProcessor(
             string? extension = Path.GetExtension(documentFile.FileName);
             IDocumentTextExtractor? extractor = extractorFactory.GetExtractor(documentFile.FileType, extension, null);
             DocumentTextExtractionResult? extraction = await extractor.ExtractAsync(documentFile.LocalPath, cancellationToken);
+            diagnostics?.LogStep(
+                operationId,
+                DiagnosticNames.Steps.TextExtracted,
+                new Dictionary<string, object?>
+                {
+                    [DiagnosticNames.Properties.DocumentId] = document.Id,
+                    [DiagnosticNames.Properties.SegmentsCount] = extraction.Segments.Count,
+                });
             DocumentChunk[]? existingChunks = await dbContext.DocumentChunks
                 .Where(x => x.DocumentId == document.Id)
                 .ToArrayAsync(cancellationToken);
@@ -104,11 +142,28 @@ public sealed class IngestionJobProcessor(
             dbContext.DocumentChunks.AddRange(newChunks);
             IReadOnlyList<DocumentEmbedding>? newEmbeddings = await documentEmbeddingService.GenerateAsync(newChunks, cancellationToken);
             dbContext.DocumentEmbeddings.AddRange(newEmbeddings);
+            diagnostics?.LogStep(
+                operationId,
+                DiagnosticNames.Steps.ChunksAndEmbeddingsCreated,
+                new Dictionary<string, object?>
+                {
+                    [DiagnosticNames.Properties.ChunksCount] = newChunks.Count,
+                    [DiagnosticNames.Properties.EmbeddingsCount] = newEmbeddings.Count,
+                });
 
             job.Status = IngestionJobStatus.Completed;
             job.LastError = null;
             job.ProcessedAt = dateTimeProvider.UtcNow;
             document.Status = DocumentStatus.Indexed;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            job.Status = IngestionJobStatus.Queued;
+            job.LastError = null;
+            job.ProcessedAt = null;
+            document.Status = DocumentStatus.Queued;
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+            throw;
         }
         catch (Exception exception)
         {
@@ -116,8 +171,17 @@ public sealed class IngestionJobProcessor(
             job.LastError = exception.Message;
             job.ProcessedAt = dateTimeProvider.UtcNow;
             document.Status = DocumentStatus.Failed;
+            diagnostics?.LogFailure(operationId, exception);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        diagnostics?.LogStep(
+            operationId,
+            DiagnosticNames.Steps.JobFinished,
+            new Dictionary<string, object?>
+            {
+                [DiagnosticNames.Properties.Status] = job.Status.ToString(),
+                [DiagnosticNames.Properties.DocumentStatus] = document.Status.ToString(),
+            });
     }
 }

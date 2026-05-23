@@ -42,6 +42,8 @@ export function DocumentsPage() {
 
       <RuntimePanel
         health={page.health}
+        isSettingUpAi={page.isSettingUpAi}
+        onSetupAi={() => void page.setupAiRuntime()}
         runtime={page.runtime}
         sync={page.sync}
       />

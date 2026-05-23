@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Common;
 
@@ -27,9 +28,9 @@ public static class CursorPagination
         if (limit < 1 || limit > MaxLimit)
         {
             throw new ValidationAppException(
-                "pagination.invalidLimit",
-                "Cursor page limit must be between 1 and 200.",
-                new Dictionary<string, string[]> { ["limit"] = ["Limit must be between 1 and 200."] });
+                ErrorCodes.Pagination.InvalidLimit,
+                ErrorMessages.Pagination.InvalidLimit,
+                new Dictionary<string, string[]> { ["limit"] = [ErrorMessages.Pagination.LimitOutOfRange] });
         }
 
         return limit;
@@ -132,8 +133,8 @@ public static class CursorPagination
     private static ValidationAppException CreateInvalidCursorException(Exception? exception = null)
     {
         return new ValidationAppException(
-            "pagination.invalidCursor",
-            exception is null ? "Cursor is invalid for this request." : $"Cursor is invalid for this request: {exception.Message}",
-            new Dictionary<string, string[]> { ["cursor"] = ["Cursor is invalid for this request."] });
+            ErrorCodes.Pagination.InvalidCursor,
+            exception is null ? ErrorMessages.Pagination.InvalidCursor : $"{ErrorMessages.Pagination.InvalidCursor}: {exception.Message}",
+            new Dictionary<string, string[]> { ["cursor"] = [ErrorMessages.Pagination.InvalidCursor] });
     }
 }

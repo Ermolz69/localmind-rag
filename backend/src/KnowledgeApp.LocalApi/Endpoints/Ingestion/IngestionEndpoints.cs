@@ -21,7 +21,13 @@ public static class IngestionEndpoints
             return Results.Accepted(
                 $"/api/ingestion/jobs/{id}",
                 new ProcessIngestionJobResponse(result.JobId!.Value, result.Status ?? "Queued"));
-        });
+        })
+            .WithName("ProcessIngestionJob")
+            .WithTags("Ingestion")
+            .WithSummary("Processes an ingestion job.")
+            .WithDescription("Runs ingestion for an existing job and returns the queued/accepted status.")
+            .Produces<ProcessIngestionJobResponse>(StatusCodes.Status202Accepted)
+            .Produces(StatusCodes.Status404NotFound);
 
         return app;
     }

@@ -1,5 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Buckets;
+using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Documents;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Documents;
@@ -105,8 +106,8 @@ public sealed class UploadDocumentHandlerTests
         NotFoundAppException? exception = await Assert.ThrowsAsync<NotFoundAppException>(() =>
             handler.HandleAsync(new UploadDocumentCommand(content, "missing.txt", "text/plain", content.Length, Guid.NewGuid())));
 
-        Assert.Equal("Selected bucket was not found.", exception.Message);
-        Assert.Equal("buckets.notFound", exception.Code);
+        Assert.Equal(ErrorMessages.Buckets.NotFound, exception.Message);
+        Assert.Equal(ErrorCodes.Buckets.NotFound, exception.Code);
     }
 
     [Fact]
@@ -118,7 +119,7 @@ public sealed class UploadDocumentHandlerTests
 
         ValidationAppException? exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
             handler.HandleAsync(new UploadDocumentCommand(content, "empty.txt", "text/plain", 0, null)));
-        Assert.Equal("documents.fileEmpty", exception.Code);
+        Assert.Equal(ErrorCodes.Documents.FileEmpty, exception.Code);
     }
 
     [Fact]
@@ -130,7 +131,7 @@ public sealed class UploadDocumentHandlerTests
 
         ValidationAppException? exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
             handler.HandleAsync(new UploadDocumentCommand(content, "archive.zip", "application/zip", content.Length, null)));
-        Assert.Equal("documents.unsupportedFileType", exception.Code);
+        Assert.Equal(ErrorCodes.Documents.UnsupportedFileType, exception.Code);
     }
 
     [Fact]
@@ -142,7 +143,7 @@ public sealed class UploadDocumentHandlerTests
 
         ValidationAppException? exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
             handler.HandleAsync(new UploadDocumentCommand(content, "large.txt", "text/plain", UploadDocumentCommandValidator.MaxFileSizeBytes + 1, null)));
-        Assert.Equal("documents.fileTooLarge", exception.Code);
+        Assert.Equal(ErrorCodes.Documents.FileTooLarge, exception.Code);
     }
 
     private static UploadDocumentHandler CreateHandler(TestDatabase database, FakeFileStorageService? storage = null)

@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
-pnpm dev
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$script_dir/dev/dev.sh" "$@"

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 
 namespace KnowledgeApp.IntegrationTests;
 
@@ -34,5 +35,31 @@ public sealed class LocalApiHealthTests : IClassFixture<LocalApiTestFactory>
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         Assert.True(response.Headers.TryGetValues("Access-Control-Allow-Origin", out IEnumerable<string>? values));
         Assert.Contains("http://tauri.localhost", values);
+    }
+
+    [Fact]
+    public async Task OpenApiDocument_Should_Describe_Main_LocalApi_Contracts()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        using HttpResponseMessage response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await using Stream stream = await response.Content.ReadAsStreamAsync(CancellationToken.None);
+        using JsonDocument document = await JsonDocument.ParseAsync(stream, cancellationToken: CancellationToken.None);
+        JsonElement root = document.RootElement;
+        JsonElement paths = root.GetProperty("paths");
+
+        Assert.True(paths.TryGetProperty("/api/documents", out _));
+        Assert.True(paths.TryGetProperty("/api/chats/{id}/messages", out _));
+        Assert.True(paths.TryGetProperty("/api/search/semantic", out JsonElement semanticSearchPath));
+        Assert.True(semanticSearchPath.GetProperty("post").TryGetProperty("summary", out JsonElement summary));
+        Assert.Equal("Runs semantic search.", summary.GetString());
+
+        string openApiJson = root.GetRawText();
+        Assert.Contains("CreateBucketRequest", openApiJson, StringComparison.Ordinal);
+        Assert.Contains("DocumentDto", openApiJson, StringComparison.Ordinal);
+        Assert.Contains("SemanticSearchRequest", openApiJson, StringComparison.Ordinal);
+        Assert.Contains("Generated RAG answer with source citations.", openApiJson, StringComparison.Ordinal);
     }
 }

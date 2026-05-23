@@ -122,6 +122,7 @@ jobs:
           -targetdir:"${{ env.COVERAGE_REPORT_DIR }}/unit"
           -reporttypes:"Html;Cobertura;MarkdownSummaryGithub"
           -assemblyfilters:"+KnowledgeApp.*;-*.Tests"
+          -classfilters:"-Microsoft.AspNetCore.OpenApi.Generated*;-System.Text.RegularExpressions.Generated*"
 
       - name: Add unit coverage summary
         if: always()
@@ -201,6 +202,7 @@ jobs:
           -targetdir:"${{ env.COVERAGE_REPORT_DIR }}/integration"
           -reporttypes:"Html;Cobertura;MarkdownSummaryGithub"
           -assemblyfilters:"+KnowledgeApp.*;-*.Tests"
+          -classfilters:"-Microsoft.AspNetCore.OpenApi.Generated*;-System.Text.RegularExpressions.Generated*"
 
       - name: Add integration coverage summary
         if: always()
@@ -378,7 +380,7 @@ jobs:
 
       - name: Check hardcoded colors
         shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-colors.ps1
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check/check-colors.ps1
 
   docker-compose:
     name: Docker compose config

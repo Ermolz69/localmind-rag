@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
 
 namespace KnowledgeApp.Application.Documents;
@@ -13,33 +14,33 @@ public sealed class UploadDocumentCommandValidator
         if (string.IsNullOrWhiteSpace(command.FileName))
         {
             throw new ValidationAppException(
-                "documents.fileNameRequired",
-                "Document file name is required.",
-                new Dictionary<string, string[]> { ["fileName"] = ["Document file name is required."] });
+                ErrorCodes.Documents.FileNameRequired,
+                ErrorMessages.Documents.FileNameRequired,
+                new Dictionary<string, string[]> { ["fileName"] = [ErrorMessages.Documents.FileNameRequired] });
         }
 
         if (command.Length <= 0)
         {
             throw new ValidationAppException(
-                "documents.fileEmpty",
-                "Document file must not be empty.",
-                new Dictionary<string, string[]> { ["file"] = ["Document file must not be empty."] });
+                ErrorCodes.Documents.FileEmpty,
+                ErrorMessages.Documents.FileEmpty,
+                new Dictionary<string, string[]> { ["file"] = [ErrorMessages.Documents.FileEmpty] });
         }
 
         if (command.Length > MaxFileSizeBytes)
         {
             throw new ValidationAppException(
-                "documents.fileTooLarge",
-                "Document file size must be less than or equal to 100 MB.",
-                new Dictionary<string, string[]> { ["file"] = ["Document file size must be less than or equal to 100 MB."] });
+                ErrorCodes.Documents.FileTooLarge,
+                ErrorMessages.Documents.FileTooLarge,
+                new Dictionary<string, string[]> { ["file"] = [ErrorMessages.Documents.FileTooLarge] });
         }
 
         if (!DocumentFileTypeResolver.IsSupported(command.FileName))
         {
             throw new ValidationAppException(
-                "documents.unsupportedFileType",
-                "Document file extension is not supported.",
-                new Dictionary<string, string[]> { ["fileName"] = ["Document file extension is not supported."] });
+                ErrorCodes.Documents.UnsupportedFileType,
+                ErrorMessages.Documents.UnsupportedFileType,
+                new Dictionary<string, string[]> { ["fileName"] = [ErrorMessages.Documents.UnsupportedFileType] });
         }
     }
 }

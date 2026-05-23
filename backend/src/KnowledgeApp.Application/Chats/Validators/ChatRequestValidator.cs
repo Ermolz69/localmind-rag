@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Rag;
@@ -22,16 +23,16 @@ public sealed class ChatRequestValidator
 
         if (string.IsNullOrWhiteSpace(request.Content))
         {
-            errors["content"] = ["Chat message content is required."];
+            errors["content"] = [ErrorMessages.Chats.ContentRequired];
         }
         else if (request.Content.Length > 20_000)
         {
-            errors["content"] = ["Chat message content must be 20000 characters or less."];
+            errors["content"] = [ErrorMessages.Chats.ContentTooLong];
         }
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException("chats.validationFailed", "Chat request is invalid.", errors);
+            throw new ValidationAppException(ErrorCodes.Chats.ValidationFailed, ErrorMessages.Chats.RequestInvalid, errors);
         }
     }
 
@@ -41,16 +42,16 @@ public sealed class ChatRequestValidator
 
         if (string.IsNullOrWhiteSpace(title))
         {
-            errors["title"] = ["Chat title is required."];
+            errors["title"] = [ErrorMessages.Chats.TitleRequired];
         }
         else if (title.Length > 200)
         {
-            errors["title"] = ["Chat title must be 200 characters or less."];
+            errors["title"] = [ErrorMessages.Chats.TitleTooLong];
         }
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException("chats.validationFailed", "Chat request is invalid.", errors);
+            throw new ValidationAppException(ErrorCodes.Chats.ValidationFailed, ErrorMessages.Chats.RequestInvalid, errors);
         }
     }
 }

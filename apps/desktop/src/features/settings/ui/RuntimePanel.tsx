@@ -1,22 +1,33 @@
+import { Download, Loader2 } from "lucide-react";
+import type { ReactNode } from "react";
 import type {
   HealthStatus,
   RuntimeStatus,
   SyncStatus,
 } from "@entities/runtime";
 import { runtimeStateStyles } from "@shared/constants/ui";
-import { StatusBadge } from "@shared/ui";
+import { Button, StatusBadge } from "@shared/ui";
 
 export function RuntimePanel({
   health,
+  isSettingUpAi = false,
+  onSetupAi,
   runtime,
   sync,
 }: {
   health: HealthStatus | null;
+  isSettingUpAi?: boolean;
+  onSetupAi?: () => void;
   runtime: RuntimeStatus | null;
   sync: SyncStatus | null;
 }) {
   const apiState = health?.status === "OK" ? "ready" : "warning";
-  const aiState = runtime?.modelsAvailable ? "ready" : "warning";
+  const aiState =
+    runtime?.aiRuntimeStatus === "Running"
+      ? "ready"
+      : runtime?.setupRequired
+        ? "warning"
+        : "offline";
   const syncState = sync?.online ? "ready" : "offline";
 
   return (
@@ -29,13 +40,27 @@ export function RuntimePanel({
       />
       <RuntimeTile
         label="AI runtime"
-        value={
-          runtime?.modelsAvailable
-            ? "Models ready"
-            : (runtime?.aiRuntimeStatus ?? "Unknown")
-        }
-        badge={runtime?.offlineMode ? "Offline" : "Online"}
+        value={getAiRuntimeValue(runtime)}
+        badge={runtime?.offlineMode ? "Local" : "Online"}
         className={runtimeStateStyles[aiState]}
+        detail={runtime?.setupReason ?? undefined}
+        action={
+          runtime?.setupRequired && onSetupAi ? (
+            <Button
+              className="mt-3 w-full"
+              variant="secondary"
+              onClick={onSetupAi}
+              disabled={isSettingUpAi}
+            >
+              {isSettingUpAi ? (
+                <Loader2 className="animate-spin" size={16} aria-hidden />
+              ) : (
+                <Download size={16} aria-hidden />
+              )}
+              {isSettingUpAi ? "Installing..." : "Install local AI runtime"}
+            </Button>
+          ) : null
+        }
       />
       <RuntimeTile
         label="Sync"
@@ -47,12 +72,32 @@ export function RuntimePanel({
   );
 }
 
+function getAiRuntimeValue(runtime: RuntimeStatus | null) {
+  if (!runtime) {
+    return "Unknown";
+  }
+
+  if (runtime.aiRuntimeStatus === "Running") {
+    return "Ready";
+  }
+
+  if (runtime.setupRequired) {
+    return "Setup required";
+  }
+
+  return runtime.aiRuntimeStatus;
+}
+
 function RuntimeTile({
+  action,
+  detail,
   label,
   value,
   badge,
   className,
 }: {
+  action?: ReactNode;
+  detail?: string;
   label: string;
   value: string;
   badge: string;
@@ -65,6 +110,10 @@ function RuntimeTile({
         <StatusBadge label={badge} className={className} />
       </div>
       <p className="text-sm text-muted-foreground">{value}</p>
+      {detail ? (
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">{detail}</p>
+      ) : null}
+      {action}
     </div>
   );
 }

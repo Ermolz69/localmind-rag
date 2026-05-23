@@ -10,6 +10,8 @@ public static partial class DependencyInjection
     {
         services.AddScoped<IIngestionQueue, IngestionQueue>();
         services.AddScoped<IIngestionJobProcessor, IngestionJobProcessor>();
+        services.AddScoped<QueuedIngestionJobDispatcher>();
+        services.AddHostedService<QueuedIngestionHostedService>();
         services.AddSingleton<RawTextExtractor>();
         services.AddSingleton<HtmlTextExtractor>();
         services.AddSingleton<PdfTextExtractor>();

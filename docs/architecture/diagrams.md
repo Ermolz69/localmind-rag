@@ -156,6 +156,76 @@ flowchart TB
     ChatModel --> Response["Answer with sources"]
 ```
 
+## LocalApi Request Flow
+
+```mermaid
+sequenceDiagram
+    participant UI as Desktop UI
+    participant API as LocalApi endpoint
+    participant Handler as Application handler
+    participant UoW as UnitOfWork
+    participant DB as SQLite
+
+    UI->>API: HTTP request
+    API->>Handler: Validate and execute use case
+    Handler->>UoW: Read/write aggregate state
+    UoW->>DB: EF Core query or command
+    DB-->>UoW: Result
+    UoW-->>Handler: Domain/application result
+    Handler-->>API: Contract DTO
+    API-->>UI: JSON response or ProblemDetails
+```
+
+## Document Ingestion Flow
+
+```mermaid
+flowchart LR
+    Upload["POST /api/documents/upload"] --> Storage["Local file storage"]
+    Storage --> Record["Document + DocumentFile records"]
+    Record --> Job["Queued IngestionJob"]
+    Job --> Extract["Text extractor"]
+    Extract --> Chunk["Chunk text"]
+    Chunk --> Embed["Generate embeddings"]
+    Embed --> Persist["Persist chunks and vectors"]
+    Persist --> Search["Available to semantic search"]
+```
+
+## Semantic Search And RAG Chat Flow
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant Chat as Chat endpoint
+    participant Rag as RagContextBuilder
+    participant Search as Vector search
+    participant LLM as Chat model client
+
+    User->>Chat: Send question
+    Chat->>Rag: Build context request
+    Rag->>Search: Query relevant chunks
+    Search-->>Rag: Ranked sources
+    Rag->>LLM: Prompt with sources
+    LLM-->>Chat: Answer
+    Chat-->>User: Answer with citations
+```
+
+## Runtime Setup And Status Flow
+
+```mermaid
+flowchart TB
+    Settings["Runtime settings"] --> Status["GET /api/runtime/status"]
+    Status --> Paths["Resolve configured paths"]
+    Paths --> RuntimeCheck["Check runtime executable"]
+    Paths --> ModelCheck["Check model files"]
+    RuntimeCheck --> SetupNeeded{"Setup required?"}
+    ModelCheck --> SetupNeeded
+    SetupNeeded -- Yes --> Setup["POST /api/runtime/ai/setup"]
+    Setup --> Download["Prepare runtime and models"]
+    Download --> Status
+    SetupNeeded -- No --> Start["POST /api/runtime/ai/start"]
+    Start --> Ready["AI runtime ready"]
+```
+
 ## Frontend Feature Slices
 
 ```mermaid

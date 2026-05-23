@@ -53,10 +53,20 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm.cmd install --frozen-lockfile
 
+      - name: Cache AI runtime and models
+        uses: actions/cache@v4
+        with:
+          path: |
+            runtime/ai/bin
+            runtime/ai/models
+          key: ai-runtime-${{ runner.os }}-${{ hashFiles('scripts/setup/setup-ai*.ps1', 'backend/src/KnowledgeApp.Infrastructure/Resources/AiModels/*.json') }}
+          restore-keys: |
+            ai-runtime-${{ runner.os }}-
+
       - name: Build portable folder
         shell: powershell
         run: >
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package/package.ps1
           -Configuration Release
           -RuntimeIdentifier win-x64
           -OutputPath artifacts/localmind-portable-win-x64
@@ -64,7 +74,7 @@ jobs:
       - name: Smoke test portable package
         shell: powershell
         run: >
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-portable-package.ps1
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package/test-portable-package.ps1
           -PackagePath artifacts/localmind-portable-win-x64
           -ZipPath artifacts/localmind-portable-win-x64.zip
 

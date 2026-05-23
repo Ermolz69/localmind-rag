@@ -64,6 +64,12 @@ release/
 *.tar
 *.tar.gz
 
+# Generated documentation inputs
+docs/auto-generated/**
+!docs/auto-generated/
+!docs/auto-generated/.gitkeep
+!docs/auto-generated/README.md
+
 # Local databases
 *.db
 *.db-shm
@@ -78,6 +84,7 @@ runtime/app/indexes/*
 runtime/app/logs/*
 runtime/ai/bin/*
 runtime/ai/models/*
+!runtime/ai/bin/
 !runtime/**/.gitkeep
 !runtime/ai/README.md
 

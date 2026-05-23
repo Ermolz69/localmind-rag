@@ -4,9 +4,21 @@ export type HealthStatus = {
 };
 
 export type RuntimeStatus = {
+  localApiReady: boolean;
   aiRuntimeStatus: string;
   modelsAvailable: boolean;
   offlineMode: boolean;
+  runtimePath: string | null;
+  modelPath: string | null;
+  setupRequired: boolean;
+  setupReason: string | null;
+};
+
+export type RuntimeSetupResponse = {
+  runtimeInstalled: boolean;
+  modelInstalled: boolean;
+  message: string;
+  status: RuntimeStatus;
 };
 
 export type SyncStatus = {

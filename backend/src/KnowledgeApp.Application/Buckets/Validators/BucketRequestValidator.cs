@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Buckets;
 
@@ -21,21 +22,21 @@ public sealed class BucketRequestValidator
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            errors["name"] = ["Bucket name is required."];
+            errors["name"] = [ErrorMessages.Buckets.NameRequired];
         }
         else if (name.Length > 120)
         {
-            errors["name"] = ["Bucket name must be 120 characters or less."];
+            errors["name"] = [ErrorMessages.Buckets.NameTooLong];
         }
 
         if (description is { Length: > 500 })
         {
-            errors["description"] = ["Bucket description must be 500 characters or less."];
+            errors["description"] = [ErrorMessages.Buckets.DescriptionTooLong];
         }
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException("buckets.validationFailed", "Bucket request is invalid.", errors);
+            throw new ValidationAppException(ErrorCodes.Buckets.ValidationFailed, ErrorMessages.Buckets.RequestInvalid, errors);
         }
     }
 }

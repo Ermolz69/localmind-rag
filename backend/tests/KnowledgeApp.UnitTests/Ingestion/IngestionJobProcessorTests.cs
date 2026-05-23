@@ -213,6 +213,27 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         Assert.Equal("Ingestion job was not found.", exception.Message);
     }
 
+    [Fact]
+    public async Task ProcessAsync_Should_Not_Process_Already_Running_Job()
+    {
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid JobId) document = await CreateDocumentWithJobAsync(database, "running.txt", FileType.PlainText, "Running content.");
+        IngestionJob? job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
+        job.Status = IngestionJobStatus.Running;
+        await database.Context.SaveChangesAsync();
+        IngestionJobProcessor? processor = CreateProcessor(database);
+
+        await processor.ProcessAsync(document.JobId);
+
+        DocumentChunk[]? chunks = await database.Context.DocumentChunks
+            .Where(x => x.DocumentId == document.DocumentId)
+            .ToArrayAsync();
+        IngestionJob? storedJob = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
+
+        Assert.Empty(chunks);
+        Assert.Equal(IngestionJobStatus.Running, storedJob.Status);
+    }
+
     public async ValueTask DisposeAsync()
     {
         foreach (string filePath in filesToDelete)

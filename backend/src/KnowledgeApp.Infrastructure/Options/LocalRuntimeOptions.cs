@@ -10,16 +10,28 @@ public sealed class LocalRuntimeOptions
     public string LogsPath { get; set; } = "runtime/app/logs";
 }
 
+public sealed class IngestionWorkerOptions
+{
+    public bool Enabled { get; set; }
+    public int PollIntervalSeconds { get; set; } = 2;
+    public int BatchSize { get; set; } = 1;
+}
+
 public sealed class AiOptions
 {
+    public const string DefaultRuntimeDownloadUrl = "https://github.com/ggml-org/llama.cpp/releases/download/b9222/llama-b9222-bin-win-vulkan-x64.zip";
+
     public string Provider { get; set; } = "LlamaCpp";
+    public string EmbeddingProvider { get; set; } = "LlamaCpp";
     public string BaseUrl { get; set; } = "http://127.0.0.1:11435";
     public string ChatModel { get; set; } = "qwen2.5-3b-instruct";
-    public string EmbeddingModel { get; set; } = "BGE-M3";
+    public string EmbeddingModel { get; set; } = "bge-m3";
+    public string EmbeddingModelManifest { get; set; } = "bge-m3-q4-k-m";
     public double Temperature { get; set; } = 0.2;
     public int TopK { get; set; } = 40;
     public int ContextSize { get; set; } = 8192;
     public bool AutoStartRuntime { get; set; } = true;
     public string RuntimePath { get; set; } = "runtime/ai/bin/llama-server.exe";
     public string ModelsPath { get; set; } = "runtime/ai/models";
+    public string RuntimeDownloadUrl { get; set; } = DefaultRuntimeDownloadUrl;
 }

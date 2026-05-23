@@ -1,1 +1,2 @@
-Write-Host "Place model download/import automation here."
+$ErrorActionPreference = "Stop"
+& (Join-Path $PSScriptRoot "setup/download-models.ps1") @args

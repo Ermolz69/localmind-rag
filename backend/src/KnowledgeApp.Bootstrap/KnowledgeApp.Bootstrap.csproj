@@ -4,12 +4,7 @@
     <ProjectReference Include="..\KnowledgeApp.Application\KnowledgeApp.Application.csproj" />
     <ProjectReference Include="..\KnowledgeApp.Infrastructure\KnowledgeApp.Infrastructure.csproj" />
     <ProjectReference Include="..\KnowledgeApp.Contracts\KnowledgeApp.Contracts.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Serilog.AspNetCore" />
-    <PackageReference Include="Serilog.Settings.Configuration" />
-    <PackageReference Include="Serilog.Sinks.Console" />
+    <ProjectReference Include="..\KnowledgeApp.Observability\KnowledgeApp.Observability.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
