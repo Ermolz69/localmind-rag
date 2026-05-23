@@ -27,20 +27,31 @@ public sealed class IngestionJobProcessor(
     IDocumentTextExtractorFactory extractorFactory,
     IDocumentChunker chunker,
     IDocumentEmbeddingService documentEmbeddingService,
-    IDateTimeProvider dateTimeProvider) : IIngestionJobProcessor
+    IDateTimeProvider dateTimeProvider,
+    IAppDiagnosticLogger? diagnostics = null) : IIngestionJobProcessor
 {
     public async Task ProcessAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
+        Guid operationId = diagnostics?.BeginOperation(
+            "ingestion",
+            "process-job",
+            new Dictionary<string, object?> { ["JobId"] = jobId }) ?? Guid.Empty;
+
         IngestionJob? queuedJob = await dbContext.IngestionJobs
             .AsNoTracking()
             .FirstOrDefaultAsync(job => job.Id == jobId, cancellationToken);
         if (queuedJob is null)
         {
+            diagnostics?.LogStep(operationId, "job-not-found");
             throw new InvalidOperationException("Ingestion job was not found.");
         }
 
         if (queuedJob.Status != IngestionJobStatus.Queued)
         {
+            diagnostics?.LogStep(
+                operationId,
+                "job-skipped",
+                new Dictionary<string, object?> { ["Status"] = queuedJob.Status.ToString() });
             return;
         }
 
@@ -55,6 +66,7 @@ public sealed class IngestionJobProcessor(
 
         if (claimed == 0)
         {
+            diagnostics?.LogStep(operationId, "job-claim-skipped");
             return;
         }
 
@@ -66,6 +78,7 @@ public sealed class IngestionJobProcessor(
             job.LastError = "Document was not found.";
             job.ProcessedAt = dateTimeProvider.UtcNow;
             await dbContext.SaveChangesAsync(cancellationToken);
+            diagnostics?.LogStep(operationId, "document-not-found");
             return;
         }
 
@@ -86,6 +99,14 @@ public sealed class IngestionJobProcessor(
             string? extension = Path.GetExtension(documentFile.FileName);
             IDocumentTextExtractor? extractor = extractorFactory.GetExtractor(documentFile.FileType, extension, null);
             DocumentTextExtractionResult? extraction = await extractor.ExtractAsync(documentFile.LocalPath, cancellationToken);
+            diagnostics?.LogStep(
+                operationId,
+                "text-extracted",
+                new Dictionary<string, object?>
+                {
+                    ["DocumentId"] = document.Id,
+                    ["SegmentsCount"] = extraction.Segments.Count,
+                });
             DocumentChunk[]? existingChunks = await dbContext.DocumentChunks
                 .Where(x => x.DocumentId == document.Id)
                 .ToArrayAsync(cancellationToken);
@@ -120,6 +141,14 @@ public sealed class IngestionJobProcessor(
             dbContext.DocumentChunks.AddRange(newChunks);
             IReadOnlyList<DocumentEmbedding>? newEmbeddings = await documentEmbeddingService.GenerateAsync(newChunks, cancellationToken);
             dbContext.DocumentEmbeddings.AddRange(newEmbeddings);
+            diagnostics?.LogStep(
+                operationId,
+                "chunks-and-embeddings-created",
+                new Dictionary<string, object?>
+                {
+                    ["ChunksCount"] = newChunks.Count,
+                    ["EmbeddingsCount"] = newEmbeddings.Count,
+                });
 
             job.Status = IngestionJobStatus.Completed;
             job.LastError = null;
@@ -141,8 +170,17 @@ public sealed class IngestionJobProcessor(
             job.LastError = exception.Message;
             job.ProcessedAt = dateTimeProvider.UtcNow;
             document.Status = DocumentStatus.Failed;
+            diagnostics?.LogFailure(operationId, exception);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        diagnostics?.LogStep(
+            operationId,
+            "job-finished",
+            new Dictionary<string, object?>
+            {
+                ["Status"] = job.Status.ToString(),
+                ["DocumentStatus"] = document.Status.ToString(),
+            });
     }
 }

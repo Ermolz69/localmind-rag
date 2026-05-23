@@ -1,8 +1,7 @@
 using KnowledgeApp.Application.Abstractions;
-using KnowledgeApp.Domain.Entities;
-using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
 using KnowledgeApp.Infrastructure.Services;
+using KnowledgeApp.UnitTests.TestSupport;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,8 +24,8 @@ public sealed class ExactVectorSearchServiceTests
     public async Task SearchAsync_Should_Rank_Relevant_Chunk_Higher_Than_Irrelevant_Chunk()
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
-        (Guid DocumentId, Guid ChunkId) relevant = await AddEmbeddedChunkAsync(database.Context, "Relevant document", "Needle chunk", [1, 0]);
-        (Guid DocumentId, Guid ChunkId) irrelevant = await AddEmbeddedChunkAsync(database.Context, "Irrelevant document", "Other chunk", [0, 1]);
+        (Guid DocumentId, Guid ChunkId) relevant = await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Relevant document", "Needle chunk", [1, 0]);
+        (Guid DocumentId, Guid ChunkId) irrelevant = await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Irrelevant document", "Other chunk", [0, 1]);
         ExactVectorSearchService? search = new ExactVectorSearchService(database.Context);
 
         IReadOnlyList<Contracts.Rag.RagSourceDto>? results = await search.SearchAsync([1, 0], new VectorSearchOptions(Limit: 2));
@@ -53,8 +52,8 @@ public sealed class ExactVectorSearchServiceTests
     public async Task SearchAsync_Should_Return_Only_Selected_Document_When_Document_Filter_Is_Set()
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
-        (Guid DocumentId, Guid ChunkId) selected = await AddEmbeddedChunkAsync(database.Context, "Selected document", "Selected chunk", [1, 0]);
-        await AddEmbeddedChunkAsync(database.Context, "Other document", "Other chunk", [1, 0]);
+        (Guid DocumentId, Guid ChunkId) selected = await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Selected document", "Selected chunk", [1, 0]);
+        await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Other document", "Other chunk", [1, 0]);
         ExactVectorSearchService? search = new ExactVectorSearchService(database.Context);
 
         IReadOnlyList<Contracts.Rag.RagSourceDto>? results = await search.SearchAsync([1, 0], new VectorSearchOptions(DocumentId: selected.DocumentId));
@@ -69,8 +68,8 @@ public sealed class ExactVectorSearchServiceTests
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
         Guid selectedBucketId = Guid.NewGuid();
-        (Guid DocumentId, Guid ChunkId) selected = await AddEmbeddedChunkAsync(database.Context, "Selected bucket document", "Selected bucket chunk", [1, 0], selectedBucketId);
-        await AddEmbeddedChunkAsync(database.Context, "Other bucket document", "Other bucket chunk", [1, 0], Guid.NewGuid());
+        (Guid DocumentId, Guid ChunkId) selected = await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Selected bucket document", "Selected bucket chunk", [1, 0], selectedBucketId);
+        await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Other bucket document", "Other bucket chunk", [1, 0], Guid.NewGuid());
         ExactVectorSearchService? search = new ExactVectorSearchService(database.Context);
 
         IReadOnlyList<Contracts.Rag.RagSourceDto>? results = await search.SearchAsync([1, 0], new VectorSearchOptions(BucketId: selectedBucketId));
@@ -80,36 +79,55 @@ public sealed class ExactVectorSearchServiceTests
         Assert.Equal(selected.ChunkId, result.ChunkId);
     }
 
-    private static async Task<(Guid DocumentId, Guid ChunkId)> AddEmbeddedChunkAsync(
-        AppDbContext context,
-        string documentName,
-        string chunkText,
-        float[] vector,
-        Guid? bucketId = null)
+    [Fact]
+    public async Task SearchAsync_Should_Return_Empty_List_When_Query_Vector_Is_Empty()
     {
-        Document? document = new Document { BucketId = bucketId, Name = documentName, Status = DocumentStatus.Indexed };
-        DocumentChunk? chunk = new DocumentChunk { DocumentId = document.Id, Index = 0, Text = chunkText };
-        DocumentEmbedding? embedding = new DocumentEmbedding
-        {
-            DocumentChunkId = chunk.Id,
-            ModelName = "test-model",
-            Dimension = vector.Length,
-            Embedding = ToBytes(vector),
-        };
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Document", "Chunk", [1, 0]);
+        ExactVectorSearchService search = new(database.Context);
 
-        context.Documents.Add(document);
-        context.DocumentChunks.Add(chunk);
-        context.DocumentEmbeddings.Add(embedding);
-        await context.SaveChangesAsync();
+        IReadOnlyList<Contracts.Rag.RagSourceDto> results = await search.SearchAsync([], new VectorSearchOptions());
 
-        return (document.Id, chunk.Id);
+        Assert.Empty(results);
     }
 
-    private static byte[] ToBytes(float[] vector)
+    [Fact]
+    public async Task SearchAsync_Should_Return_Empty_List_When_Limit_Is_Zero()
     {
-        byte[]? bytes = new byte[vector.Length * sizeof(float)];
-        Buffer.BlockCopy(vector, 0, bytes, 0, bytes.Length);
-        return bytes;
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Document", "Chunk", [1, 0]);
+        ExactVectorSearchService search = new(database.Context);
+
+        IReadOnlyList<Contracts.Rag.RagSourceDto> results = await search.SearchAsync([1, 0], new VectorSearchOptions(Limit: 0));
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public async Task SearchAsync_Should_Ignore_Embeddings_With_Different_Dimension()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Wrong dimension document", "Wrong dimension chunk", [1, 0, 0]);
+        ExactVectorSearchService search = new(database.Context);
+
+        IReadOnlyList<Contracts.Rag.RagSourceDto> results = await search.SearchAsync([1, 0], new VectorSearchOptions());
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public async Task SearchAsync_Should_Ignore_Deleted_Documents()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Deleted document", "Deleted chunk", [1, 0], deletedAt: DateTimeOffset.UtcNow);
+        (Guid DocumentId, Guid ChunkId) visible = await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Visible document", "Visible chunk", [1, 0]);
+        ExactVectorSearchService search = new(database.Context);
+
+        IReadOnlyList<Contracts.Rag.RagSourceDto> results = await search.SearchAsync([1, 0], new VectorSearchOptions(Limit: 2));
+
+        Contracts.Rag.RagSourceDto result = Assert.Single(results);
+        Assert.Equal(visible.DocumentId, result.DocumentId);
+        Assert.Equal(visible.ChunkId, result.ChunkId);
     }
 
     private sealed class TestDatabase : IAsyncDisposable

@@ -27,6 +27,18 @@ Checks:
 pnpm check
 ```
 
+Backend coverage:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage.ps1
+```
+
+See [docs/testing.md](docs/testing.md).
+
+Script entrypoints are grouped by purpose under `scripts/check`,
+`scripts/setup`, `scripts/package`, and `scripts/dev`. Thin root wrappers such
+as `scripts/check.ps1` remain for compatibility.
+
 Storybook UI primitives:
 
 ```bash
@@ -44,7 +56,7 @@ pnpm package
 
 The desktop UI talks only to `KnowledgeApp.LocalApi`. LocalApi owns SQLite, local file storage, ingestion, vector search, AI runtime adapters, and optional sync workers. Remote sync is isolated in `KnowledgeApp.SyncApi`.
 
-See [docs/architectury/README.md](docs/architectury/README.md) and [docs/architecture-diagrams.md](docs/architecture-diagrams.md).
+See [docs/architectury/README.md](docs/architectury/README.md), [docs/architecture-diagrams.md](docs/architecture-diagrams.md), and [docs/observability.md](docs/observability.md).
 
 ## Requirements
 

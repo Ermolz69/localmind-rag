@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
-dotnet publish backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj -c Release -r win-x64 --self-contained true
-pnpm --filter desktop build
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$script_dir/package/package.sh" "$@"

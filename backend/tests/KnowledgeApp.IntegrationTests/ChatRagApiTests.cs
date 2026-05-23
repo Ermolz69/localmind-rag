@@ -1,12 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
+using KnowledgeApp.IntegrationTests.TestSupport;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,7 +20,7 @@ public sealed class ChatRagApiTests
         using LocalApiTestFactory factory = new();
         using HttpClient client = factory.CreateClient();
         string documentText = $"Localmind RAG test source {Guid.NewGuid():N}";
-        UploadDocumentResponse upload = await UploadDocumentAsync(client, $"rag-chat-{Guid.NewGuid():N}.txt", documentText);
+        UploadDocumentResponse upload = await ApiScenarioHelpers.UploadTextDocumentAsync(client, documentText, $"rag-chat-{Guid.NewGuid():N}.txt");
 
         await using (AsyncServiceScope ingestionScope = factory.Services.CreateAsyncScope())
         {
@@ -28,12 +28,7 @@ public sealed class ChatRagApiTests
             await processor.ProcessAsync(upload.IngestionJobId);
         }
 
-        HttpResponseMessage createResponse = await client.PostAsJsonAsync(
-            "/api/chats",
-            new CreateConversationRequest("RAG chat"));
-        createResponse.EnsureSuccessStatusCode();
-        ConversationDto? conversation = await createResponse.Content.ReadFromJsonAsync<ConversationDto>();
-        Assert.NotNull(conversation);
+        ConversationDto conversation = await ApiScenarioHelpers.CreateConversationAsync(client, "RAG chat");
 
         HttpResponseMessage sendResponse = await client.PostAsJsonAsync(
             $"/api/chats/{conversation.Id}/messages",
@@ -66,7 +61,7 @@ public sealed class ChatRagApiTests
     {
         using LocalApiTestFactory factory = new();
         using HttpClient client = factory.CreateClient();
-        ConversationDto conversation = await CreateConversationAsync(client);
+        ConversationDto conversation = await ApiScenarioHelpers.CreateConversationAsync(client);
 
         HttpResponseMessage sendResponse = await client.PostAsJsonAsync(
             $"/api/chats/{conversation.Id}/messages",
@@ -100,12 +95,31 @@ public sealed class ChatRagApiTests
     }
 
     [Fact]
+    public async Task SendChatMessage_Should_Return_ValidationProblemDetails_For_Empty_Message()
+    {
+        using LocalApiTestFactory factory = new();
+        using HttpClient client = factory.CreateClient();
+        ConversationDto conversation = await ApiScenarioHelpers.CreateConversationAsync(client);
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(
+            $"/api/chats/{conversation.Id}/messages",
+            new ChatMessageRequest("   "));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Microsoft.AspNetCore.Mvc.ValidationProblemDetails? problem =
+            await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ValidationProblemDetails>();
+        Assert.NotNull(problem);
+        Assert.Equal("chats.validationFailed", problem.Extensions["code"]?.ToString());
+        Assert.Contains("content", problem.Errors.Keys);
+    }
+
+    [Fact]
     public async Task SendChatMessage_Should_Not_Return_Sources_From_Deleted_Documents()
     {
         using LocalApiTestFactory factory = new();
         using HttpClient client = factory.CreateClient();
         string documentText = $"Deleted document source {Guid.NewGuid():N}";
-        UploadDocumentResponse upload = await UploadDocumentAsync(client, $"deleted-rag-{Guid.NewGuid():N}.txt", documentText);
+        UploadDocumentResponse upload = await ApiScenarioHelpers.UploadTextDocumentAsync(client, documentText, $"deleted-rag-{Guid.NewGuid():N}.txt");
 
         await using (AsyncServiceScope setupScope = factory.Services.CreateAsyncScope())
         {
@@ -117,7 +131,7 @@ public sealed class ChatRagApiTests
             await setupDb.SaveChangesAsync();
         }
 
-        ConversationDto conversation = await CreateConversationAsync(client);
+        ConversationDto conversation = await ApiScenarioHelpers.CreateConversationAsync(client);
         HttpResponseMessage sendResponse = await client.PostAsJsonAsync(
             $"/api/chats/{conversation.Id}/messages",
             new ChatMessageRequest(documentText));
@@ -129,31 +143,4 @@ public sealed class ChatRagApiTests
         Assert.DoesNotContain(documentText, answer.Answer, StringComparison.Ordinal);
     }
 
-    private static async Task<ConversationDto> CreateConversationAsync(HttpClient client)
-    {
-        HttpResponseMessage createResponse = await client.PostAsJsonAsync(
-            "/api/chats",
-            new CreateConversationRequest($"RAG chat {Guid.NewGuid():N}"));
-        createResponse.EnsureSuccessStatusCode();
-        ConversationDto? conversation = await createResponse.Content.ReadFromJsonAsync<ConversationDto>();
-        Assert.NotNull(conversation);
-        return conversation;
-    }
-
-    private static async Task<UploadDocumentResponse> UploadDocumentAsync(
-        HttpClient client,
-        string fileName,
-        string content)
-    {
-        using MultipartFormDataContent form = new();
-        using ByteArrayContent file = new(Encoding.UTF8.GetBytes(content));
-        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
-        form.Add(file, "file", fileName);
-
-        using HttpResponseMessage uploadResponse = await client.PostAsync("/api/documents/upload", form);
-        Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
-        UploadDocumentResponse? upload = await uploadResponse.Content.ReadFromJsonAsync<UploadDocumentResponse>();
-        Assert.NotNull(upload);
-        return upload;
-    }
 }

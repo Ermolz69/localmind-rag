@@ -12,7 +12,8 @@ public sealed class AiRuntimeManager(
     IOptions<AiOptions> options,
     EmbeddingModelCatalog embeddingModelCatalog,
     EmbeddingModelStore embeddingModelStore,
-    ILogger<AiRuntimeManager> logger) : IAiRuntimeManager, IAiModelRegistry, IDisposable
+    ILogger<AiRuntimeManager> logger,
+    IAppDiagnosticLogger? diagnostics = null) : IAiRuntimeManager, IAiModelRegistry, IDisposable
 {
     private readonly AiOptions options = options.Value;
     private readonly object syncRoot = new();
@@ -61,15 +62,26 @@ public sealed class AiRuntimeManager(
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
+        Guid operationId = diagnostics?.BeginOperation(
+            "runtime",
+            "ai-start",
+            new Dictionary<string, object?>
+            {
+                ["BaseUrl"] = options.BaseUrl,
+                ["RuntimePath"] = options.RuntimePath,
+            }) ?? Guid.Empty;
+
         if (!options.AutoStartRuntime)
         {
             logger.LogInformation("AI runtime autostart is disabled.");
+            diagnostics?.LogStep(operationId, "autostart-disabled");
             return;
         }
 
         if (await IsRuntimeHealthyAsync(cancellationToken))
         {
             logger.LogInformation("AI runtime is already available at {BaseUrl}.", options.BaseUrl);
+            diagnostics?.LogStep(operationId, "already-running");
             return;
         }
 
@@ -79,6 +91,7 @@ public sealed class AiRuntimeManager(
             logger.LogWarning(
                 "AI runtime executable was not found at {RuntimePath}. Use the first-run AI setup action to install llama.cpp.",
                 runtimePath);
+            diagnostics?.LogStep(operationId, "runtime-missing", new Dictionary<string, object?> { ["RuntimePath"] = runtimePath });
             return;
         }
 
@@ -90,6 +103,7 @@ public sealed class AiRuntimeManager(
                 "Embedding model is missing or invalid at {ModelPath}. Use the first-run AI setup action to download {ModelName}.",
                 missingModelPath,
                 missingManifest.DisplayName);
+            diagnostics?.LogStep(operationId, "model-missing", new Dictionary<string, object?> { ["ModelPath"] = missingModelPath });
             return;
         }
 
@@ -137,6 +151,7 @@ public sealed class AiRuntimeManager(
 
         logger.LogInformation("Started AI runtime process {ProcessId} at {BaseUrl}.", process.Id, options.BaseUrl);
         await WaitForRuntimeAsync(cancellationToken);
+        diagnostics?.LogStep(operationId, "start-finished");
     }
 
     public void Dispose()

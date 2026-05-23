@@ -1,5 +1,2 @@
-Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-
-& (Join-Path $PSScriptRoot "setup-ai-runtime.ps1")
-& (Join-Path $PSScriptRoot "setup-ai-models.ps1")
+& (Join-Path $PSScriptRoot "setup/setup-ai.ps1") @args

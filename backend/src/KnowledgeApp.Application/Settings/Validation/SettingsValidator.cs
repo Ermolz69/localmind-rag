@@ -32,7 +32,7 @@ public sealed class SettingsValidator
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException("Settings validation failed.", "settings.validationFailed", errors);
+            throw new ValidationAppException("settings.validationFailed", "Settings validation failed.", errors);
         }
     }
 

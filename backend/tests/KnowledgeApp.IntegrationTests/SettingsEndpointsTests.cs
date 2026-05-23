@@ -118,4 +118,39 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
         Assert.Contains("ai.provider", problem.Errors.Keys);
         Assert.Contains("ai.chatModel", problem.Errors.Keys);
     }
+
+    [Fact]
+    public async Task PutSettings_Should_Return_Field_Errors_For_Missing_Runtime_And_Ai_Paths()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        AppSettingsDto request = new AppSettingsDto(
+            Appearance: new AppearanceSettingsDto("System"),
+            Ai: new AiSettingsDto(
+                Provider: "LlamaCpp",
+                ChatModel: "llama3.2",
+                EmbeddingModel: "nomic-embed-text",
+                RuntimePath: "",
+                ModelsPath: ""),
+            RuntimePaths: new RuntimePathsSettingsDto(
+                DataPath: "",
+                DatabasePath: "",
+                FilesPath: "",
+                IndexPath: "",
+                LogsPath: ""),
+            Sync: new SyncSettingsDto(
+                Enabled: false,
+                AutoSync: false));
+
+        using HttpResponseMessage response = await client.PutAsJsonAsync("/api/settings", request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        ValidationProblemDetails? problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        Assert.NotNull(problem);
+        Assert.Equal("settings.validationFailed", problem.Extensions["code"]?.ToString());
+        Assert.Contains("ai.runtimePath", problem.Errors.Keys);
+        Assert.Contains("ai.modelsPath", problem.Errors.Keys);
+        Assert.Contains("runtimePaths.databasePath", problem.Errors.Keys);
+        Assert.Contains("runtimePaths.logsPath", problem.Errors.Keys);
+    }
 }

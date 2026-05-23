@@ -9,12 +9,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />
-    <PackageReference Include="Serilog.Extensions.Hosting" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\KnowledgeApp.Application\KnowledgeApp.Application.csproj" />
     <ProjectReference Include="..\KnowledgeApp.Infrastructure\KnowledgeApp.Infrastructure.csproj" />
     <ProjectReference Include="..\KnowledgeApp.Bootstrap\KnowledgeApp.Bootstrap.csproj" />
+    <ProjectReference Include="..\KnowledgeApp.Observability\KnowledgeApp.Observability.csproj" />
   </ItemGroup>
 </Project>

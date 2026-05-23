@@ -6,6 +6,7 @@
     <Project Path="src/KnowledgeApp.Domain/KnowledgeApp.Domain.csproj" />
     <Project Path="src/KnowledgeApp.Infrastructure/KnowledgeApp.Infrastructure.csproj" />
     <Project Path="src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj" />
+    <Project Path="src/KnowledgeApp.Observability/KnowledgeApp.Observability.csproj" />
     <Project Path="src/KnowledgeApp.SyncApi/KnowledgeApp.SyncApi.csproj" />
     <Project Path="src/KnowledgeApp.Worker/KnowledgeApp.Worker.csproj" />
   </Folder>

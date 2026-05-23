@@ -12,10 +12,21 @@ public sealed class UploadDocumentHandler(
     IDateTimeProvider dateTimeProvider,
     IBucketResolver bucketResolver,
     ILocalDeviceResolver localDeviceResolver,
-    UploadDocumentCommandValidator validator)
+    UploadDocumentCommandValidator validator,
+    IAppDiagnosticLogger? diagnostics = null)
 {
     public async Task<UploadDocumentResponse> HandleAsync(UploadDocumentCommand command, CancellationToken cancellationToken = default)
     {
+        Guid operationId = diagnostics?.BeginOperation(
+            "documents",
+            "upload",
+            new Dictionary<string, object?>
+            {
+                ["FileName"] = command.FileName,
+                ["Length"] = command.Length,
+                ["BucketId"] = command.BucketId,
+            }) ?? Guid.Empty;
+
         validator.Validate(command);
 
         DateTimeOffset now = dateTimeProvider.UtcNow;
@@ -48,11 +59,31 @@ public sealed class UploadDocumentHandler(
             Status = IngestionJobStatus.Queued,
         };
 
+        diagnostics?.LogStep(
+            operationId,
+            "document-created",
+            new Dictionary<string, object?>
+            {
+                ["DocumentId"] = document.Id,
+                ["BucketId"] = bucket.Id,
+                ["IngestionJobId"] = ingestionJob.Id,
+            });
+
         dbContext.Documents.Add(document);
         dbContext.DocumentFiles.Add(documentFile);
         dbContext.IngestionJobs.Add(ingestionJob);
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        diagnostics?.LogStep(
+            operationId,
+            "upload-saved",
+            new Dictionary<string, object?>
+            {
+                ["DocumentId"] = document.Id,
+                ["IngestionJobId"] = ingestionJob.Id,
+                ["Status"] = document.Status.ToString(),
+            });
 
         return new UploadDocumentResponse(document.Id, ingestionJob.Id, document.Status.ToString());
     }

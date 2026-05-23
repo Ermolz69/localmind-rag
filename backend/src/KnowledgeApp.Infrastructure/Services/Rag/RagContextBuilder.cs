@@ -6,13 +6,25 @@ using KnowledgeApp.Contracts.Rag;
 
 namespace KnowledgeApp.Infrastructure.Services;
 
-public sealed class RagContextBuilder(IVectorSearchService search, IEmbeddingGenerator embeddings) : IRagContextBuilder
+public sealed class RagContextBuilder(
+    IVectorSearchService search,
+    IEmbeddingGenerator embeddings,
+    IAppDiagnosticLogger? diagnostics = null) : IRagContextBuilder
 {
     private const int SnippetCharacterLimit = 700;
     private const int ContextCharacterLimit = 6_000;
 
     public async Task<RagContext> BuildAsync(RagContextRequest request, CancellationToken cancellationToken = default)
     {
+        Guid operationId = diagnostics?.BeginOperation(
+            "rag",
+            "build-context",
+            new Dictionary<string, object?>
+            {
+                ["ConversationId"] = request.ConversationId,
+                ["Limit"] = request.Limit,
+            }) ?? Guid.Empty;
+
         float[] queryVector = await embeddings.GenerateAsync(request.Question, cancellationToken);
         IReadOnlyList<RagSourceDto> sources = await search.SearchAsync(
             queryVector,
@@ -20,6 +32,14 @@ public sealed class RagContextBuilder(IVectorSearchService search, IEmbeddingGen
             cancellationToken);
 
         string contextText = BuildContextText(sources);
+        diagnostics?.LogStep(
+            operationId,
+            "context-built",
+            new Dictionary<string, object?>
+            {
+                ["SourcesCount"] = sources.Count,
+                ["ContextLength"] = contextText.Length,
+            });
         return new RagContext(sources, contextText);
     }
 

@@ -6,12 +6,25 @@ public static class SyncEndpoints
 {
     public static IEndpointRouteBuilder MapSyncEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/sync/status", async (ISyncService sync, CancellationToken cancellationToken) =>
-            Results.Ok(await sync.GetStatusAsync(cancellationToken)));
-
-        app.MapPost("/api/sync/run", async (ISyncService sync, CancellationToken cancellationToken) =>
+        app.MapGet("/api/sync/status", async (
+            ISyncService sync,
+            IAppDiagnosticLogger diagnostics,
+            CancellationToken cancellationToken) =>
         {
+            Guid operationId = diagnostics.BeginOperation("sync", "status");
+            object status = await sync.GetStatusAsync(cancellationToken);
+            diagnostics.LogStep(operationId, "status-returned");
+            return Results.Ok(status);
+        });
+
+        app.MapPost("/api/sync/run", async (
+            ISyncService sync,
+            IAppDiagnosticLogger diagnostics,
+            CancellationToken cancellationToken) =>
+        {
+            Guid operationId = diagnostics.BeginOperation("sync", "run");
             await sync.RunAsync(cancellationToken);
+            diagnostics.LogStep(operationId, "run-accepted");
             return Results.Accepted();
         });
 

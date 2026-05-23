@@ -1,2 +1,2 @@
-dotnet restore backend/KnowledgeApp.slnx
-pnpm.cmd install
+$ErrorActionPreference = "Stop"
+& (Join-Path $PSScriptRoot "setup/setup.ps1") @args

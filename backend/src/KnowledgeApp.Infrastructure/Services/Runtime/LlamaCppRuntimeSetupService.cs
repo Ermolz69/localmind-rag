@@ -11,14 +11,18 @@ public sealed class LlamaCppRuntimeSetupService(
     IOptions<AiOptions> options,
     EmbeddingModelStore embeddingModelStore,
     HttpClient httpClient,
-    ILogger<LlamaCppRuntimeSetupService> logger) : IAiRuntimeSetupService
+    ILogger<LlamaCppRuntimeSetupService> logger,
+    IAppDiagnosticLogger? diagnostics = null) : IAiRuntimeSetupService
 {
     private readonly AiOptions options = options.Value;
 
     public async Task SetupAsync(CancellationToken cancellationToken = default)
     {
+        Guid operationId = diagnostics?.BeginOperation("runtime", "ai-setup") ?? Guid.Empty;
         await EnsureRuntimeAsync(cancellationToken);
+        diagnostics?.LogStep(operationId, "runtime-ready");
         await embeddingModelStore.EnsureDownloadedAsync(cancellationToken: cancellationToken);
+        diagnostics?.LogStep(operationId, "model-ready");
     }
 
     private async Task EnsureRuntimeAsync(CancellationToken cancellationToken)

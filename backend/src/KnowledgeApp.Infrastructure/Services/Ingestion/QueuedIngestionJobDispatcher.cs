@@ -13,7 +13,8 @@ public sealed class QueuedIngestionJobDispatcher(
     AppDbContext dbContext,
     IIngestionJobProcessor processor,
     IOptions<IngestionWorkerOptions> options,
-    ILogger<QueuedIngestionJobDispatcher> logger)
+    ILogger<QueuedIngestionJobDispatcher> logger,
+    IAppDiagnosticLogger? diagnostics = null)
 {
     private readonly IngestionWorkerOptions options = options.Value;
 
@@ -41,7 +42,12 @@ public sealed class QueuedIngestionJobDispatcher(
             try
             {
                 logger.LogInformation("Processing queued ingestion job {JobId}.", jobId);
+                Guid operationId = diagnostics?.BeginOperation(
+                    "ingestion",
+                    "dispatch-job",
+                    new Dictionary<string, object?> { ["JobId"] = jobId }) ?? Guid.Empty;
                 await processor.ProcessAsync(jobId, cancellationToken);
+                diagnostics?.LogStep(operationId, "dispatch-completed");
                 processedCount++;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -50,6 +56,11 @@ public sealed class QueuedIngestionJobDispatcher(
             }
             catch (Exception exception)
             {
+                Guid operationId = diagnostics?.BeginOperation(
+                    "ingestion",
+                    "dispatch-failed",
+                    new Dictionary<string, object?> { ["JobId"] = jobId }) ?? Guid.Empty;
+                diagnostics?.LogFailure(operationId, exception);
                 logger.LogError(exception, "Queued ingestion job {JobId} failed before processor could store failure state.", jobId);
             }
         }
