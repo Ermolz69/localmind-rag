@@ -24,8 +24,6 @@ if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
     throw "Rust/Cargo is required to build the Tauri desktop executable. Install Rust or run this workflow on GitHub Actions."
 }
 
-& (Join-Path $PSScriptRoot "setup-ai.ps1")
-
 New-Item -ItemType Directory -Force -Path $bin, $config | Out-Null
 New-Item -ItemType Directory -Force -Path `
     (Join-Path $runtimeApp "data"), `
@@ -64,10 +62,11 @@ Contents:
 - localmind.exe: Tauri desktop shell
 - bin/KnowledgeApp.LocalApi.exe: local API sidecar
 - runtime/app/: portable SQLite, files, indexes, logs
-- runtime/ai/: local AI runtime binaries and models
+- runtime/ai/: local AI runtime binaries and models after first-run setup
 - config/appsettings.json: portable runtime settings
 
 Run localmind.exe. The desktop shell starts the LocalApi sidecar automatically.
+If local AI assets are missing, use the in-app first-run AI setup action.
 "@ | Set-Content -Path (Join-Path $output "README.txt") -Encoding UTF8
 
 @"
@@ -86,8 +85,8 @@ $requiredPaths = @(
     (Join-Path $runtimeApp "files"),
     (Join-Path $runtimeApp "indexes"),
     (Join-Path $runtimeApp "logs"),
-    (Join-Path $runtimeAi "bin/llama-server.exe"),
-    (Join-Path $runtimeAi "models/bge-m3-Q4_K_M.gguf")
+    (Join-Path $runtimeAi "bin"),
+    (Join-Path $runtimeAi "models")
 )
 
 foreach ($path in $requiredPaths) {

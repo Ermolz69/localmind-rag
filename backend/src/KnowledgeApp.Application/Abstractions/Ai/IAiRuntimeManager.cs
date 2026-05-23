@@ -8,3 +8,8 @@ public interface IAiRuntimeManager
 
     Task StartAsync(CancellationToken cancellationToken = default);
 }
+
+public interface IAiRuntimeSetupService
+{
+    Task SetupAsync(CancellationToken cancellationToken = default);
+}

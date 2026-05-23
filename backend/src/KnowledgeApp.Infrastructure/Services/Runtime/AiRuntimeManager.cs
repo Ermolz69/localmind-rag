@@ -20,7 +20,11 @@ public sealed class AiRuntimeManager(
 
     public async Task<RuntimeStatusDto> GetStatusAsync(CancellationToken cancellationToken = default)
     {
-        bool runtimeAvailable = File.Exists(ResolvePath(options.RuntimePath));
+        string runtimePath = ResolvePath(options.RuntimePath);
+        EmbeddingModelManifest manifest = embeddingModelCatalog.GetDefault();
+        string modelPath = embeddingModelStore.GetModelPath(manifest);
+
+        bool runtimeAvailable = File.Exists(runtimePath);
         bool modelAvailable = await embeddingModelStore.IsValidAsync(cancellationToken: cancellationToken);
         bool runtimeRunning = await IsRuntimeHealthyAsync(cancellationToken);
 
@@ -32,11 +36,17 @@ public sealed class AiRuntimeManager(
             _ => "Stopped",
         };
 
+        string? setupReason = GetSetupReason(runtimeAvailable, modelAvailable);
+
         return new RuntimeStatusDto(
             LocalApiReady: true,
             AiRuntimeStatus: runtimeStatus,
             ModelsAvailable: modelAvailable,
-            OfflineMode: true);
+            OfflineMode: true,
+            RuntimePath: runtimePath,
+            ModelPath: modelPath,
+            SetupRequired: setupReason is not null,
+            SetupReason: setupReason);
     }
 
     public Task<IReadOnlyCollection<string>> ListModelsAsync(CancellationToken cancellationToken = default)
@@ -66,13 +76,20 @@ public sealed class AiRuntimeManager(
         string runtimePath = ResolvePath(options.RuntimePath);
         if (!File.Exists(runtimePath))
         {
-            logger.LogWarning("AI runtime executable was not found at {RuntimePath}. Run scripts/setup-ai.ps1.", runtimePath);
+            logger.LogWarning(
+                "AI runtime executable was not found at {RuntimePath}. Use the first-run AI setup action to install llama.cpp.",
+                runtimePath);
             return;
         }
 
         if (!await embeddingModelStore.IsValidAsync(cancellationToken: cancellationToken))
         {
-            logger.LogWarning("Embedding model is missing or invalid. Run scripts/setup-ai.ps1.");
+            EmbeddingModelManifest missingManifest = embeddingModelCatalog.GetDefault();
+            string missingModelPath = embeddingModelStore.GetModelPath(missingManifest);
+            logger.LogWarning(
+                "Embedding model is missing or invalid at {ModelPath}. Use the first-run AI setup action to download {ModelName}.",
+                missingModelPath,
+                missingManifest.DisplayName);
             return;
         }
 
@@ -186,6 +203,21 @@ public sealed class AiRuntimeManager(
         }
 
         logger.LogWarning("AI runtime did not become ready within the startup timeout.");
+    }
+
+    private static string? GetSetupReason(bool runtimeAvailable, bool modelAvailable)
+    {
+        if (!runtimeAvailable)
+        {
+            return "AI runtime executable is missing. Install the local AI runtime first.";
+        }
+
+        if (!modelAvailable)
+        {
+            return "Embedding model is missing or failed checksum validation. Download the local embedding model first.";
+        }
+
+        return null;
     }
 
     private string ResolvePath(string path) => Path.GetFullPath(path, paths.AppRootDirectory);

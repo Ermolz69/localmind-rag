@@ -6,6 +6,7 @@ export type {
   DiagnosticsStatus,
   DiagnosticsStorage,
   HealthStatus,
+  RuntimeSetupResponse,
   RuntimeStatus,
   SyncStatus,
 } from "./model/types";

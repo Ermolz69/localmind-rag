@@ -1,7 +1,10 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Runtime;
 using KnowledgeApp.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace KnowledgeApp.Infrastructure;
 
@@ -14,6 +17,12 @@ public static partial class DependencyInjection
         services.AddSingleton<AiRuntimeManager>();
         services.AddSingleton<IAiRuntimeManager>(provider => provider.GetRequiredService<AiRuntimeManager>());
         services.AddSingleton<IAiModelRegistry>(provider => provider.GetRequiredService<AiRuntimeManager>());
+        services.AddSingleton<IAiRuntimeSetupService>(provider => new LlamaCppRuntimeSetupService(
+            provider.GetRequiredService<IAppPathProvider>(),
+            provider.GetRequiredService<IOptions<AiOptions>>(),
+            provider.GetRequiredService<EmbeddingModelStore>(),
+            new HttpClient(),
+            provider.GetRequiredService<ILogger<LlamaCppRuntimeSetupService>>()));
 
         return services;
     }

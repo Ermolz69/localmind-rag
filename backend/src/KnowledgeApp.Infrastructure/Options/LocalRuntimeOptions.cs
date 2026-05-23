@@ -12,6 +12,8 @@ public sealed class LocalRuntimeOptions
 
 public sealed class AiOptions
 {
+    public const string DefaultRuntimeDownloadUrl = "https://github.com/ggml-org/llama.cpp/releases/download/b9222/llama-b9222-bin-win-vulkan-x64.zip";
+
     public string Provider { get; set; } = "LlamaCpp";
     public string EmbeddingProvider { get; set; } = "LlamaCpp";
     public string BaseUrl { get; set; } = "http://127.0.0.1:11435";
@@ -24,4 +26,5 @@ public sealed class AiOptions
     public bool AutoStartRuntime { get; set; } = true;
     public string RuntimePath { get; set; } = "runtime/ai/bin/llama-server.exe";
     public string ModelsPath { get; set; } = "runtime/ai/models";
+    public string RuntimeDownloadUrl { get; set; } = DefaultRuntimeDownloadUrl;
 }
