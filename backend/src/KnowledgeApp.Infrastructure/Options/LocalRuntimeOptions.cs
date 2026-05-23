@@ -10,6 +10,13 @@ public sealed class LocalRuntimeOptions
     public string LogsPath { get; set; } = "runtime/app/logs";
 }
 
+public sealed class IngestionWorkerOptions
+{
+    public bool Enabled { get; set; }
+    public int PollIntervalSeconds { get; set; } = 2;
+    public int BatchSize { get; set; } = 1;
+}
+
 public sealed class AiOptions
 {
     public const string DefaultRuntimeDownloadUrl = "https://github.com/ggml-org/llama.cpp/releases/download/b9222/llama-b9222-bin-win-vulkan-x64.zip";

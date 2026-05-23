@@ -12,6 +12,8 @@ using KnowledgeApp.Contracts.Ingestion;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -190,6 +192,81 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     }
 
     [Fact]
+    public async Task Uploaded_Text_Document_Should_Be_Automatically_Processed_By_Worker()
+    {
+        using WebApplicationFactory<Program> autoWorkerFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+            {
+                Dictionary<string, string?> settings = new()
+                {
+                    ["IngestionWorker:Enabled"] = "true",
+                    ["IngestionWorker:PollIntervalSeconds"] = "1",
+                    ["IngestionWorker:BatchSize"] = "1",
+                };
+
+                configuration.AddInMemoryCollection(settings);
+            }));
+        using HttpClient client = autoWorkerFactory.CreateClient();
+        string fileName = $"auto-ingestion-{Guid.NewGuid():N}.txt";
+        UploadDocumentResponse upload = await UploadDocumentAsync(client, fileName, content: "Automatic worker paragraph.");
+
+        await WaitForAsync(async () =>
+        {
+            await using AsyncServiceScope scope = autoWorkerFactory.Services.CreateAsyncScope();
+            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            IngestionJob job = await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+            return job.Status == IngestionJobStatus.Completed;
+        });
+
+        await using AsyncServiceScope verificationScope = autoWorkerFactory.Services.CreateAsyncScope();
+        AppDbContext verificationDb = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        DocumentChunk chunk = await verificationDb.DocumentChunks.SingleAsync(x => x.DocumentId == upload.DocumentId);
+        Document document = await verificationDb.Documents.SingleAsync(x => x.Id == upload.DocumentId);
+        IngestionJob completedJob = await verificationDb.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+
+        Assert.Equal("Automatic worker paragraph.", chunk.Text);
+        Assert.Equal(DocumentStatus.Indexed, document.Status);
+        Assert.Equal(IngestionJobStatus.Completed, completedJob.Status);
+    }
+
+    [Fact]
+    public async Task Uploaded_Corrupt_Pdf_Document_Should_Be_Automatically_Failed_By_Worker()
+    {
+        using WebApplicationFactory<Program> autoWorkerFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+            {
+                Dictionary<string, string?> settings = new()
+                {
+                    ["IngestionWorker:Enabled"] = "true",
+                    ["IngestionWorker:PollIntervalSeconds"] = "1",
+                    ["IngestionWorker:BatchSize"] = "1",
+                };
+
+                configuration.AddInMemoryCollection(settings);
+            }));
+        using HttpClient client = autoWorkerFactory.CreateClient();
+        string fileName = $"auto-failed-{Guid.NewGuid():N}.pdf";
+        UploadDocumentResponse upload = await UploadDocumentAsync(client, fileName, content: "%PDF skeleton", contentType: "application/pdf");
+
+        await WaitForAsync(async () =>
+        {
+            await using AsyncServiceScope scope = autoWorkerFactory.Services.CreateAsyncScope();
+            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            IngestionJob job = await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+            return job.Status == IngestionJobStatus.Failed;
+        });
+
+        await using AsyncServiceScope verificationScope = autoWorkerFactory.Services.CreateAsyncScope();
+        AppDbContext verificationDb = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Document document = await verificationDb.Documents.SingleAsync(x => x.Id == upload.DocumentId);
+        IngestionJob failedJob = await verificationDb.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+
+        Assert.Equal(DocumentStatus.Failed, document.Status);
+        Assert.Equal(IngestionJobStatus.Failed, failedJob.Status);
+        Assert.False(string.IsNullOrWhiteSpace(failedJob.LastError));
+    }
+
+    [Fact]
     public async Task ProcessIngestionJobEndpoint_Should_Process_Uploaded_Text_Document()
     {
         using HttpClient? client = factory.CreateClient();
@@ -344,6 +421,22 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         UploadDocumentResponse? upload = await uploadResponse.Content.ReadFromJsonAsync<UploadDocumentResponse>();
         Assert.NotNull(upload);
         return upload;
+    }
+
+    private static async Task WaitForAsync(Func<Task<bool>> condition)
+    {
+        DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            if (await condition())
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250));
+        }
+
+        throw new TimeoutException("Timed out waiting for condition.");
     }
 
     private static byte[] CreatePdfBytes(string text)

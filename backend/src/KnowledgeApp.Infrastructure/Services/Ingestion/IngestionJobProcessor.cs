@@ -31,17 +31,34 @@ public sealed class IngestionJobProcessor(
 {
     public async Task ProcessAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
-        IngestionJob? job = await dbContext.IngestionJobs.FindAsync([jobId], cancellationToken);
-        if (job is null)
+        IngestionJob? queuedJob = await dbContext.IngestionJobs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(job => job.Id == jobId, cancellationToken);
+        if (queuedJob is null)
         {
             throw new InvalidOperationException("Ingestion job was not found.");
         }
 
-        if (job.Status != IngestionJobStatus.Queued)
+        if (queuedJob.Status != IngestionJobStatus.Queued)
         {
             return;
         }
 
+        DateTimeOffset now = dateTimeProvider.UtcNow;
+        int claimed = await dbContext.IngestionJobs
+            .Where(job => job.Id == jobId && job.Status == IngestionJobStatus.Queued)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(job => job.Status, IngestionJobStatus.Running)
+                    .SetProperty(job => job.UpdatedAt, now),
+                cancellationToken);
+
+        if (claimed == 0)
+        {
+            return;
+        }
+
+        IngestionJob job = await dbContext.IngestionJobs.SingleAsync(x => x.Id == jobId, cancellationToken);
         Document? document = await dbContext.Documents.FindAsync([job.DocumentId], cancellationToken);
         if (document is null)
         {
@@ -52,7 +69,6 @@ public sealed class IngestionJobProcessor(
             return;
         }
 
-        job.Status = IngestionJobStatus.Running;
         document.Status = DocumentStatus.Processing;
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -109,6 +125,15 @@ public sealed class IngestionJobProcessor(
             job.LastError = null;
             job.ProcessedAt = dateTimeProvider.UtcNow;
             document.Status = DocumentStatus.Indexed;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            job.Status = IngestionJobStatus.Queued;
+            job.LastError = null;
+            job.ProcessedAt = null;
+            document.Status = DocumentStatus.Queued;
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+            throw;
         }
         catch (Exception exception)
         {

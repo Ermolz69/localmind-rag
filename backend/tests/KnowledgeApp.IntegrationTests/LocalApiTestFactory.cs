@@ -21,6 +21,9 @@ public sealed class LocalApiTestFactory : WebApplicationFactory<Program>
                 ["LocalRuntime:LogsPath"] = Path.Combine(runtimeRoot, "runtime", "app", "logs"),
                 ["Ai:EmbeddingProvider"] = "Stub",
                 ["Ai:EmbeddingModel"] = "BGE-M3",
+                ["Ai:RuntimePath"] = Path.Combine(runtimeRoot, "runtime", "ai", "bin", "llama-server.exe"),
+                ["Ai:ModelsPath"] = Path.Combine(runtimeRoot, "runtime", "ai", "models"),
+                ["IngestionWorker:Enabled"] = "false",
             };
 
             configuration.AddInMemoryCollection(settings);

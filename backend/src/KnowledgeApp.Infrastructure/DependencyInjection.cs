@@ -9,6 +9,7 @@ public static partial class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<LocalRuntimeOptions>(configuration.GetSection("LocalRuntime"));
+        services.Configure<IngestionWorkerOptions>(configuration.GetSection("IngestionWorker"));
         services.Configure<AiOptions>(configuration.GetSection("Ai"));
         services.Configure<OcrOptions>(configuration.GetSection("Ocr"));
 
