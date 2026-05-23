@@ -1,11 +1,17 @@
 using System.Net;
 using System.Net.Http.Json;
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Search;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace KnowledgeApp.IntegrationTests;
 
@@ -42,6 +48,57 @@ public sealed class SemanticSearchApiTests : IClassFixture<LocalApiTestFactory>
         Assert.True(results.Sources[0].Score > 0.99);
     }
 
+    [Fact]
+    public async Task SemanticSearch_Should_Return_ValidationProblemDetails_For_Blank_Query()
+    {
+        using HttpClient? client = factory.CreateClient();
+
+        using HttpResponseMessage response = await client.PostAsJsonAsync("/api/search/semantic", new SemanticSearchRequest(" "));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        ValidationProblemDetails? problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        Assert.NotNull(problem);
+        Assert.Equal(ErrorCodes.Search.ValidationFailed, problem.Extensions["code"]?.ToString());
+        Assert.NotNull(problem.Extensions["traceId"]);
+        Assert.Equal(ErrorMessages.Search.QueryRequired, problem.Errors[SemanticSearchRequestValidator.QueryField].Single());
+    }
+
+    [Fact]
+    public async Task SemanticSearch_Should_Return_ValidationProblemDetails_For_Invalid_Limit()
+    {
+        using HttpClient? client = factory.CreateClient();
+
+        using HttpResponseMessage response = await client.PostAsJsonAsync("/api/search/semantic", new SemanticSearchRequest("query", Limit: 0));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        ValidationProblemDetails? problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        Assert.NotNull(problem);
+        Assert.Equal(ErrorCodes.Search.ValidationFailed, problem.Extensions["code"]?.ToString());
+        Assert.NotNull(problem.Extensions["traceId"]);
+        Assert.Equal(ErrorMessages.Search.LimitOutOfRange, problem.Errors[SemanticSearchRequestValidator.LimitField].Single());
+    }
+
+    [Fact]
+    public async Task SemanticSearch_Should_Return_UnexpectedProblemDetails_When_Embedding_Fails()
+    {
+        using LocalApiTestFactory baseFactory = new();
+        using WebApplicationFactory<Program> failingFactory = baseFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IEmbeddingGenerator>();
+                services.AddSingleton<IEmbeddingGenerator, FailingEmbeddingGenerator>();
+            }));
+        using HttpClient? client = failingFactory.CreateClient();
+
+        using HttpResponseMessage response = await client.PostAsJsonAsync("/api/search/semantic", new SemanticSearchRequest("query"));
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        ProblemDetails? problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.NotNull(problem);
+        Assert.Equal(ErrorCodes.Unexpected, problem.Extensions["code"]?.ToString());
+        Assert.NotNull(problem.Extensions["traceId"]);
+    }
+
     private static async Task<(Guid DocumentId, Guid ChunkId)> AddEmbeddedChunkAsync(
         AppDbContext context,
         string documentName,
@@ -71,5 +128,15 @@ public sealed class SemanticSearchApiTests : IClassFixture<LocalApiTestFactory>
         byte[]? bytes = new byte[vector.Length * sizeof(float)];
         Buffer.BlockCopy(vector, 0, bytes, 0, bytes.Length);
         return bytes;
+    }
+
+    private sealed class FailingEmbeddingGenerator : IEmbeddingGenerator
+    {
+        public string ModelName => "failing-test-model";
+
+        public Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("Synthetic embedding failure.");
+        }
     }
 }

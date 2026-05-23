@@ -64,6 +64,12 @@ release/
 *.tar
 *.tar.gz
 
+# Generated documentation inputs
+docs/auto-generated/**
+!docs/auto-generated/
+!docs/auto-generated/.gitkeep
+!docs/auto-generated/README.md
+
 # Local databases
 *.db
 *.db-shm

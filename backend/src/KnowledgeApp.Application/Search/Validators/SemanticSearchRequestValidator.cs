@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Rag;
 
@@ -5,27 +6,34 @@ namespace KnowledgeApp.Application.Search;
 
 public sealed class SemanticSearchRequestValidator
 {
+    public const int DefaultLimit = 8;
+    public const int MaxLimit = 50;
+    public const int MaxQueryLength = 4_000;
+
+    public const string QueryField = "query";
+    public const string LimitField = "limit";
+
     public void Validate(SemanticSearchRequest request)
     {
         Dictionary<string, string[]> errors = [];
 
         if (string.IsNullOrWhiteSpace(request.Query))
         {
-            errors["query"] = ["Search query is required."];
+            errors[QueryField] = [ErrorMessages.Search.QueryRequired];
         }
-        else if (request.Query.Length > 4_000)
+        else if (request.Query.Length > MaxQueryLength)
         {
-            errors["query"] = ["Search query must be 4000 characters or less."];
+            errors[QueryField] = [ErrorMessages.Search.QueryTooLong];
         }
 
-        if (request.Limit < 1 || request.Limit > 50)
+        if (request.Limit < 1 || request.Limit > MaxLimit)
         {
-            errors["limit"] = ["Search limit must be between 1 and 50."];
+            errors[LimitField] = [ErrorMessages.Search.LimitOutOfRange];
         }
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException("search.validationFailed", "Semantic search request is invalid.", errors);
+            throw new ValidationAppException(ErrorCodes.Search.ValidationFailed, ErrorMessages.Search.RequestInvalid, errors);
         }
     }
 }

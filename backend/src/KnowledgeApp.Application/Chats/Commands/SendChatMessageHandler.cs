@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Domain.Entities;
@@ -26,7 +27,7 @@ public sealed class SendChatMessageHandler(
             .AnyAsync(conversation => conversation.Id == conversationId && conversation.DeletedAt == null, cancellationToken);
         if (!conversationExists)
         {
-            throw new NotFoundAppException("chats.notFound", "Conversation was not found.");
+            throw new NotFoundAppException(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound);
         }
 
         DateTimeOffset now = dateTimeProvider.UtcNow;

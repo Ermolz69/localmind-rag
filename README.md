@@ -33,7 +33,7 @@ Backend coverage:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage.ps1
 ```
 
-See [docs/testing.md](docs/testing.md).
+See [docs/development/testing.md](docs/development/testing.md).
 
 Script entrypoints are grouped by purpose under `scripts/check`,
 `scripts/setup`, `scripts/package`, and `scripts/dev`. Thin root wrappers such
@@ -56,11 +56,11 @@ pnpm package
 
 The desktop UI talks only to `KnowledgeApp.LocalApi`. LocalApi owns SQLite, local file storage, ingestion, vector search, AI runtime adapters, and optional sync workers. Remote sync is isolated in `KnowledgeApp.SyncApi`.
 
-See [docs/architectury/README.md](docs/architectury/README.md), [docs/architecture-diagrams.md](docs/architecture-diagrams.md), and [docs/observability.md](docs/observability.md).
+See [docs/architecture/architectury.md](docs/architecture/architectury.md), [docs/architecture/diagrams.md](docs/architecture/diagrams.md), and [docs/architecture/observability.md](docs/architecture/observability.md).
 
 ## Requirements
 
-The project technical specification, MVP scope, user stories, non-functional requirements, priorities, and risks live in [docs/requirements/technical-specification.md](docs/requirements/technical-specification.md).
+The project technical specification, MVP scope, user stories, non-functional requirements, priorities, and risks live in [docs/product/requirements/technical-specification.md](docs/product/requirements/technical-specification.md).
 
 ## Releases
 
@@ -69,6 +69,7 @@ Project releases are published through GitHub Releases. Release notes describe w
 ## GitHub Workflows
 
 - `Check`: full validation on push, pull request, and manual run.
+- `Docs`: DocFX and OpenAPI documentation build on pull request, with GitHub Pages deployment from the default branch.
 - `Portable Release`: manual or tag-based Windows portable preview artifact build.
 
 `Check` is split into separate jobs so failures are visible without digging through one long log:
@@ -86,4 +87,4 @@ Project releases are published through GitHub Releases. Release notes describe w
 
 ## Repository Hygiene
 
-Generated build outputs, runtime data, local databases, AI models, local env files, and release artifacts are ignored. See [docs/repository-hygiene.md](docs/repository-hygiene.md) before adding large files, local runtime assets, or Docker build inputs.
+Generated build outputs, runtime data, local databases, AI models, local env files, generated documentation, and release artifacts are ignored. See [docs/development/repository-hygiene.md](docs/development/repository-hygiene.md) before adding large files, local runtime assets, or Docker build inputs.

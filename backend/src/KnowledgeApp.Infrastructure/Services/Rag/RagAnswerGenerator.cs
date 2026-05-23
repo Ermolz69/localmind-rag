@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Contracts.Rag;
 
 namespace KnowledgeApp.Infrastructure.Services;
@@ -11,9 +12,9 @@ public sealed class RagAnswerGenerator(
     public async Task<RagAnswerDto> AnswerAsync(Guid conversationId, string question, CancellationToken cancellationToken = default)
     {
         Guid operationId = diagnostics?.BeginOperation(
-            "rag",
-            "answer",
-            new Dictionary<string, object?> { ["ConversationId"] = conversationId }) ?? Guid.Empty;
+            DiagnosticNames.Areas.Rag,
+            DiagnosticNames.Operations.RagAnswer,
+            new Dictionary<string, object?> { [DiagnosticNames.Properties.ConversationId] = conversationId }) ?? Guid.Empty;
 
         RagContext context = await contextBuilder.BuildAsync(
             new RagContextRequest(conversationId, question),
@@ -25,11 +26,11 @@ public sealed class RagAnswerGenerator(
 
         diagnostics?.LogStep(
             operationId,
-            "answer-generated",
+            DiagnosticNames.Steps.AnswerGenerated,
             new Dictionary<string, object?>
             {
-                ["SourcesCount"] = context.Sources.Count,
-                ["AnswerLength"] = answer.Length,
+                [DiagnosticNames.Properties.SourcesCount] = context.Sources.Count,
+                [DiagnosticNames.Properties.AnswerLength] = answer.Length,
             });
 
         return new RagAnswerDto(answer, context.Sources);

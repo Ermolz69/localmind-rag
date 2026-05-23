@@ -17,4 +17,4 @@ pnpm check
 
 Local environment values belong in `.env`, which is ignored. Keep `.env.example` updated when new settings are introduced.
 
-Do not commit runtime data, SQLite files, local AI model files, generated desktop builds, or portable release archives. See [repository-hygiene.md](repository-hygiene.md).
+Do not commit runtime data, SQLite files, local AI model files, generated desktop builds, generated documentation, or portable release archives. See [repository-hygiene.md](repository-hygiene.md).

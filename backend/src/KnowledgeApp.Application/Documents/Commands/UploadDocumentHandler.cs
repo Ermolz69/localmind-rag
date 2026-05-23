@@ -1,5 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Buckets;
+using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
@@ -18,13 +19,13 @@ public sealed class UploadDocumentHandler(
     public async Task<UploadDocumentResponse> HandleAsync(UploadDocumentCommand command, CancellationToken cancellationToken = default)
     {
         Guid operationId = diagnostics?.BeginOperation(
-            "documents",
-            "upload",
+            DiagnosticNames.Areas.Documents,
+            DiagnosticNames.Operations.DocumentUpload,
             new Dictionary<string, object?>
             {
-                ["FileName"] = command.FileName,
-                ["Length"] = command.Length,
-                ["BucketId"] = command.BucketId,
+                [DiagnosticNames.Properties.FileName] = Path.GetFileName(command.FileName),
+                [DiagnosticNames.Properties.Length] = command.Length,
+                [DiagnosticNames.Properties.BucketId] = command.BucketId,
             }) ?? Guid.Empty;
 
         validator.Validate(command);
@@ -61,12 +62,12 @@ public sealed class UploadDocumentHandler(
 
         diagnostics?.LogStep(
             operationId,
-            "document-created",
+            DiagnosticNames.Steps.DocumentCreated,
             new Dictionary<string, object?>
             {
-                ["DocumentId"] = document.Id,
-                ["BucketId"] = bucket.Id,
-                ["IngestionJobId"] = ingestionJob.Id,
+                [DiagnosticNames.Properties.DocumentId] = document.Id,
+                [DiagnosticNames.Properties.BucketId] = bucket.Id,
+                [DiagnosticNames.Properties.IngestionJobId] = ingestionJob.Id,
             });
 
         dbContext.Documents.Add(document);
@@ -77,12 +78,12 @@ public sealed class UploadDocumentHandler(
 
         diagnostics?.LogStep(
             operationId,
-            "upload-saved",
+            DiagnosticNames.Steps.UploadSaved,
             new Dictionary<string, object?>
             {
-                ["DocumentId"] = document.Id,
-                ["IngestionJobId"] = ingestionJob.Id,
-                ["Status"] = document.Status.ToString(),
+                [DiagnosticNames.Properties.DocumentId] = document.Id,
+                [DiagnosticNames.Properties.IngestionJobId] = ingestionJob.Id,
+                [DiagnosticNames.Properties.Status] = document.Status.ToString(),
             });
 
         return new UploadDocumentResponse(document.Id, ingestionJob.Id, document.Status.ToString());

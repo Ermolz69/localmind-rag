@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Domain.Enums;
@@ -12,12 +13,12 @@ public sealed class SettingsValidator
 
         if (!Enum.TryParse<AppTheme>(request.Appearance.Theme, ignoreCase: true, out _))
         {
-            errors["appearance.theme"] = ["Theme must be Light, Dark, or System."];
+            errors["appearance.theme"] = [ErrorMessages.Settings.ThemeInvalid];
         }
 
         if (!Enum.TryParse<AiProviderType>(request.Ai.Provider, ignoreCase: true, out _))
         {
-            errors["ai.provider"] = ["AI provider must be Ollama or LlamaCpp."];
+            errors["ai.provider"] = [ErrorMessages.Settings.AiProviderInvalid];
         }
 
         AddRequired(errors, "ai.chatModel", request.Ai.ChatModel);
@@ -32,7 +33,7 @@ public sealed class SettingsValidator
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException("settings.validationFailed", "Settings validation failed.", errors);
+            throw new ValidationAppException(ErrorCodes.Settings.ValidationFailed, ErrorMessages.Settings.ValidationFailed, errors);
         }
     }
 
@@ -40,7 +41,7 @@ public sealed class SettingsValidator
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            errors[key] = ["Value is required."];
+            errors[key] = [ErrorMessages.ValueRequired];
         }
     }
 }

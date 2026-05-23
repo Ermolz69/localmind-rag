@@ -1,5 +1,8 @@
 using System.IO.Compression;
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Diagnostics;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Infrastructure.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -18,11 +21,22 @@ public sealed class LlamaCppRuntimeSetupService(
 
     public async Task SetupAsync(CancellationToken cancellationToken = default)
     {
-        Guid operationId = diagnostics?.BeginOperation("runtime", "ai-setup") ?? Guid.Empty;
-        await EnsureRuntimeAsync(cancellationToken);
-        diagnostics?.LogStep(operationId, "runtime-ready");
-        await embeddingModelStore.EnsureDownloadedAsync(cancellationToken: cancellationToken);
-        diagnostics?.LogStep(operationId, "model-ready");
+        Guid operationId = diagnostics?.BeginOperation(DiagnosticNames.Areas.Runtime, DiagnosticNames.Operations.AiRuntimeSetup) ?? Guid.Empty;
+        try
+        {
+            await EnsureRuntimeAsync(cancellationToken);
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.RuntimeReady);
+            await embeddingModelStore.EnsureDownloadedAsync(cancellationToken: cancellationToken);
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.ModelReady);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            diagnostics?.LogFailure(operationId, exception);
+            throw new ExternalDependencyAppException(
+                ErrorCodes.Runtime.ExternalDependencyUnavailable,
+                ErrorMessages.Runtime.ExternalDependencyUnavailable,
+                exception);
+        }
     }
 
     private async Task EnsureRuntimeAsync(CancellationToken cancellationToken)

@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Contracts.Runtime;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
 
@@ -10,7 +11,11 @@ public static class DiagnosticsEndpoints
                 ILocalDiagnosticsService diagnostics,
                 CancellationToken cancellationToken) =>
             Results.Ok(await diagnostics.GetAsync(cancellationToken)))
-            .WithName("Diagnostics");
+            .WithName("Diagnostics")
+            .WithTags("Diagnostics")
+            .WithSummary("Gets local diagnostics.")
+            .WithDescription("Returns runtime, storage, ingestion, and sync diagnostics for the local installation.")
+            .Produces<DiagnosticsDto>();
 
         return app;
     }

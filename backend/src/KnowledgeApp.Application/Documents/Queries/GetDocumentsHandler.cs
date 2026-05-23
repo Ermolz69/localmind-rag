@@ -1,6 +1,7 @@
 using System.Globalization;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Pagination;
+using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Documents;
@@ -79,9 +80,9 @@ public sealed class GetDocumentsHandler(IAppDbContext dbContext)
         }
 
         throw new ValidationAppException(
-            "documents.invalidStatus",
-            "Document status filter is invalid.",
-            new Dictionary<string, string[]> { ["status"] = ["Document status filter is invalid."] });
+            ErrorCodes.Documents.InvalidStatus,
+            ErrorMessages.Documents.InvalidStatus,
+            new Dictionary<string, string[]> { ["status"] = [ErrorMessages.Documents.InvalidStatus] });
     }
 
     private static int CompareDocumentToCursor(Document document, CursorPayload cursor)

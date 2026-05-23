@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Notes;
 
@@ -21,21 +22,21 @@ public sealed class NoteRequestValidator
 
         if (string.IsNullOrWhiteSpace(title))
         {
-            errors["title"] = ["Note title is required."];
+            errors["title"] = [ErrorMessages.Notes.TitleRequired];
         }
         else if (title.Length > 200)
         {
-            errors["title"] = ["Note title must be 200 characters or less."];
+            errors["title"] = [ErrorMessages.Notes.TitleTooLong];
         }
 
         if (markdown.Length > 1_000_000)
         {
-            errors["markdown"] = ["Note markdown must be 1000000 characters or less."];
+            errors["markdown"] = [ErrorMessages.Notes.MarkdownTooLong];
         }
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException("notes.validationFailed", "Note request is invalid.", errors);
+            throw new ValidationAppException(ErrorCodes.Notes.ValidationFailed, ErrorMessages.Notes.RequestInvalid, errors);
         }
     }
 }

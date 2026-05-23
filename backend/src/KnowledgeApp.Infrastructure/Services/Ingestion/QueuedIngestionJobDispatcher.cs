@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Options;
@@ -43,11 +44,11 @@ public sealed class QueuedIngestionJobDispatcher(
             {
                 logger.LogInformation("Processing queued ingestion job {JobId}.", jobId);
                 Guid operationId = diagnostics?.BeginOperation(
-                    "ingestion",
-                    "dispatch-job",
-                    new Dictionary<string, object?> { ["JobId"] = jobId }) ?? Guid.Empty;
+                    DiagnosticNames.Areas.Ingestion,
+                    DiagnosticNames.Operations.IngestionDispatch,
+                    new Dictionary<string, object?> { [DiagnosticNames.Properties.JobId] = jobId }) ?? Guid.Empty;
                 await processor.ProcessAsync(jobId, cancellationToken);
-                diagnostics?.LogStep(operationId, "dispatch-completed");
+                diagnostics?.LogStep(operationId, DiagnosticNames.Steps.DispatchCompleted);
                 processedCount++;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -57,9 +58,9 @@ public sealed class QueuedIngestionJobDispatcher(
             catch (Exception exception)
             {
                 Guid operationId = diagnostics?.BeginOperation(
-                    "ingestion",
-                    "dispatch-failed",
-                    new Dictionary<string, object?> { ["JobId"] = jobId }) ?? Guid.Empty;
+                    DiagnosticNames.Areas.Ingestion,
+                    DiagnosticNames.Operations.IngestionDispatch,
+                    new Dictionary<string, object?> { [DiagnosticNames.Properties.JobId] = jobId }) ?? Guid.Empty;
                 diagnostics?.LogFailure(operationId, exception);
                 logger.LogError(exception, "Queued ingestion job {JobId} failed before processor could store failure state.", jobId);
             }

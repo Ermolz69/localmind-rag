@@ -1,5 +1,8 @@
 using System.Diagnostics;
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Diagnostics;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Runtime;
 using KnowledgeApp.Infrastructure.Options;
 using Microsoft.Extensions.Logging;
@@ -63,25 +66,25 @@ public sealed class AiRuntimeManager(
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         Guid operationId = diagnostics?.BeginOperation(
-            "runtime",
-            "ai-start",
+            DiagnosticNames.Areas.Runtime,
+            DiagnosticNames.Operations.AiRuntimeStart,
             new Dictionary<string, object?>
             {
-                ["BaseUrl"] = options.BaseUrl,
-                ["RuntimePath"] = options.RuntimePath,
+                [DiagnosticNames.Properties.BaseUrl] = options.BaseUrl,
+                [DiagnosticNames.Properties.RuntimePath] = options.RuntimePath,
             }) ?? Guid.Empty;
 
         if (!options.AutoStartRuntime)
         {
             logger.LogInformation("AI runtime autostart is disabled.");
-            diagnostics?.LogStep(operationId, "autostart-disabled");
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.AutostartDisabled);
             return;
         }
 
         if (await IsRuntimeHealthyAsync(cancellationToken))
         {
             logger.LogInformation("AI runtime is already available at {BaseUrl}.", options.BaseUrl);
-            diagnostics?.LogStep(operationId, "already-running");
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.RuntimeAlreadyRunning);
             return;
         }
 
@@ -91,7 +94,7 @@ public sealed class AiRuntimeManager(
             logger.LogWarning(
                 "AI runtime executable was not found at {RuntimePath}. Use the first-run AI setup action to install llama.cpp.",
                 runtimePath);
-            diagnostics?.LogStep(operationId, "runtime-missing", new Dictionary<string, object?> { ["RuntimePath"] = runtimePath });
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.RuntimeMissing, new Dictionary<string, object?> { [DiagnosticNames.Properties.RuntimePath] = runtimePath });
             return;
         }
 
@@ -103,7 +106,7 @@ public sealed class AiRuntimeManager(
                 "Embedding model is missing or invalid at {ModelPath}. Use the first-run AI setup action to download {ModelName}.",
                 missingModelPath,
                 missingManifest.DisplayName);
-            diagnostics?.LogStep(operationId, "model-missing", new Dictionary<string, object?> { ["ModelPath"] = missingModelPath });
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.ModelMissing, new Dictionary<string, object?> { [DiagnosticNames.Properties.ModelPath] = missingModelPath });
             return;
         }
 
@@ -145,13 +148,33 @@ public sealed class AiRuntimeManager(
             runtimeProcess = process;
         }
 
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+        try
+        {
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
 
-        logger.LogInformation("Started AI runtime process {ProcessId} at {BaseUrl}.", process.Id, options.BaseUrl);
-        await WaitForRuntimeAsync(cancellationToken);
-        diagnostics?.LogStep(operationId, "start-finished");
+            logger.LogInformation("Started AI runtime process {ProcessId} at {BaseUrl}.", process.Id, options.BaseUrl);
+            await WaitForRuntimeAsync(cancellationToken);
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.RuntimeStartFinished);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            lock (syncRoot)
+            {
+                if (ReferenceEquals(runtimeProcess, process))
+                {
+                    runtimeProcess = null;
+                }
+            }
+
+            diagnostics?.LogFailure(operationId, exception);
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.RuntimeStartFailed);
+            throw new ExternalDependencyAppException(
+                ErrorCodes.Runtime.ExternalDependencyUnavailable,
+                ErrorMessages.Runtime.ExternalDependencyUnavailable,
+                exception);
+        }
     }
 
     public void Dispose()

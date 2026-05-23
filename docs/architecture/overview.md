@@ -4,5 +4,5 @@ localmind is a portable offline-first desktop application built from Tauri + Rea
 
 For the current MVP assignment documentation, see:
 
-- [MVP Architecture And Walking Skeleton](./mvp-architecture-and-walking-skeleton.md)
+- [MVP Architecture And Walking Skeleton](./mvp-walking-skeleton.md)
 - [Technology Stack Defense](./technology-stack-defense.md)

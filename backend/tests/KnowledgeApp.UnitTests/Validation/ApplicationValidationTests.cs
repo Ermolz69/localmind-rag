@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Buckets;
+using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Chats;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Application.Notes;
@@ -20,8 +21,9 @@ public sealed class ApplicationValidationTests
         ValidationAppException exception = Assert.Throws<ValidationAppException>(
             () => validator.Validate(new CreateBucketRequest(" ", null)));
 
-        Assert.Equal("buckets.validationFailed", exception.Code);
+        Assert.Equal(ErrorCodes.Buckets.ValidationFailed, exception.Code);
         Assert.Contains("name", exception.Errors.Keys);
+        Assert.Equal(ErrorMessages.Buckets.NameRequired, exception.Errors["name"].Single());
     }
 
     [Fact]
@@ -33,8 +35,9 @@ public sealed class ApplicationValidationTests
         ValidationAppException exception = Assert.Throws<ValidationAppException>(
             () => validator.Validate(new CreateNoteRequest(null, "Title", markdown)));
 
-        Assert.Equal("notes.validationFailed", exception.Code);
+        Assert.Equal(ErrorCodes.Notes.ValidationFailed, exception.Code);
         Assert.Contains("markdown", exception.Errors.Keys);
+        Assert.Equal(ErrorMessages.Notes.MarkdownTooLong, exception.Errors["markdown"].Single());
     }
 
     [Fact]
@@ -45,8 +48,9 @@ public sealed class ApplicationValidationTests
         ValidationAppException exception = Assert.Throws<ValidationAppException>(
             () => validator.Validate(new ChatMessageRequest("")));
 
-        Assert.Equal("chats.validationFailed", exception.Code);
+        Assert.Equal(ErrorCodes.Chats.ValidationFailed, exception.Code);
         Assert.Contains("content", exception.Errors.Keys);
+        Assert.Equal(ErrorMessages.Chats.ContentRequired, exception.Errors["content"].Single());
     }
 
     [Fact]
@@ -57,7 +61,40 @@ public sealed class ApplicationValidationTests
         ValidationAppException exception = Assert.Throws<ValidationAppException>(
             () => validator.Validate(new SemanticSearchRequest("query", Limit: 51)));
 
-        Assert.Equal("search.validationFailed", exception.Code);
+        Assert.Equal(ErrorCodes.Search.ValidationFailed, exception.Code);
         Assert.Contains("limit", exception.Errors.Keys);
+        Assert.Equal(ErrorMessages.Search.LimitOutOfRange, exception.Errors["limit"].Single());
+    }
+
+    [Fact]
+    public void SearchValidator_Should_Reject_Blank_Query_With_Stable_Field_Error()
+    {
+        SemanticSearchRequestValidator validator = new();
+
+        ValidationAppException exception = Assert.Throws<ValidationAppException>(
+            () => validator.Validate(new SemanticSearchRequest(" ")));
+
+        Assert.Equal(ErrorCodes.Search.ValidationFailed, exception.Code);
+        Assert.Equal(ErrorMessages.Search.RequestInvalid, exception.Message);
+        Assert.Equal(ErrorMessages.Search.QueryRequired, exception.Errors[SemanticSearchRequestValidator.QueryField].Single());
+    }
+
+    [Fact]
+    public void AppExceptions_Should_Preserve_Code_Message_And_Errors()
+    {
+        Dictionary<string, string[]> errors = new() { ["query"] = [ErrorMessages.Search.QueryRequired] };
+
+        ValidationAppException validation = new(ErrorCodes.Search.ValidationFailed, ErrorMessages.Search.RequestInvalid, errors);
+        NotFoundAppException notFound = new(ErrorCodes.Buckets.NotFound, ErrorMessages.Buckets.NotFound);
+        ExternalDependencyAppException external = new(
+            ErrorCodes.Runtime.ExternalDependencyUnavailable,
+            ErrorMessages.Runtime.ExternalDependencyUnavailable);
+
+        Assert.Equal(ErrorCodes.Search.ValidationFailed, validation.Code);
+        Assert.Equal(ErrorMessages.Search.RequestInvalid, validation.Message);
+        Assert.Equal(ErrorMessages.Search.QueryRequired, validation.Errors["query"].Single());
+        Assert.Equal(ErrorCodes.Buckets.NotFound, notFound.Code);
+        Assert.Equal(ErrorMessages.Buckets.NotFound, notFound.Message);
+        Assert.Equal(ErrorCodes.Runtime.ExternalDependencyUnavailable, external.Code);
     }
 }

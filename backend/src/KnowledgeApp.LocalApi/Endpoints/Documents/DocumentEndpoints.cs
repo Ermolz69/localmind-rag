@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Documents;
+using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Documents;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -17,7 +18,13 @@ public static class DocumentEndpoints
                 CancellationToken cancellationToken) =>
             Results.Ok(await handler.HandleAsync(
                 new GetDocumentsQuery(bucketId, status, cursor, limit ?? 50),
-                cancellationToken)));
+                cancellationToken)))
+            .WithName("ListDocuments")
+            .WithTags("Documents")
+            .WithSummary("Lists documents.")
+            .WithDescription("Returns a cursor-paged document list filtered by optional bucket and status values.")
+            .Produces<CursorPage<DocumentDto>>()
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         app.MapPost("/api/documents/upload", async (
             IFormFile file,
@@ -31,7 +38,15 @@ public static class DocumentEndpoints
                 cancellationToken);
 
             return Results.Created($"/api/documents/{response.DocumentId}", response);
-        }).DisableAntiforgery();
+        })
+            .DisableAntiforgery()
+            .WithName("UploadDocument")
+            .WithTags("Documents")
+            .WithSummary("Uploads a document.")
+            .WithDescription("Stores an uploaded file locally and queues it for ingestion.")
+            .Accepts<IFormFile>("multipart/form-data")
+            .Produces<UploadDocumentResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         app.MapGet("/api/documents/{id:guid}", async (
             Guid id,
@@ -40,7 +55,13 @@ public static class DocumentEndpoints
         {
             DocumentDto? document = await handler.HandleAsync(new GetDocumentByIdQuery(id), cancellationToken);
             return document is null ? Results.NotFound() : Results.Ok(document);
-        });
+        })
+            .WithName("GetDocument")
+            .WithTags("Documents")
+            .WithSummary("Gets a document.")
+            .WithDescription("Returns document metadata by local document identifier.")
+            .Produces<DocumentDto>()
+            .Produces(StatusCodes.Status404NotFound);
 
         app.MapDelete("/api/documents/{id:guid}", async Task<Results<NoContent, NotFound>> (
             Guid id,
@@ -54,7 +75,13 @@ public static class DocumentEndpoints
             }
 
             return TypedResults.NoContent();
-        });
+        })
+            .WithName("DeleteDocument")
+            .WithTags("Documents")
+            .WithSummary("Deletes a document.")
+            .WithDescription("Deletes a document record and hides it from local document queries.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound);
 
         app.MapPost("/api/documents/{id:guid}/reindex", async (
             Guid id,
@@ -70,7 +97,13 @@ public static class DocumentEndpoints
             return Results.Accepted(
                 $"/api/ingestion/jobs/{result.JobId}",
                 new ReindexDocumentResponse(id, result.JobId!.Value, result.Status ?? "Queued"));
-        });
+        })
+            .WithName("ReindexDocument")
+            .WithTags("Documents")
+            .WithSummary("Queues document reindexing.")
+            .WithDescription("Creates a new ingestion job for an existing document.")
+            .Produces<ReindexDocumentResponse>(StatusCodes.Status202Accepted)
+            .Produces(StatusCodes.Status404NotFound);
 
         return app;
     }

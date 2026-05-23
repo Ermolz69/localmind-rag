@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Packaging;
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Contracts.Runtime;
@@ -33,16 +34,16 @@ public sealed class IngestionJobProcessor(
     public async Task ProcessAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
         Guid operationId = diagnostics?.BeginOperation(
-            "ingestion",
-            "process-job",
-            new Dictionary<string, object?> { ["JobId"] = jobId }) ?? Guid.Empty;
+            DiagnosticNames.Areas.Ingestion,
+            DiagnosticNames.Operations.IngestionProcessJob,
+            new Dictionary<string, object?> { [DiagnosticNames.Properties.JobId] = jobId }) ?? Guid.Empty;
 
         IngestionJob? queuedJob = await dbContext.IngestionJobs
             .AsNoTracking()
             .FirstOrDefaultAsync(job => job.Id == jobId, cancellationToken);
         if (queuedJob is null)
         {
-            diagnostics?.LogStep(operationId, "job-not-found");
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.JobNotFound);
             throw new InvalidOperationException("Ingestion job was not found.");
         }
 
@@ -50,8 +51,8 @@ public sealed class IngestionJobProcessor(
         {
             diagnostics?.LogStep(
                 operationId,
-                "job-skipped",
-                new Dictionary<string, object?> { ["Status"] = queuedJob.Status.ToString() });
+                DiagnosticNames.Steps.JobSkipped,
+                new Dictionary<string, object?> { [DiagnosticNames.Properties.Status] = queuedJob.Status.ToString() });
             return;
         }
 
@@ -66,7 +67,7 @@ public sealed class IngestionJobProcessor(
 
         if (claimed == 0)
         {
-            diagnostics?.LogStep(operationId, "job-claim-skipped");
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.JobClaimSkipped);
             return;
         }
 
@@ -78,7 +79,7 @@ public sealed class IngestionJobProcessor(
             job.LastError = "Document was not found.";
             job.ProcessedAt = dateTimeProvider.UtcNow;
             await dbContext.SaveChangesAsync(cancellationToken);
-            diagnostics?.LogStep(operationId, "document-not-found");
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.DocumentNotFound);
             return;
         }
 
@@ -101,11 +102,11 @@ public sealed class IngestionJobProcessor(
             DocumentTextExtractionResult? extraction = await extractor.ExtractAsync(documentFile.LocalPath, cancellationToken);
             diagnostics?.LogStep(
                 operationId,
-                "text-extracted",
+                DiagnosticNames.Steps.TextExtracted,
                 new Dictionary<string, object?>
                 {
-                    ["DocumentId"] = document.Id,
-                    ["SegmentsCount"] = extraction.Segments.Count,
+                    [DiagnosticNames.Properties.DocumentId] = document.Id,
+                    [DiagnosticNames.Properties.SegmentsCount] = extraction.Segments.Count,
                 });
             DocumentChunk[]? existingChunks = await dbContext.DocumentChunks
                 .Where(x => x.DocumentId == document.Id)
@@ -143,11 +144,11 @@ public sealed class IngestionJobProcessor(
             dbContext.DocumentEmbeddings.AddRange(newEmbeddings);
             diagnostics?.LogStep(
                 operationId,
-                "chunks-and-embeddings-created",
+                DiagnosticNames.Steps.ChunksAndEmbeddingsCreated,
                 new Dictionary<string, object?>
                 {
-                    ["ChunksCount"] = newChunks.Count,
-                    ["EmbeddingsCount"] = newEmbeddings.Count,
+                    [DiagnosticNames.Properties.ChunksCount] = newChunks.Count,
+                    [DiagnosticNames.Properties.EmbeddingsCount] = newEmbeddings.Count,
                 });
 
             job.Status = IngestionJobStatus.Completed;
@@ -176,11 +177,11 @@ public sealed class IngestionJobProcessor(
         await dbContext.SaveChangesAsync(cancellationToken);
         diagnostics?.LogStep(
             operationId,
-            "job-finished",
+            DiagnosticNames.Steps.JobFinished,
             new Dictionary<string, object?>
             {
-                ["Status"] = job.Status.ToString(),
-                ["DocumentStatus"] = document.Status.ToString(),
+                [DiagnosticNames.Properties.Status] = job.Status.ToString(),
+                [DiagnosticNames.Properties.DocumentStatus] = document.Status.ToString(),
             });
     }
 }

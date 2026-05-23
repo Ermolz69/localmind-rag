@@ -1,0 +1,67 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "../backend/src/KnowledgeApp.Contracts",
+          "files": [
+            "KnowledgeApp.Contracts.csproj"
+          ]
+        },
+        {
+          "src": "../backend/src/KnowledgeApp.LocalApi",
+          "files": [
+            "KnowledgeApp.LocalApi.csproj"
+          ]
+        }
+      ],
+      "dest": "auto-generated/dotnet-api",
+      "disableGitFeatures": false,
+      "disableDefaultFilter": false
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": [
+          "index.md",
+          "toc.yml",
+          "product/**/*.md",
+          "architecture/**/*.md",
+          "development/**/*.md",
+          "auto-generated/dotnet-api/**/*.yml"
+        ],
+        "exclude": [
+          "auto-generated/openapi/**",
+          "auto-generated/swagger-ui/**"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "api/**",
+          "auto-generated/openapi/openapi.json",
+          "auto-generated/swagger-ui/**"
+        ]
+      }
+    ],
+    "dest": "../artifacts/docs/site",
+    "globalMetadata": {
+      "_appTitle": "LocalMind Documentation",
+      "_enableSearch": true,
+      "_disableContribution": true,
+      "_disableBreadcrumb": false
+    },
+    "template": [
+      "default",
+      "modern"
+    ],
+    "markdownEngineProperties": {
+      "markdigExtensions": [
+        "diagrams"
+      ]
+    }
+  }
+}

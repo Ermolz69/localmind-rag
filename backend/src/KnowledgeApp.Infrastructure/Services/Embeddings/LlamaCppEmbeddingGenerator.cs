@@ -2,6 +2,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Infrastructure.Options;
 using Microsoft.Extensions.Options;
 
@@ -34,7 +36,7 @@ public sealed class LlamaCppEmbeddingGenerator(
         if (!response.IsSuccessStatusCode)
         {
             string body = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException($"llama.cpp embeddings request failed with status {(int)response.StatusCode}: {body}");
+            throw CreateExternalDependencyException($"llama.cpp embeddings request failed with status {(int)response.StatusCode}: {body}");
         }
 
         EmbeddingResponse? payload = await response.Content.ReadFromJsonAsync<EmbeddingResponse>(SerializerOptions, cancellationToken);
@@ -42,12 +44,12 @@ public sealed class LlamaCppEmbeddingGenerator(
 
         if (embedding is null || embedding.Length == 0)
         {
-            throw new InvalidOperationException("llama.cpp embeddings response did not contain an embedding vector.");
+            throw CreateExternalDependencyException("llama.cpp embeddings response did not contain an embedding vector.");
         }
 
         if (embedding.Length != manifest.Dimension)
         {
-            throw new InvalidOperationException($"llama.cpp embeddings response dimension mismatch. Expected {manifest.Dimension}, got {embedding.Length}.");
+            throw CreateExternalDependencyException($"llama.cpp embeddings response dimension mismatch. Expected {manifest.Dimension}, got {embedding.Length}.");
         }
 
         return embedding;
@@ -57,6 +59,13 @@ public sealed class LlamaCppEmbeddingGenerator(
     {
         Uri baseUri = new(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
         return new Uri(baseUri, path.TrimStart('/'));
+    }
+
+    private static ExternalDependencyAppException CreateExternalDependencyException(string detail)
+    {
+        return new ExternalDependencyAppException(
+            ErrorCodes.Runtime.ExternalDependencyUnavailable,
+            $"{ErrorMessages.Runtime.ExternalDependencyUnavailable} {detail}");
     }
 
     private sealed record EmbeddingRequest(

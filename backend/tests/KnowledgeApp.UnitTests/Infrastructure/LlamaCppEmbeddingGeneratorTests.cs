@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Services;
 using Microsoft.Extensions.Options;
@@ -28,8 +30,9 @@ public sealed class LlamaCppEmbeddingGeneratorTests
         using HttpClient client = new(new JsonResponseHandler(CreateEmbeddingResponse([0.1f, 0.2f])));
         LlamaCppEmbeddingGenerator generator = CreateGenerator(client);
 
-        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => generator.GenerateAsync("hello"));
+        ExternalDependencyAppException exception = await Assert.ThrowsAsync<ExternalDependencyAppException>(() => generator.GenerateAsync("hello"));
 
+        Assert.Equal(ErrorCodes.Runtime.ExternalDependencyUnavailable, exception.Code);
         Assert.Contains("dimension mismatch", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 

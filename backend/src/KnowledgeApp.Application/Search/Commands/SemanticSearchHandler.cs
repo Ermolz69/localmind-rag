@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Contracts.Rag;
 
 namespace KnowledgeApp.Application.Search;
@@ -14,29 +15,39 @@ public sealed class SemanticSearchHandler(
         CancellationToken cancellationToken = default)
     {
         Guid operationId = diagnostics?.BeginOperation(
-            "search",
-            "semantic",
+            DiagnosticNames.Areas.Search,
+            DiagnosticNames.Operations.SemanticSearch,
             new Dictionary<string, object?>
             {
-                ["Limit"] = request.Limit,
-                ["BucketId"] = request.BucketId,
-                ["DocumentId"] = request.DocumentId,
+                [DiagnosticNames.Properties.Limit] = request.Limit,
+                [DiagnosticNames.Properties.BucketId] = request.BucketId,
+                [DiagnosticNames.Properties.DocumentId] = request.DocumentId,
             }) ?? Guid.Empty;
 
-        validator.Validate(request);
+        try
+        {
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.SemanticSearchStarted);
+            validator.Validate(request);
 
-        float[] vector = await embeddings.GenerateAsync(request.Query.Trim(), cancellationToken);
-        VectorSearchOptions options = new(request.Limit, request.BucketId, request.DocumentId);
-        IReadOnlyList<RagSourceDto> sources = await search.SearchAsync(vector, options, cancellationToken);
+            float[] vector = await embeddings.GenerateAsync(request.Query.Trim(), cancellationToken);
+            VectorSearchOptions options = new(request.Limit, request.BucketId, request.DocumentId);
+            IReadOnlyList<RagSourceDto> sources = await search.SearchAsync(vector, options, cancellationToken);
 
-        diagnostics?.LogStep(
-            operationId,
-            "semantic-search-completed",
-            new Dictionary<string, object?>
-            {
-                ["SourcesCount"] = sources.Count,
-            });
+            diagnostics?.LogStep(
+                operationId,
+                DiagnosticNames.Steps.SemanticSearchCompleted,
+                new Dictionary<string, object?>
+                {
+                    [DiagnosticNames.Properties.SourcesCount] = sources.Count,
+                });
 
-        return new SemanticSearchResponse(sources);
+            return new SemanticSearchResponse(sources);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            diagnostics?.LogFailure(operationId, exception);
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.SemanticSearchFailed);
+            throw;
+        }
     }
 }

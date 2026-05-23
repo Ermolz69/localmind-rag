@@ -1,0 +1,65 @@
+- name: Home
+  href: index.md
+- name: Product
+  items:
+    - name: Requirements
+      href: product/requirements/README.md
+    - name: Technical specification
+      href: product/requirements/technical-specification.md
+    - name: Concept and MVP
+      href: product/requirements/concept-and-mvp.md
+    - name: Functional requirements
+      href: product/requirements/functional-requirements.md
+    - name: Non-functional requirements
+      href: product/requirements/non-functional-requirements.md
+    - name: Priorities and risks
+      href: product/requirements/priorities-and-risks.md
+- name: Architecture
+  items:
+    - name: Overview
+      href: architecture/overview.md
+    - name: Backend
+      href: architecture/backend.md
+    - name: Frontend
+      href: architecture/frontend.md
+    - name: Frontend contracts
+      href: architecture/frontend-contracts.md
+    - name: Diagrams
+      href: architecture/diagrams.md
+    - name: RAG pipeline
+      href: architecture/rag-pipeline.md
+    - name: Local runtime
+      href: architecture/local-runtime.md
+    - name: AI runtime
+      href: architecture/ai-runtime.md
+    - name: Offline/online sync
+      href: architecture/offline-online-sync.md
+    - name: Database
+      href: architecture/database.md
+    - name: Observability
+      href: architecture/observability.md
+    - name: Technology stack defense
+      href: architecture/technology-stack-defense.md
+    - name: MVP walking skeleton
+      href: architecture/mvp-walking-skeleton.md
+    - name: Architectury notes
+      href: architecture/architectury.md
+- name: Development
+  items:
+    - name: Setup
+      href: development/setup.md
+    - name: Testing
+      href: development/testing.md
+    - name: Coding standards
+      href: development/coding-standards.md
+    - name: Repository hygiene
+      href: development/repository-hygiene.md
+    - name: Packaging
+      href: development/packaging.md
+- name: API
+  items:
+    - name: OpenAPI
+      href: api/openapi.html
+    - name: .NET API
+      href: auto-generated/dotnet-api/toc.yml
+

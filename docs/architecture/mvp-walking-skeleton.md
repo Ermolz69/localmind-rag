@@ -169,14 +169,14 @@ sequenceDiagram
 
 Implemented code path:
 
-- UI page: [`apps/desktop/src/pages/DocumentsPage/index.tsx`](../apps/desktop/src/pages/DocumentsPage/index.tsx)
-- Upload hook: [`apps/desktop/src/features/document-upload/model/useDocumentUpload.ts`](../apps/desktop/src/features/document-upload/model/useDocumentUpload.ts)
-- API client: [`apps/desktop/src/shared/api/documents.ts`](../apps/desktop/src/shared/api/documents.ts)
-- Endpoint: [`backend/src/KnowledgeApp.LocalApi/Endpoints/Documents/DocumentEndpoints.cs`](../backend/src/KnowledgeApp.LocalApi/Endpoints/Documents/DocumentEndpoints.cs)
-- Handler: [`backend/src/KnowledgeApp.Application/Documents/Commands/UploadDocumentHandler.cs`](../backend/src/KnowledgeApp.Application/Documents/Commands/UploadDocumentHandler.cs)
-- Bucket resolution: [`backend/src/KnowledgeApp.Application/Buckets/Services/BucketResolver.cs`](../backend/src/KnowledgeApp.Application/Buckets/Services/BucketResolver.cs)
-- Local file storage: [`backend/src/KnowledgeApp.Infrastructure/Services/Storage/LocalFileStorageService.cs`](../backend/src/KnowledgeApp.Infrastructure/Services/Storage/LocalFileStorageService.cs)
-- EF Core context: [`backend/src/KnowledgeApp.Infrastructure/Persistence/AppDbContext.cs`](../backend/src/KnowledgeApp.Infrastructure/Persistence/AppDbContext.cs)
+- UI page: `apps/desktop/src/pages/DocumentsPage/index.tsx`
+- Upload hook: `apps/desktop/src/features/document-upload/model/useDocumentUpload.ts`
+- API client: `apps/desktop/src/shared/api/documents.ts`
+- Endpoint: `backend/src/KnowledgeApp.LocalApi/Endpoints/Documents/DocumentEndpoints.cs`
+- Handler: `backend/src/KnowledgeApp.Application/Documents/Commands/UploadDocumentHandler.cs`
+- Bucket resolution: `backend/src/KnowledgeApp.Application/Buckets/Services/BucketResolver.cs`
+- Local file storage: `backend/src/KnowledgeApp.Infrastructure/Services/Storage/LocalFileStorageService.cs`
+- EF Core context: `backend/src/KnowledgeApp.Infrastructure/Persistence/AppDbContext.cs`
 
 ### Document Ingestion Flow
 
@@ -206,12 +206,12 @@ sequenceDiagram
 
 Implemented code path:
 
-- Ingestion hook: [`apps/desktop/src/features/document-ingestion/model/useProcessIngestionJob.ts`](../apps/desktop/src/features/document-ingestion/model/useProcessIngestionJob.ts)
-- Ingestion endpoint: [`backend/src/KnowledgeApp.LocalApi/Endpoints/Ingestion/IngestionEndpoints.cs`](../backend/src/KnowledgeApp.LocalApi/Endpoints/Ingestion/IngestionEndpoints.cs)
-- Handler: [`backend/src/KnowledgeApp.Application/Ingestion/Commands/ProcessIngestionJobHandler.cs`](../backend/src/KnowledgeApp.Application/Ingestion/Commands/ProcessIngestionJobHandler.cs)
-- Processor: [`backend/src/KnowledgeApp.Infrastructure/Services/Ingestion/IngestionJobProcessor.cs`](../backend/src/KnowledgeApp.Infrastructure/Services/Ingestion/IngestionJobProcessor.cs)
-- Extractors: [`backend/src/KnowledgeApp.Infrastructure/Services/Ingestion/Extractors`](../backend/src/KnowledgeApp.Infrastructure/Services/Ingestion/Extractors)
-- Chunker: [`backend/src/KnowledgeApp.Infrastructure/Services/Ingestion/SimpleDocumentChunker.cs`](../backend/src/KnowledgeApp.Infrastructure/Services/Ingestion/SimpleDocumentChunker.cs)
+- Ingestion hook: `apps/desktop/src/features/document-ingestion/model/useProcessIngestionJob.ts`
+- Ingestion endpoint: `backend/src/KnowledgeApp.LocalApi/Endpoints/Ingestion/IngestionEndpoints.cs`
+- Handler: `backend/src/KnowledgeApp.Application/Ingestion/Commands/ProcessIngestionJobHandler.cs`
+- Processor: `backend/src/KnowledgeApp.Infrastructure/Services/Ingestion/IngestionJobProcessor.cs`
+- Extractors: `backend/src/KnowledgeApp.Infrastructure/Services/Ingestion/Extractors`
+- Chunker: `backend/src/KnowledgeApp.Infrastructure/Services/Ingestion/SimpleDocumentChunker.cs`
 
 ### Notes Walking Skeleton
 
@@ -236,11 +236,11 @@ sequenceDiagram
 
 Implemented code path:
 
-- UI page: [`apps/desktop/src/pages/NotesPage/index.tsx`](../apps/desktop/src/pages/NotesPage/index.tsx)
-- Notes feature: [`apps/desktop/src/features/note-editor`](../apps/desktop/src/features/note-editor)
-- API client: [`apps/desktop/src/shared/api/notes.ts`](../apps/desktop/src/shared/api/notes.ts)
-- Endpoint: [`backend/src/KnowledgeApp.LocalApi/Endpoints/Notes/NoteEndpoints.cs`](../backend/src/KnowledgeApp.LocalApi/Endpoints/Notes/NoteEndpoints.cs)
-- Handlers: [`backend/src/KnowledgeApp.Application/Notes`](../backend/src/KnowledgeApp.Application/Notes)
+- UI page: `apps/desktop/src/pages/NotesPage/index.tsx`
+- Notes feature: `apps/desktop/src/features/note-editor`
+- API client: `apps/desktop/src/shared/api/notes.ts`
+- Endpoint: `backend/src/KnowledgeApp.LocalApi/Endpoints/Notes/NoteEndpoints.cs`
+- Handlers: `backend/src/KnowledgeApp.Application/Notes`
 
 ## Verification Commands
 

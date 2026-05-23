@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
@@ -40,16 +41,16 @@ public sealed class AppExceptionHandler(
         MvcProblemDetails? problem = exception switch
         {
             ValidationAppException validationException => CreateValidationProblem(validationException),
-            NotFoundAppException appException => Create(StatusCodes.Status404NotFound, "Resource was not found.", appException.Message, appException.Code),
-            ConflictAppException appException => Create(StatusCodes.Status409Conflict, "Request conflicts with current state.", appException.Message, appException.Code),
-            UnsupportedFileAppException appException => Create(StatusCodes.Status415UnsupportedMediaType, "Unsupported file.", appException.Message, appException.Code),
-            ExternalDependencyAppException appException => Create(StatusCodes.Status503ServiceUnavailable, "External dependency is unavailable.", appException.Message, appException.Code),
-            ArgumentException argumentException => Create(StatusCodes.Status400BadRequest, "Invalid request.", argumentException.Message, "request.invalid"),
+            NotFoundAppException appException => Create(StatusCodes.Status404NotFound, ProblemDetailsTitles.NotFound, appException.Message, appException.Code),
+            ConflictAppException appException => Create(StatusCodes.Status409Conflict, ProblemDetailsTitles.Conflict, appException.Message, appException.Code),
+            UnsupportedFileAppException appException => Create(StatusCodes.Status415UnsupportedMediaType, ProblemDetailsTitles.UnsupportedFile, appException.Message, appException.Code),
+            ExternalDependencyAppException appException => Create(StatusCodes.Status503ServiceUnavailable, ProblemDetailsTitles.ExternalDependencyUnavailable, appException.Message, appException.Code),
+            ArgumentException argumentException => Create(StatusCodes.Status400BadRequest, ProblemDetailsTitles.InvalidRequest, argumentException.Message, ErrorCodes.RequestInvalid),
             _ => Create(
                 StatusCodes.Status500InternalServerError,
-                "An unexpected error occurred.",
-                environment.IsDevelopment() ? exception.Message : "The server encountered an unexpected error.",
-                "errors.unexpected"),
+                ProblemDetailsTitles.Unexpected,
+                environment.IsDevelopment() ? exception.Message : ErrorMessages.UnexpectedProduction,
+                ErrorCodes.Unexpected),
         };
 
         problem.Instance = httpContext.Request.Path;
@@ -75,7 +76,7 @@ public sealed class AppExceptionHandler(
         {
             Detail = exception.Message,
             Status = StatusCodes.Status400BadRequest,
-            Title = "Validation failed.",
+            Title = ProblemDetailsTitles.ValidationFailed,
         };
         problem.Extensions["code"] = exception.Code;
         return problem;

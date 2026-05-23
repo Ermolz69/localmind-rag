@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Contracts.Rag;
 
 namespace KnowledgeApp.Infrastructure.Services;
@@ -17,12 +18,12 @@ public sealed class RagContextBuilder(
     public async Task<RagContext> BuildAsync(RagContextRequest request, CancellationToken cancellationToken = default)
     {
         Guid operationId = diagnostics?.BeginOperation(
-            "rag",
-            "build-context",
+            DiagnosticNames.Areas.Rag,
+            DiagnosticNames.Operations.BuildContext,
             new Dictionary<string, object?>
             {
-                ["ConversationId"] = request.ConversationId,
-                ["Limit"] = request.Limit,
+                [DiagnosticNames.Properties.ConversationId] = request.ConversationId,
+                [DiagnosticNames.Properties.Limit] = request.Limit,
             }) ?? Guid.Empty;
 
         float[] queryVector = await embeddings.GenerateAsync(request.Question, cancellationToken);
@@ -34,11 +35,11 @@ public sealed class RagContextBuilder(
         string contextText = BuildContextText(sources);
         diagnostics?.LogStep(
             operationId,
-            "context-built",
+            DiagnosticNames.Steps.ContextBuilt,
             new Dictionary<string, object?>
             {
-                ["SourcesCount"] = sources.Count,
-                ["ContextLength"] = contextText.Length,
+                [DiagnosticNames.Properties.SourcesCount] = sources.Count,
+                [DiagnosticNames.Properties.ContextLength] = contextText.Length,
             });
         return new RagContext(sources, contextText);
     }

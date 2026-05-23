@@ -11,7 +11,11 @@ public static class SettingsEndpoints
                 ISettingsService settings,
                 CancellationToken cancellationToken) =>
             Results.Ok(await settings.GetAsync(cancellationToken)))
-            .WithName("GetSettings");
+            .WithName("GetSettings")
+            .WithTags("Settings")
+            .WithSummary("Gets application settings.")
+            .WithDescription("Returns local appearance, AI, runtime path, and sync settings.")
+            .Produces<AppSettingsDto>();
 
         app.MapPut("/api/settings", async (
             AppSettingsDto request,
@@ -20,7 +24,13 @@ public static class SettingsEndpoints
         {
             await settings.UpdateAsync(request, cancellationToken);
             return Results.NoContent();
-        }).WithName("UpdateSettings");
+        })
+            .WithName("UpdateSettings")
+            .WithTags("Settings")
+            .WithSummary("Updates application settings.")
+            .WithDescription("Persists local appearance, AI, runtime path, and sync settings.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         return app;
     }

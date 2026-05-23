@@ -1,11 +1,17 @@
 using System.Net;
 using System.Net.Http.Json;
+using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.IntegrationTests.TestSupport;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace KnowledgeApp.IntegrationTests;
 
@@ -61,13 +67,34 @@ public sealed class ObservabilityApiTests
         Assert.Contains("answer-generated", events, StringComparison.Ordinal);
     }
 
-    private static ObservabilityTestContext CreateContext()
+    [Fact]
+    public async Task Failed_Semantic_Search_Should_Create_Diagnostic_Failure_Event()
+    {
+        using ObservabilityTestContext context = CreateContext(builder =>
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IEmbeddingGenerator>();
+                services.AddSingleton<IEmbeddingGenerator, FailingEmbeddingGenerator>();
+            }));
+        using HttpClient client = context.Factory.CreateClient();
+
+        using HttpResponseMessage response = await client.PostAsJsonAsync("/api/search/semantic", new SemanticSearchRequest("diagnostic failure"));
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        string events = await context.ReadLogsAsync("advanced-events*.ndjson");
+        Assert.Contains(DiagnosticNames.Steps.SemanticSearchStarted, events, StringComparison.Ordinal);
+        Assert.Contains(DiagnosticNames.Steps.SemanticSearchFailed, events, StringComparison.Ordinal);
+        Assert.Contains("Synthetic embedding failure.", events, StringComparison.Ordinal);
+    }
+
+    private static ObservabilityTestContext CreateContext(Action<IWebHostBuilder>? configure = null)
     {
         string root = Path.Combine(Path.GetTempPath(), "localmind-observability", Guid.NewGuid().ToString("N"));
         string logsPath = Path.Combine(root, "logs");
         Directory.CreateDirectory(logsPath);
         LocalApiTestFactory baseFactory = new();
         WebApplicationFactory<Program> factory = baseFactory.WithWebHostBuilder(builder =>
+        {
             builder.ConfigureAppConfiguration((_, configuration) =>
             {
                 Dictionary<string, string?> settings = new()
@@ -80,9 +107,21 @@ public sealed class ObservabilityApiTests
                 };
 
                 configuration.AddInMemoryCollection(settings);
-            }));
+            });
+            configure?.Invoke(builder);
+        });
 
         return new ObservabilityTestContext(root, logsPath, baseFactory, factory);
+    }
+
+    private sealed class FailingEmbeddingGenerator : IEmbeddingGenerator
+    {
+        public string ModelName => "failing-test-model";
+
+        public Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("Synthetic embedding failure.");
+        }
     }
 
     private sealed class ObservabilityTestContext(
