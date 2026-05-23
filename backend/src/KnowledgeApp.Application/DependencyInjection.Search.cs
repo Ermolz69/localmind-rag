@@ -10,6 +10,9 @@ public static partial class DependencyInjection
         services.AddScoped<SemanticSearchHandler>();
         services.AddScoped<SemanticSearchRequestValidator>();
 
+        services.AddScoped<ContentSearchHandler>();
+        services.AddScoped<ContentSearchRequestValidator>();
+
         return services;
     }
 }
