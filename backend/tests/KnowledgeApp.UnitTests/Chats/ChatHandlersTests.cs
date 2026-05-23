@@ -33,6 +33,8 @@ public sealed class ChatHandlersTests
 
         Assert.Contains(conversations.Items, item => item.Id == conversation.Id);
         Assert.Equal("Stub answer", answer.Answer.Answer);
+        Assert.Single(answer.Answer.Sources);
+        Assert.Equal("Matched chunk", answer.Answer.Sources[0].Snippet);
         Assert.Contains(messages, message => message.Role == ChatRole.User && message.Content == "What is local RAG?");
         Assert.Contains(messages, message => message.Role == ChatRole.Assistant && message.Content == "Stub answer");
     }
@@ -61,7 +63,15 @@ public sealed class ChatHandlersTests
             string question,
             CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new RagAnswerDto("Stub answer", []));
+            RagSourceDto source = new(
+                Guid.NewGuid(),
+                "Document",
+                Guid.NewGuid(),
+                PageNumber: null,
+                Score: 0.95,
+                "Matched chunk");
+
+            return Task.FromResult(new RagAnswerDto("Stub answer", [source]));
         }
     }
 }

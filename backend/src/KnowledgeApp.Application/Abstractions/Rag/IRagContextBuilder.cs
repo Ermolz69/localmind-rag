@@ -4,5 +4,5 @@ namespace KnowledgeApp.Application.Abstractions;
 
 public interface IRagContextBuilder
 {
-    Task<IReadOnlyList<RagSourceDto>> BuildAsync(string question, CancellationToken cancellationToken = default);
+    Task<RagContext> BuildAsync(RagContextRequest request, CancellationToken cancellationToken = default);
 }

@@ -1,32 +1,74 @@
-using System.Net;
-using System.Security.Cryptography;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
-using DocumentFormat.OpenXml.Packaging;
 using KnowledgeApp.Application.Abstractions;
-using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Rag;
-using KnowledgeApp.Contracts.Runtime;
-using KnowledgeApp.Domain.Entities;
-using KnowledgeApp.Domain.Enums;
-using KnowledgeApp.Infrastructure.Options;
-using KnowledgeApp.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using UglyToad.PdfPig;
-using A = DocumentFormat.OpenXml.Drawing;
-using PresentationSlideId = DocumentFormat.OpenXml.Presentation.SlideId;
-using SlideText = DocumentFormat.OpenXml.Drawing.Text;
-using WordParagraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
-using WordText = DocumentFormat.OpenXml.Wordprocessing.Text;
 
 namespace KnowledgeApp.Infrastructure.Services;
 
 public sealed class RagContextBuilder(IVectorSearchService search, IEmbeddingGenerator embeddings) : IRagContextBuilder
 {
-    public async Task<IReadOnlyList<RagSourceDto>> BuildAsync(string question, CancellationToken cancellationToken = default)
+    private const int SnippetCharacterLimit = 700;
+    private const int ContextCharacterLimit = 6_000;
+
+    public async Task<RagContext> BuildAsync(RagContextRequest request, CancellationToken cancellationToken = default)
     {
-        float[]? vector = await embeddings.GenerateAsync(question, cancellationToken);
-        return await search.SearchAsync(vector, new VectorSearchOptions(), cancellationToken);
+        float[] queryVector = await embeddings.GenerateAsync(request.Question, cancellationToken);
+        IReadOnlyList<RagSourceDto> sources = await search.SearchAsync(
+            queryVector,
+            new VectorSearchOptions(Limit: request.Limit),
+            cancellationToken);
+
+        string contextText = BuildContextText(sources);
+        return new RagContext(sources, contextText);
+    }
+
+    private static string BuildContextText(IReadOnlyList<RagSourceDto> sources)
+    {
+        if (sources.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        StringBuilder builder = new();
+        for (int index = 0; index < sources.Count; index++)
+        {
+            RagSourceDto source = sources[index];
+            string snippet = NormalizeSnippet(source.Snippet);
+            if (snippet.Length > SnippetCharacterLimit)
+            {
+                snippet = snippet[..SnippetCharacterLimit];
+            }
+
+            string page = source.PageNumber.HasValue
+                ? source.PageNumber.Value.ToString(CultureInfo.InvariantCulture)
+                : "n/a";
+
+            builder.Append(CultureInfo.InvariantCulture, $"[Source {index + 1}] ");
+            builder.Append(CultureInfo.InvariantCulture, $"Document: {source.DocumentName}; ");
+            builder.Append(CultureInfo.InvariantCulture, $"DocumentId: {source.DocumentId}; ");
+            builder.Append(CultureInfo.InvariantCulture, $"ChunkId: {source.ChunkId}; ");
+            builder.Append(CultureInfo.InvariantCulture, $"Page: {page}; ");
+            builder.Append(CultureInfo.InvariantCulture, $"Score: {source.Score:0.0000}; ");
+            builder.Append("Snippet: ");
+            builder.AppendLine(snippet);
+
+            if (builder.Length >= ContextCharacterLimit)
+            {
+                break;
+            }
+        }
+
+        if (builder.Length <= ContextCharacterLimit)
+        {
+            return builder.ToString().Trim();
+        }
+
+        return builder.ToString(0, ContextCharacterLimit).Trim();
+    }
+
+    private static string NormalizeSnippet(string snippet)
+    {
+        return Regex.Replace(snippet, "\\s+", " ").Trim();
     }
 }

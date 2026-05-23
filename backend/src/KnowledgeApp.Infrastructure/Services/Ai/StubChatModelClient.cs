@@ -1,28 +1,42 @@
-using System.Net;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using DocumentFormat.OpenXml.Packaging;
 using KnowledgeApp.Application.Abstractions;
-using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Rag;
-using KnowledgeApp.Contracts.Runtime;
-using KnowledgeApp.Domain.Entities;
-using KnowledgeApp.Domain.Enums;
-using KnowledgeApp.Infrastructure.Options;
-using KnowledgeApp.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using UglyToad.PdfPig;
-using A = DocumentFormat.OpenXml.Drawing;
-using PresentationSlideId = DocumentFormat.OpenXml.Presentation.SlideId;
-using SlideText = DocumentFormat.OpenXml.Drawing.Text;
-using WordParagraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
-using WordText = DocumentFormat.OpenXml.Wordprocessing.Text;
 
 namespace KnowledgeApp.Infrastructure.Services;
 
 public sealed class StubChatModelClient : IChatModelClient
 {
-    public Task<string> GenerateAsync(string prompt, CancellationToken cancellationToken = default) => Task.FromResult("Local AI runtime is not configured yet.");
+    private const int AnswerSnippetLimit = 280;
+
+    public Task<string> GenerateAsync(ChatModelRequest request, CancellationToken cancellationToken = default)
+    {
+        if (request.Sources.Count == 0 || string.IsNullOrWhiteSpace(request.ContextText))
+        {
+            return Task.FromResult("No relevant local sources were found for this question.");
+        }
+
+        RagSourceDto topSource = request.Sources[0];
+        string snippet = NormalizeSnippet(topSource.Snippet);
+        if (snippet.Length > AnswerSnippetLimit)
+        {
+            snippet = snippet[..AnswerSnippetLimit];
+        }
+
+        StringBuilder answer = new();
+        answer.Append("Based on local sources, ");
+        answer.Append(snippet);
+        answer.Append(" Source: ");
+        answer.Append(topSource.DocumentName);
+        answer.Append(" / chunk ");
+        answer.Append(topSource.ChunkId);
+        answer.Append('.');
+
+        return Task.FromResult(answer.ToString());
+    }
+
+    private static string NormalizeSnippet(string snippet)
+    {
+        return Regex.Replace(snippet, "\\s+", " ").Trim();
+    }
 }
