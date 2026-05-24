@@ -1,6 +1,7 @@
 using KnowledgeApp.Application.Buckets;
-using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Chats;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Application.Notes;
 using KnowledgeApp.Application.Search;
@@ -18,12 +19,11 @@ public sealed class ApplicationValidationTests
     {
         BucketRequestValidator validator = new();
 
-        ValidationAppException exception = Assert.Throws<ValidationAppException>(
-            () => validator.Validate(new CreateBucketRequest(" ", null)));
+        Result result = validator.Validate(new CreateBucketRequest(" ", null));
+        ApplicationError error = result.AssertFailure(ErrorType.Validation);
 
-        Assert.Equal(ErrorCodes.Buckets.ValidationFailed, exception.Code);
-        Assert.Contains("name", exception.Errors.Keys);
-        Assert.Equal(ErrorMessages.Buckets.NameRequired, exception.Errors["name"].Single());
+        Assert.Equal(ErrorCodes.Buckets.ValidationFailed, error.Code);
+        Assert.Contains(error.Details!, detail => detail.Field == "name" && detail.Message == ErrorMessages.Buckets.NameRequired);
     }
 
     [Fact]
@@ -32,12 +32,11 @@ public sealed class ApplicationValidationTests
         NoteRequestValidator validator = new();
         string markdown = new('a', 1_000_001);
 
-        ValidationAppException exception = Assert.Throws<ValidationAppException>(
-            () => validator.Validate(new CreateNoteRequest(null, "Title", markdown)));
+        Result result = validator.Validate(new CreateNoteRequest(null, "Title", markdown));
+        ApplicationError error = result.AssertFailure(ErrorType.Validation);
 
-        Assert.Equal(ErrorCodes.Notes.ValidationFailed, exception.Code);
-        Assert.Contains("markdown", exception.Errors.Keys);
-        Assert.Equal(ErrorMessages.Notes.MarkdownTooLong, exception.Errors["markdown"].Single());
+        Assert.Equal(ErrorCodes.Notes.ValidationFailed, error.Code);
+        Assert.Contains(error.Details!, detail => detail.Field == "markdown" && detail.Message == ErrorMessages.Notes.MarkdownTooLong);
     }
 
     [Fact]
@@ -45,12 +44,11 @@ public sealed class ApplicationValidationTests
     {
         ChatRequestValidator validator = new();
 
-        ValidationAppException exception = Assert.Throws<ValidationAppException>(
-            () => validator.Validate(new ChatMessageRequest("")));
+        Result result = validator.Validate(new ChatMessageRequest(""));
+        ApplicationError error = result.AssertFailure(ErrorType.Validation);
 
-        Assert.Equal(ErrorCodes.Chats.ValidationFailed, exception.Code);
-        Assert.Contains("content", exception.Errors.Keys);
-        Assert.Equal(ErrorMessages.Chats.ContentRequired, exception.Errors["content"].Single());
+        Assert.Equal(ErrorCodes.Chats.ValidationFailed, error.Code);
+        Assert.Contains(error.Details!, detail => detail.Field == "content" && detail.Message == ErrorMessages.Chats.ContentRequired);
     }
 
     [Fact]
@@ -58,12 +56,11 @@ public sealed class ApplicationValidationTests
     {
         SemanticSearchRequestValidator validator = new();
 
-        ValidationAppException exception = Assert.Throws<ValidationAppException>(
-            () => validator.Validate(new SemanticSearchRequest("query", Limit: 51)));
+        Result result = validator.Validate(new SemanticSearchRequest("query", Limit: 51));
+        ApplicationError error = result.AssertFailure(ErrorType.Validation);
 
-        Assert.Equal(ErrorCodes.Search.ValidationFailed, exception.Code);
-        Assert.Contains("limit", exception.Errors.Keys);
-        Assert.Equal(ErrorMessages.Search.LimitOutOfRange, exception.Errors["limit"].Single());
+        Assert.Equal(ErrorCodes.Search.ValidationFailed, error.Code);
+        Assert.Contains(error.Details!, detail => detail.Field == "limit" && detail.Message == ErrorMessages.Search.LimitOutOfRange);
     }
 
     [Fact]
@@ -71,12 +68,14 @@ public sealed class ApplicationValidationTests
     {
         SemanticSearchRequestValidator validator = new();
 
-        ValidationAppException exception = Assert.Throws<ValidationAppException>(
-            () => validator.Validate(new SemanticSearchRequest(" ")));
+        Result result = validator.Validate(new SemanticSearchRequest(" "));
+        ApplicationError error = result.AssertFailure(ErrorType.Validation);
 
-        Assert.Equal(ErrorCodes.Search.ValidationFailed, exception.Code);
-        Assert.Equal(ErrorMessages.Search.RequestInvalid, exception.Message);
-        Assert.Equal(ErrorMessages.Search.QueryRequired, exception.Errors[SemanticSearchRequestValidator.QueryField].Single());
+        Assert.Equal(ErrorCodes.Search.ValidationFailed, error.Code);
+        Assert.Equal(ErrorMessages.Search.RequestInvalid, error.Message);
+        Assert.Contains(error.Details!, detail =>
+            detail.Field == SemanticSearchRequestValidator.QueryField &&
+            detail.Message == ErrorMessages.Search.QueryRequired);
     }
 
     [Fact]

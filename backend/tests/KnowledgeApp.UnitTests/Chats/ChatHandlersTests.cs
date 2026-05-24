@@ -1,6 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Chats;
-using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Domain.Enums;
@@ -25,16 +25,16 @@ public sealed class ChatHandlersTests
             new FixedDateTimeProvider(),
             new FakeLocalDeviceResolver());
 
-        ConversationDto? conversation = await create.HandleAsync(new CreateConversationRequest("Question"));
-        Contracts.Common.CursorPage<ConversationDto> conversations = await list.HandleAsync(new GetChatsQuery());
-        SendChatMessageResult? answer = await send.HandleAsync(conversation.Id, new ChatMessageRequest("What is local RAG?"));
+        ConversationDto? conversation = (await create.HandleAsync(new CreateConversationRequest("Question"))).AssertSuccess();
+        Contracts.Common.CursorPage<ConversationDto> conversations = (await list.HandleAsync(new GetChatsQuery())).AssertSuccess();
+        RagAnswerDto? answer = (await send.HandleAsync(conversation.Id, new ChatMessageRequest("What is local RAG?"))).AssertSuccess();
 
         Domain.Entities.ChatMessage[]? messages = await database.Context.ChatMessages.ToArrayAsync();
 
         Assert.Contains(conversations.Items, item => item.Id == conversation.Id);
-        Assert.Equal("Stub answer", answer.Answer.Answer);
-        Assert.Single(answer.Answer.Sources);
-        Assert.Equal("Matched chunk", answer.Answer.Sources[0].Snippet);
+        Assert.Equal("Stub answer", answer.Answer);
+        Assert.Single(answer.Sources);
+        Assert.Equal("Matched chunk", answer.Sources[0].Snippet);
         Assert.Contains(messages, message => message.Role == ChatRole.User && message.Content == "What is local RAG?");
         Assert.Contains(messages, message => message.Role == ChatRole.Assistant && message.Content == "Stub answer");
     }
@@ -50,10 +50,9 @@ public sealed class ChatHandlersTests
             new FixedDateTimeProvider(),
             new FakeLocalDeviceResolver());
 
-        NotFoundAppException exception = await Assert.ThrowsAsync<NotFoundAppException>(
-            () => send.HandleAsync(Guid.NewGuid(), new ChatMessageRequest("Hello")));
+        Result<RagAnswerDto> result = await send.HandleAsync(Guid.NewGuid(), new ChatMessageRequest("Hello"));
 
-        Assert.Equal("CHAT_NOT_FOUND", exception.Code);
+        Assert.Equal("CHAT_NOT_FOUND", result.AssertFailure(ErrorType.NotFound).Code);
     }
 
     private sealed class FakeRagAnswerGenerator : IRagAnswerGenerator

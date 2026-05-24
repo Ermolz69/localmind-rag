@@ -334,6 +334,9 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -341,6 +344,9 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("LastError")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LastOperationId")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset?>("ProcessedAt")
@@ -355,6 +361,8 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DocumentId");
+
+                    b.HasIndex("Status");
 
                     b.ToTable("ingestion_jobs", (string)null);
                 });

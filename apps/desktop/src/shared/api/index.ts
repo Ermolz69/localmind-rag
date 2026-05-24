@@ -1,5 +1,18 @@
-export { ApiError, getErrorMessage } from "./problem-details";
-export type { CursorPage, CursorPageRequest, ProblemDetails } from "./common";
+export {
+  ApiError,
+  getErrorMessage,
+  getFieldError,
+  getFieldErrors,
+} from "./problem-details";
+export type {
+  ApiEnvelopeError,
+  ApiErrorDetail,
+  ApiMetadata,
+  ApiResponse,
+  CursorPage,
+  CursorPageRequest,
+  ProblemDetails,
+} from "./common";
 export { bucketsApi } from "./buckets";
 export { chatsApi } from "./chats";
 export { diagnosticsApi } from "./diagnostics";

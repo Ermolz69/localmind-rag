@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Domain.Entities;
 
@@ -9,11 +10,15 @@ public sealed class CreateChatHandler(
     ChatRequestValidator validator,
     ILocalDeviceResolver localDeviceResolver)
 {
-    public async Task<ConversationDto> HandleAsync(
+    public async Task<Result<ConversationDto>> HandleAsync(
         CreateConversationRequest request,
         CancellationToken cancellationToken = default)
     {
-        validator.Validate(request);
+        Result validation = validator.Validate(request);
+        if (!validation.IsSuccess)
+        {
+            return Result<ConversationDto>.Failure(validation);
+        }
 
         Guid localDeviceId = await localDeviceResolver.ResolveCurrentDeviceIdAsync(cancellationToken);
         Conversation conversation = new()
@@ -24,6 +29,6 @@ public sealed class CreateChatHandler(
 
         dbContext.Conversations.Add(conversation);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return ConversationMapper.ToDto(conversation);
+        return Result<ConversationDto>.Success(ConversationMapper.ToDto(conversation));
     }
 }

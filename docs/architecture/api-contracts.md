@@ -77,3 +77,9 @@ Validation failures always use `VALIDATION_FAILED` and field-level `details`.
 Services and handlers should not return HTTP primitives. The API boundary converts application results, known application exceptions, and unexpected exceptions into HTTP responses with `ApiResponse<T>`.
 
 Frontend feature code should call the shared `request<T>` client, which unwraps `ApiResponse<T>` and throws a single `ApiError` shape for failed responses.
+
+## Migration notes
+
+Raw DTOs are no longer the public LocalApi contract. Existing clients must unwrap `data` from `ApiResponse<T>` before reading endpoint payloads.
+
+Expected application failures should be represented as `Result<T>` or `Result` with stable `ApplicationError` codes. Exceptions are reserved for infrastructure/runtime failures and truly unexpected cases that middleware normalizes into the same envelope.

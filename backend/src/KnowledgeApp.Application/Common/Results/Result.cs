@@ -39,6 +39,13 @@ public sealed class Result<T>
     public static Result<T> Success(T value) => new(value, null);
 
     public static Result<T> Failure(ApplicationError error) => new(default, error);
+
+    public static Result<T> Failure(Result result)
+    {
+        return result.Error is null
+            ? throw new ArgumentException("Cannot create a failed generic result from a successful result.", nameof(result))
+            : Failure(result.Error);
+    }
 }
 
 public sealed class Result
@@ -62,6 +69,15 @@ public static class ApplicationErrors
     public static ApplicationError Validation(string code, string message, IReadOnlyList<ApiErrorDetail>? details = null)
     {
         return new ApplicationError(ErrorType.Validation, code, message, details);
+    }
+
+    public static ApplicationError Validation(string code, string message, IReadOnlyDictionary<string, string[]> errors)
+    {
+        ApiErrorDetail[] details = errors
+            .SelectMany(error => error.Value.Select(message => new ApiErrorDetail(error.Key, message)))
+            .ToArray();
+
+        return Validation(code, message, details);
     }
 
     public static ApplicationError NotFound(string code, string message)

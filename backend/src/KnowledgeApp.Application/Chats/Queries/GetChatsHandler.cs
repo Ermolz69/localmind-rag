@@ -1,6 +1,7 @@
 using System.Globalization;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Pagination;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Domain.Entities;
@@ -12,13 +13,25 @@ public sealed class GetChatsHandler(IAppDbContext dbContext)
 {
     private const string CursorKind = "chats";
 
-    public async Task<CursorPage<ConversationDto>> HandleAsync(
+    public async Task<Result<CursorPage<ConversationDto>>> HandleAsync(
         GetChatsQuery query,
         CancellationToken cancellationToken = default)
     {
-        int limit = CursorPagination.ValidateLimit(query.Limit);
+        Result<int> limitResult = CursorPagination.ValidateLimit(query.Limit);
+        if (!limitResult.IsSuccess)
+        {
+            return Result<CursorPage<ConversationDto>>.Failure(limitResult.Error!);
+        }
+
+        int limit = limitResult.Value;
         string filterHash = CursorPagination.CreateFilterHash(new { });
-        CursorPayload? cursor = CursorPagination.Decode(query.Cursor, CursorKind, filterHash);
+        Result<CursorPayload?> cursorResult = CursorPagination.Decode(query.Cursor, CursorKind, filterHash);
+        if (!cursorResult.IsSuccess)
+        {
+            return Result<CursorPage<ConversationDto>>.Failure(cursorResult.Error!);
+        }
+
+        CursorPayload? cursor = cursorResult.Value;
 
         Conversation[] conversations = await dbContext.Conversations
             .AsNoTracking()
@@ -44,11 +57,11 @@ public sealed class GetChatsHandler(IAppDbContext dbContext)
                 conversation.UpdatedAt.HasValue));
         ConversationDto[] conversationDtos = conversationPage.Items.Select(ConversationMapper.ToDto).ToArray();
 
-        return new CursorPage<ConversationDto>(
+        return Result<CursorPage<ConversationDto>>.Success(new CursorPage<ConversationDto>(
             conversationDtos,
             conversationPage.NextCursor,
             conversationPage.Limit,
-            conversationPage.HasMore);
+            conversationPage.HasMore));
     }
 
     private static int CompareConversationToCursor(Conversation conversation, CursorPayload cursor)

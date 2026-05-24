@@ -1,5 +1,5 @@
 using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Rag;
 
@@ -7,17 +7,17 @@ namespace KnowledgeApp.Application.Chats;
 
 public sealed class ChatRequestValidator
 {
-    public void Validate(CreateConversationRequest request)
+    public Result Validate(CreateConversationRequest request)
     {
-        ValidateTitle(request.Title);
+        return ValidateTitle(request.Title);
     }
 
-    public void Validate(UpdateConversationRequest request)
+    public Result Validate(UpdateConversationRequest request)
     {
-        ValidateTitle(request.Title);
+        return ValidateTitle(request.Title);
     }
 
-    public void Validate(ChatMessageRequest request)
+    public Result Validate(ChatMessageRequest request)
     {
         Dictionary<string, string[]> errors = [];
 
@@ -32,11 +32,16 @@ public sealed class ChatRequestValidator
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException(ErrorCodes.Chats.ValidationFailed, ErrorMessages.Chats.RequestInvalid, errors);
+            return Result.Failure(ApplicationErrors.Validation(
+                ErrorCodes.Chats.ValidationFailed,
+                ErrorMessages.Chats.RequestInvalid,
+                errors));
         }
+
+        return Result.Success();
     }
 
-    private static void ValidateTitle(string title)
+    private static Result ValidateTitle(string title)
     {
         Dictionary<string, string[]> errors = [];
 
@@ -51,7 +56,12 @@ public sealed class ChatRequestValidator
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException(ErrorCodes.Chats.ValidationFailed, ErrorMessages.Chats.RequestInvalid, errors);
+            return Result.Failure(ApplicationErrors.Validation(
+                ErrorCodes.Chats.ValidationFailed,
+                ErrorMessages.Chats.RequestInvalid,
+                errors));
         }
+
+        return Result.Success();
     }
 }

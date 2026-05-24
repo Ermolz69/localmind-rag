@@ -9,6 +9,12 @@ namespace KnowledgeApp.Contracts.Runtime;
 /// <param name="ModelPath">Configured local model path.</param>
 /// <param name="SetupRequired">True when runtime or model setup is incomplete.</param>
 /// <param name="SetupReason">Human-readable setup guidance when setup is required.</param>
+/// <param name="ProviderId">Stable AI runtime provider identifier.</param>
+/// <param name="ProviderName">Display name for the configured provider.</param>
+/// <param name="ProviderStatus">Stable provider status value.</param>
+/// <param name="Capabilities">Capabilities advertised by the provider.</param>
+/// <param name="BaseUrl">Provider API base URL when applicable.</param>
+/// <param name="FailureReason">Sanitized provider failure or setup reason.</param>
 public sealed record RuntimeStatusDto(
     bool LocalApiReady,
     string AiRuntimeStatus,
@@ -17,4 +23,10 @@ public sealed record RuntimeStatusDto(
     string? RuntimePath = null,
     string? ModelPath = null,
     bool SetupRequired = false,
-    string? SetupReason = null);
+    string? SetupReason = null,
+    string ProviderId = "llama-cpp",
+    string ProviderName = "llama.cpp",
+    string ProviderStatus = AiRuntimeProviderStatus.Missing,
+    AiRuntimeProviderCapabilities? Capabilities = null,
+    string? BaseUrl = null,
+    string? FailureReason = null);

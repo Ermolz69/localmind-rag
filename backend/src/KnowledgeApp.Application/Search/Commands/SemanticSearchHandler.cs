@@ -1,5 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Diagnostics;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Rag;
 
 namespace KnowledgeApp.Application.Search;
@@ -10,7 +11,7 @@ public sealed class SemanticSearchHandler(
     SemanticSearchRequestValidator validator,
     IAppDiagnosticLogger? diagnostics = null)
 {
-    public async Task<SemanticSearchResponse> HandleAsync(
+    public async Task<Result<SemanticSearchResponse>> HandleAsync(
         SemanticSearchRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -27,7 +28,11 @@ public sealed class SemanticSearchHandler(
         try
         {
             diagnostics?.LogStep(operationId, DiagnosticNames.Steps.SemanticSearchStarted);
-            validator.Validate(request);
+            Result validation = validator.Validate(request);
+            if (!validation.IsSuccess)
+            {
+                return Result<SemanticSearchResponse>.Failure(validation);
+            }
 
             float[] vector = await embeddings.GenerateAsync(request.Query.Trim(), cancellationToken);
             VectorSearchOptions options = new(request.Limit, request.BucketId, request.DocumentId);
@@ -41,7 +46,7 @@ public sealed class SemanticSearchHandler(
                     [DiagnosticNames.Properties.SourcesCount] = sources.Count,
                 });
 
-            return new SemanticSearchResponse(sources);
+            return Result<SemanticSearchResponse>.Success(new SemanticSearchResponse(sources));
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

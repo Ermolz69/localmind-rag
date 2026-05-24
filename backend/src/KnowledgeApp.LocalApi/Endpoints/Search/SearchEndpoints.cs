@@ -12,11 +12,17 @@ public static class SearchEndpoints
         app.MapPost("/api/search/content", async (
             ContentSearchRequest request,
             ContentSearchHandler handler,
+            HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            ContentSearchResponse response = await handler.HandleAsync(request, cancellationToken);
-            return Results.Ok(response);
-        });
+            return (await handler.HandleAsync(request, cancellationToken)).ToApiResult(context);
+        })
+            .WithName("ContentSearch")
+            .WithTags("Search")
+            .WithSummary("Runs content search.")
+            .WithDescription("Searches document chunks and notes with text matching across selected sources.")
+            .Produces<ApiResponse<ContentSearchResponse>>()
+            .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
         app.MapPost("/api/search/semantic", async (
             SemanticSearchRequest request,
@@ -24,8 +30,7 @@ public static class SearchEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            SemanticSearchResponse response = await handler.HandleAsync(request, cancellationToken);
-            return ApiResults.Ok(response, context);
+            return (await handler.HandleAsync(request, cancellationToken)).ToApiResult(context);
         })
             .WithName("SemanticSearch")
             .WithTags("Search")

@@ -58,6 +58,16 @@
       href: development/repository-hygiene.md
     - name: Packaging
       href: development/packaging.md
+- name: ADR
+  items:
+    - name: LocalApi envelope and Result
+      href: adr/0001-localapi-envelope-and-result.md
+    - name: Ingestion job lifecycle
+      href: adr/0002-ingestion-job-lifecycle.md
+    - name: AI runtime provider abstraction
+      href: adr/0003-ai-runtime-provider-abstraction.md
+    - name: LocalApi local security
+      href: adr/0004-localapi-local-security.md
 - name: API
   items:
     - name: OpenAPI

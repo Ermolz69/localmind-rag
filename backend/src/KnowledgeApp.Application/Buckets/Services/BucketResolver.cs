@@ -1,6 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +9,7 @@ namespace KnowledgeApp.Application.Buckets;
 
 public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider dateTimeProvider) : IBucketResolver
 {
-    public async Task<Bucket> ResolveForUploadAsync(Guid? requestedBucketId, CancellationToken cancellationToken = default)
+    public async Task<Result<Bucket>> ResolveForUploadAsync(Guid? requestedBucketId, CancellationToken cancellationToken = default)
     {
         if (requestedBucketId.HasValue)
         {
@@ -17,17 +17,17 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
                 .FirstOrDefaultAsync(x => x.Id == requestedBucketId.Value && x.DeletedAt == null, cancellationToken);
             if (requestedBucket is null)
             {
-                throw new NotFoundAppException(ErrorCodes.Buckets.NotFound, ErrorMessages.Buckets.NotFound);
+                return Result<Bucket>.Failure(ApplicationErrors.NotFound(ErrorCodes.Buckets.NotFound, ErrorMessages.Buckets.NotFound));
             }
 
             await SetLastSelectedBucketAsync(requestedBucket.Id, cancellationToken);
-            return requestedBucket;
+            return Result<Bucket>.Success(requestedBucket);
         }
 
         Bucket? lastSelectedBucket = await GetLastSelectedBucketAsync(cancellationToken);
         if (lastSelectedBucket is not null)
         {
-            return lastSelectedBucket;
+            return Result<Bucket>.Success(lastSelectedBucket);
         }
 
         Bucket? defaultBucket = await dbContext.Buckets
@@ -45,7 +45,7 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
         }
 
         await SetLastSelectedBucketAsync(defaultBucket.Id, cancellationToken);
-        return defaultBucket;
+        return Result<Bucket>.Success(defaultBucket);
     }
 
     private async Task<Bucket?> GetLastSelectedBucketAsync(CancellationToken cancellationToken)

@@ -10,5 +10,7 @@ public sealed record DiagnosticsCountsDto(
     int NotesCount,
     int ConversationsCount,
     int PendingIngestionJobsCount,
-    int FailedIngestionJobsCount);
-
+    int FailedIngestionJobsCount,
+    int RunningIngestionJobsCount = 0,
+    int CancelledIngestionJobsCount = 0,
+    Guid? LastProcessedIngestionJobId = null);

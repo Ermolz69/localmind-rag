@@ -1,4 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,13 +8,13 @@ namespace KnowledgeApp.Application.Documents;
 
 public sealed class DeleteDocumentHandler(IAppDbContext dbContext, IDateTimeProvider dateTimeProvider)
 {
-    public async Task<DeleteDocumentResult> HandleAsync(Guid documentId, CancellationToken cancellationToken = default)
+    public async Task<Result> HandleAsync(Guid documentId, CancellationToken cancellationToken = default)
     {
         Domain.Entities.Document? document = await dbContext.Documents
             .FirstOrDefaultAsync(x => x.Id == documentId && x.DeletedAt == null, cancellationToken);
         if (document is null)
         {
-            return new DeleteDocumentResult(false);
+            return Result.Failure(ApplicationErrors.NotFound(ErrorCodes.Documents.NotFound, "Document was not found."));
         }
 
         document.DeletedAt = dateTimeProvider.UtcNow;
@@ -21,6 +23,6 @@ public sealed class DeleteDocumentHandler(IAppDbContext dbContext, IDateTimeProv
         document.UpdatedAt = dateTimeProvider.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return new DeleteDocumentResult(true);
+        return Result.Success();
     }
 }

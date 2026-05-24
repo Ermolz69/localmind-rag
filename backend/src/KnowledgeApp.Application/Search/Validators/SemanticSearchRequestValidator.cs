@@ -1,5 +1,5 @@
 using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Rag;
 
 namespace KnowledgeApp.Application.Search;
@@ -13,7 +13,7 @@ public sealed class SemanticSearchRequestValidator
     public const string QueryField = "query";
     public const string LimitField = "limit";
 
-    public void Validate(SemanticSearchRequest request)
+    public Result Validate(SemanticSearchRequest request)
     {
         Dictionary<string, string[]> errors = [];
 
@@ -33,7 +33,12 @@ public sealed class SemanticSearchRequestValidator
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException(ErrorCodes.Search.ValidationFailed, ErrorMessages.Search.RequestInvalid, errors);
+            return Result.Failure(ApplicationErrors.Validation(
+                ErrorCodes.Search.ValidationFailed,
+                ErrorMessages.Search.RequestInvalid,
+                errors));
         }
+
+        return Result.Success();
     }
 }

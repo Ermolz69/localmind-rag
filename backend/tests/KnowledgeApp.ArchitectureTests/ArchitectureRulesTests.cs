@@ -5,6 +5,8 @@ using KnowledgeApp.Application.Notes;
 using KnowledgeApp.Contracts.Buckets;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Infrastructure.Persistence;
+using KnowledgeApp.Infrastructure.Services;
+using System.Text.RegularExpressions;
 
 namespace KnowledgeApp.ArchitectureTests;
 
@@ -104,6 +106,51 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
+    public void LocalApi_Endpoint_Modules_Should_Not_Bypass_ApiResults_For_Normal_Responses()
+    {
+        string root = FindRepositoryRoot();
+        string[] endpointFiles = Directory.GetFiles(
+            Path.Combine(root, "backend/src/KnowledgeApp.LocalApi/Endpoints"),
+            "*Endpoints.cs",
+            SearchOption.AllDirectories);
+        Regex directResultsCall = new(@"(?<!Api)(?<!Typed)Results\.(Ok|Created|Accepted|Problem|BadRequest|NotFound|Conflict|NoContent)\(");
+
+        foreach (string endpointFile in endpointFiles)
+        {
+            if (endpointFile.EndsWith("HealthEndpoints.cs", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string source = File.ReadAllText(endpointFile);
+            Assert.False(
+                directResultsCall.IsMatch(source),
+                $"{Path.GetFileName(endpointFile)} should return through ApiResults for non-exempt endpoints.");
+        }
+    }
+
+    [Fact]
+    public void LocalApi_Endpoint_Modules_Should_Advertise_ApiResponse_Metadata()
+    {
+        string root = FindRepositoryRoot();
+        string[] endpointFiles = Directory.GetFiles(
+            Path.Combine(root, "backend/src/KnowledgeApp.LocalApi/Endpoints"),
+            "*Endpoints.cs",
+            SearchOption.AllDirectories);
+
+        foreach (string endpointFile in endpointFiles)
+        {
+            if (endpointFile.EndsWith("HealthEndpoints.cs", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string source = File.ReadAllText(endpointFile);
+            Assert.Contains("Produces<ApiResponse", source);
+        }
+    }
+
+    [Fact]
     public void Bucket_Note_Chat_Query_And_Create_Handlers_Should_Not_Return_Domain_Entities()
     {
         Type[]? handlerTypes = new[]
@@ -137,6 +184,36 @@ public sealed class ArchitectureRulesTests
                 }
             }
         }
+    }
+
+    [Fact]
+    public void Ai_Runtime_Manager_Should_Implement_Runtime_Provider_Contract()
+    {
+        Assert.True(typeof(IAiRuntimeProvider).IsAssignableFrom(typeof(AiRuntimeManager)));
+    }
+
+    [Fact]
+    public void Architecture_Decisions_Should_Be_Documented_In_Adr_Folder()
+    {
+        string root = FindRepositoryRoot();
+        string adrRoot = Path.Combine(root, "docs/adr");
+        string[] expected =
+        [
+            "0001-localapi-envelope-and-result.md",
+            "0002-ingestion-job-lifecycle.md",
+            "0003-ai-runtime-provider-abstraction.md",
+            "0004-localapi-local-security.md",
+        ];
+
+        foreach (string fileName in expected)
+        {
+            Assert.True(File.Exists(Path.Combine(adrRoot, fileName)), $"{fileName} is missing.");
+        }
+
+        string toc = File.ReadAllText(Path.Combine(root, "docs/toc.yml"));
+        Assert.Contains("docs/adr", string.Join('/', adrRoot.Split(Path.DirectorySeparatorChar).TakeLast(2)));
+        Assert.Contains("adr/0001-localapi-envelope-and-result.md", toc);
+        Assert.Contains("adr/0004-localapi-local-security.md", toc);
     }
 
     private static bool TypeUses(Type candidate, Type forbidden)

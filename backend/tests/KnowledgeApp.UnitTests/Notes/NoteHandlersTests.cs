@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Notes;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Notes;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.UnitTests;
@@ -18,20 +19,20 @@ public sealed class NoteHandlersTests
         UpdateNoteHandler update = new(database.Context, validator);
         DeleteNoteHandler delete = new(database.Context, new FixedDateTimeProvider());
 
-        NoteDto? note = await create.HandleAsync(new CreateNoteRequest(BucketId: null, "Draft", "Body"));
-        Contracts.Common.CursorPage<NoteDto> notes = await list.HandleAsync(new GetNotesQuery());
-        UpdateNoteResult? updateResult = await update.HandleAsync(note.Id, new UpdateNoteRequest("Done", "Updated"));
-        UpdateNoteResult? missingUpdateResult = await update.HandleAsync(Guid.NewGuid(), new UpdateNoteRequest("Missing", "Body"));
-        DeleteNoteResult? deleteResult = await delete.HandleAsync(note.Id);
-        DeleteNoteResult? missingDeleteResult = await delete.HandleAsync(note.Id);
+        NoteDto? note = (await create.HandleAsync(new CreateNoteRequest(BucketId: null, "Draft", "Body"))).AssertSuccess();
+        Contracts.Common.CursorPage<NoteDto> notes = (await list.HandleAsync(new GetNotesQuery())).AssertSuccess();
+        Result updateResult = await update.HandleAsync(note.Id, new UpdateNoteRequest("Done", "Updated"));
+        Result missingUpdateResult = await update.HandleAsync(Guid.NewGuid(), new UpdateNoteRequest("Missing", "Body"));
+        Result deleteResult = await delete.HandleAsync(note.Id);
+        Result missingDeleteResult = await delete.HandleAsync(note.Id);
         Domain.Entities.Note storedNote = await database.Context.Notes.SingleAsync(item => item.Id == note.Id);
-        Contracts.Common.CursorPage<NoteDto> visibleNotes = await list.HandleAsync(new GetNotesQuery());
+        Contracts.Common.CursorPage<NoteDto> visibleNotes = (await list.HandleAsync(new GetNotesQuery())).AssertSuccess();
 
         Assert.Contains(notes.Items, item => item.Id == note.Id);
-        Assert.True(updateResult.Found);
-        Assert.False(missingUpdateResult.Found);
-        Assert.True(deleteResult.Found);
-        Assert.False(missingDeleteResult.Found);
+        updateResult.AssertSuccess();
+        Assert.Equal("NOTE_NOT_FOUND", missingUpdateResult.AssertFailure().Code);
+        deleteResult.AssertSuccess();
+        Assert.Equal("NOTE_NOT_FOUND", missingDeleteResult.AssertFailure().Code);
         Assert.NotNull(storedNote.DeletedAt);
         Assert.Equal(SyncStatus.DeletedLocal, storedNote.SyncStatus);
         Assert.DoesNotContain(visibleNotes.Items, item => item.Id == note.Id);

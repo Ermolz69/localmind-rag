@@ -1,6 +1,7 @@
 using System.Globalization;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Pagination;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Notes;
 using KnowledgeApp.Domain.Entities;
@@ -12,14 +13,26 @@ public sealed class GetNotesHandler(IAppDbContext dbContext)
 {
     private const string CursorKind = "notes";
 
-    public async Task<CursorPage<NoteDto>> HandleAsync(
+    public async Task<Result<CursorPage<NoteDto>>> HandleAsync(
         GetNotesQuery query,
         CancellationToken cancellationToken = default)
     {
-        int limit = CursorPagination.ValidateLimit(query.Limit);
+        Result<int> limitResult = CursorPagination.ValidateLimit(query.Limit);
+        if (!limitResult.IsSuccess)
+        {
+            return Result<CursorPage<NoteDto>>.Failure(limitResult.Error!);
+        }
+
+        int limit = limitResult.Value;
         string? normalizedQuery = string.IsNullOrWhiteSpace(query.Query) ? null : query.Query.Trim();
         string filterHash = CursorPagination.CreateFilterHash(new { query.BucketId, Query = normalizedQuery });
-        CursorPayload? cursor = CursorPagination.Decode(query.Cursor, CursorKind, filterHash);
+        Result<CursorPayload?> cursorResult = CursorPagination.Decode(query.Cursor, CursorKind, filterHash);
+        if (!cursorResult.IsSuccess)
+        {
+            return Result<CursorPage<NoteDto>>.Failure(cursorResult.Error!);
+        }
+
+        CursorPayload? cursor = cursorResult.Value;
 
         IQueryable<Note> notesQuery = dbContext.Notes
             .AsNoTracking()
@@ -59,7 +72,8 @@ public sealed class GetNotesHandler(IAppDbContext dbContext)
                 note.UpdatedAt.HasValue));
         NoteDto[] noteDtos = notePage.Items.Select(NoteMapper.ToDto).ToArray();
 
-        return new CursorPage<NoteDto>(noteDtos, notePage.NextCursor, notePage.Limit, notePage.HasMore);
+        return Result<CursorPage<NoteDto>>.Success(
+            new CursorPage<NoteDto>(noteDtos, notePage.NextCursor, notePage.Limit, notePage.HasMore));
     }
 
     private static int CompareNoteToCursor(Note note, CursorPayload cursor)

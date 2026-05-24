@@ -42,8 +42,7 @@ public sealed class ContentSearchApiTests : IClassFixture<LocalApiTestFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        ContentSearchResponse? body =
-            await response.Content.ReadFromJsonAsync<ContentSearchResponse>();
+        ContentSearchResponse? body = await response.Content.ReadApiDataAsync<ContentSearchResponse>();
 
         Assert.NotNull(body);
 
@@ -92,8 +91,7 @@ public sealed class ContentSearchApiTests : IClassFixture<LocalApiTestFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        ContentSearchResponse? body =
-            await response.Content.ReadFromJsonAsync<ContentSearchResponse>();
+        ContentSearchResponse? body = await response.Content.ReadApiDataAsync<ContentSearchResponse>();
 
         Assert.NotNull(body);
 
@@ -128,8 +126,7 @@ public sealed class ContentSearchApiTests : IClassFixture<LocalApiTestFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        ContentSearchResponse? body =
-            await response.Content.ReadFromJsonAsync<ContentSearchResponse>();
+        ContentSearchResponse? body = await response.Content.ReadApiDataAsync<ContentSearchResponse>();
 
         Assert.NotNull(body);
 
@@ -156,8 +153,7 @@ public sealed class ContentSearchApiTests : IClassFixture<LocalApiTestFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        ContentSearchResponse? body =
-            await response.Content.ReadFromJsonAsync<ContentSearchResponse>();
+        ContentSearchResponse? body = await response.Content.ReadApiDataAsync<ContentSearchResponse>();
 
         Assert.NotNull(body);
         Assert.Empty(body.Results);
@@ -189,8 +185,7 @@ public sealed class ContentSearchApiTests : IClassFixture<LocalApiTestFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        ContentSearchResponse? body =
-            await response.Content.ReadFromJsonAsync<ContentSearchResponse>();
+        ContentSearchResponse? body = await response.Content.ReadApiDataAsync<ContentSearchResponse>();
 
         Assert.NotNull(body);
         Assert.Empty(body.Results);
@@ -220,8 +215,7 @@ public sealed class ContentSearchApiTests : IClassFixture<LocalApiTestFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        ContentSearchResponse? body =
-            await response.Content.ReadFromJsonAsync<ContentSearchResponse>();
+        ContentSearchResponse? body = await response.Content.ReadApiDataAsync<ContentSearchResponse>();
 
         Assert.NotNull(body);
         Assert.Single(body.Results);
@@ -325,7 +319,7 @@ public sealed class ContentSearchApiTests : IClassFixture<LocalApiTestFactory>
         Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
 
         UploadDocumentResponse? upload =
-            await uploadResponse.Content.ReadFromJsonAsync<UploadDocumentResponse>();
+            await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
 
         Assert.NotNull(upload);
 

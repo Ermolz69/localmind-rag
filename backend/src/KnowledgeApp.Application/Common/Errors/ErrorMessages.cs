@@ -62,6 +62,27 @@ public static class ErrorMessages
         public const string ExternalDependencyUnavailable = "Local AI runtime dependency is unavailable.";
     }
 
+    public static class Ingestion
+    {
+        public const string JobNotFound = "Ingestion job was not found.";
+        public const string JobNotRetryable = "Ingestion job cannot be retried in its current state.";
+        public const string JobNotCancellable = "Ingestion job cannot be cancelled in its current state.";
+        public const string JobAlreadyRunning = "Ingestion job is already running.";
+        public const string JobFailed = "Ingestion job failed.";
+        public const string RetryQueued = "Ingestion job was queued for retry.";
+        public const string Cancelled = "Ingestion job was cancelled.";
+        public const string ProcessingAccepted = "Ingestion job processing was accepted.";
+    }
+
+    public static class Security
+    {
+        public const string LocalAccessDenied = "LocalApi accepts local desktop requests only.";
+        public const string LocalTokenRequired = "Local API token is required.";
+        public const string LocalTokenInvalid = "Local API token is invalid.";
+        public const string RequestTooLarge = "Request body is too large.";
+        public const string UnsupportedMediaType = "Request content type is not supported.";
+    }
+
     public static class Settings
     {
         public const string AiProviderInvalid = "AI provider must be Ollama or LlamaCpp.";

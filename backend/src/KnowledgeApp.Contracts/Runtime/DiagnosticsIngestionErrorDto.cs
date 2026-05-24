@@ -6,5 +6,6 @@ public sealed record DiagnosticsIngestionErrorDto(
     Guid DocumentId,
     string DocumentName,
     string LastError,
-    DateTimeOffset? ProcessedAt);
-
+    DateTimeOffset? ProcessedAt,
+    int AttemptCount = 0,
+    Guid? LastOperationId = null);

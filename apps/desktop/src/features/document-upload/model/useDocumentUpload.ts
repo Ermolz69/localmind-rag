@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { UploadDocumentResponse } from "@entities/document";
-import { documentsApi, getErrorMessage } from "@shared/api";
+import { documentsApi, getErrorMessage, getFieldError } from "@shared/api";
 
 export type UploadState =
   | (UploadDocumentResponse & { fileName: string })
@@ -32,7 +32,11 @@ export function useDocumentUpload({
       setLastUpload({ ...upload, fileName: file.name });
       await onUploaded();
     } catch (exception) {
-      onError(getErrorMessage(exception, "Upload failed."));
+      onError(
+        getFieldError(exception, "file") ??
+          getFieldError(exception, "fileName") ??
+          getErrorMessage(exception, "Upload failed."),
+      );
     } finally {
       setIsUploading(false);
     }

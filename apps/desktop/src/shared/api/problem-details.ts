@@ -32,3 +32,22 @@ export function getErrorMessage(error: unknown, fallback: string) {
 
   return fallback;
 }
+
+export function getFieldErrors(error: unknown): Record<string, string[]> {
+  if (!(error instanceof ApiError) || !error.details) {
+    return {};
+  }
+
+  return error.details.reduce<Record<string, string[]>>((fields, detail) => {
+    if (!detail.field) {
+      return fields;
+    }
+
+    fields[detail.field] = [...(fields[detail.field] ?? []), detail.message];
+    return fields;
+  }, {});
+}
+
+export function getFieldError(error: unknown, field: string) {
+  return getFieldErrors(error)[field]?.[0] ?? null;
+}

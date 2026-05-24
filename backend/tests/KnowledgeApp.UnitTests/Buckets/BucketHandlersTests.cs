@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Buckets;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Buckets;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.UnitTests;
@@ -18,20 +19,20 @@ public sealed class BucketHandlersTests
         UpdateBucketHandler update = new(database.Context, new FixedDateTimeProvider(), validator);
         DeleteBucketHandler delete = new(database.Context, new FixedDateTimeProvider());
 
-        BucketDto? bucket = await create.HandleAsync(new CreateBucketRequest("Work", "Initial"));
+        BucketDto? bucket = (await create.HandleAsync(new CreateBucketRequest("Work", "Initial"))).AssertSuccess();
         IReadOnlyList<BucketDto>? buckets = await list.HandleAsync();
-        UpdateBucketResult? updateResult = await update.HandleAsync(bucket.Id, new UpdateBucketRequest("Personal", "Updated"));
-        UpdateBucketResult? missingUpdateResult = await update.HandleAsync(Guid.NewGuid(), new UpdateBucketRequest("Missing", null));
-        DeleteBucketResult? deleteResult = await delete.HandleAsync(bucket.Id);
-        DeleteBucketResult? missingDeleteResult = await delete.HandleAsync(bucket.Id);
+        Result updateResult = await update.HandleAsync(bucket.Id, new UpdateBucketRequest("Personal", "Updated"));
+        Result missingUpdateResult = await update.HandleAsync(Guid.NewGuid(), new UpdateBucketRequest("Missing", null));
+        Result deleteResult = await delete.HandleAsync(bucket.Id);
+        Result missingDeleteResult = await delete.HandleAsync(bucket.Id);
         Domain.Entities.Bucket storedBucket = await database.Context.Buckets.SingleAsync(item => item.Id == bucket.Id);
         IReadOnlyList<BucketDto> visibleBuckets = await list.HandleAsync();
 
         Assert.Contains(buckets, item => item.Id == bucket.Id);
-        Assert.True(updateResult.Found);
-        Assert.False(missingUpdateResult.Found);
-        Assert.True(deleteResult.Found);
-        Assert.False(missingDeleteResult.Found);
+        updateResult.AssertSuccess();
+        Assert.Equal("BUCKET_NOT_FOUND", missingUpdateResult.AssertFailure().Code);
+        deleteResult.AssertSuccess();
+        Assert.Equal("BUCKET_NOT_FOUND", missingDeleteResult.AssertFailure().Code);
         Assert.NotNull(storedBucket.DeletedAt);
         Assert.Equal(SyncStatus.DeletedLocal, storedBucket.SyncStatus);
         Assert.DoesNotContain(visibleBuckets, item => item.Id == bucket.Id);

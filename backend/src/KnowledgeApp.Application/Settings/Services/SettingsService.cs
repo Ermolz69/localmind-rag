@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -39,9 +40,13 @@ public sealed class SettingsService(
                 AutoSync: GetBool(storedSettings, SettingsKeys.SyncAutoSync, defaults.Sync.AutoSync)));
     }
 
-    public async Task UpdateAsync(AppSettingsDto request, CancellationToken cancellationToken = default)
+    public async Task<Result> UpdateAsync(AppSettingsDto request, CancellationToken cancellationToken = default)
     {
-        validator.Validate(request);
+        Result validation = validator.Validate(request);
+        if (!validation.IsSuccess)
+        {
+            return validation;
+        }
 
         Dictionary<string, AppSetting>? storedSettings = await dbContext.AppSettings
             .Where(x => SettingsKeys.KnownKeys.Contains(x.Key))
@@ -62,6 +67,7 @@ public sealed class SettingsService(
         Upsert(storedSettings, SettingsKeys.SyncAutoSync, request.Sync.AutoSync.ToString());
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        return Result.Success();
     }
 
     private static string GetString(IReadOnlyDictionary<string, string> settings, string key, string fallback)

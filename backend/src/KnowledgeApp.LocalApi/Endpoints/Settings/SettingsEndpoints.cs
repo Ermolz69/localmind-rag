@@ -25,8 +25,7 @@ public static class SettingsEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            await settings.UpdateAsync(request, cancellationToken);
-            return ApiResults.Empty(context);
+            return (await settings.UpdateAsync(request, cancellationToken)).ToApiResult(context);
         })
             .WithName("UpdateSettings")
             .WithTags("Settings")

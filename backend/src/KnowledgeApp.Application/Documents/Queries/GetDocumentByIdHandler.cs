@@ -1,4 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Documents;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,7 +8,7 @@ namespace KnowledgeApp.Application.Documents;
 
 public sealed class GetDocumentByIdHandler(IAppDbContext dbContext)
 {
-    public async Task<DocumentDto?> HandleAsync(GetDocumentByIdQuery query, CancellationToken cancellationToken = default)
+    public async Task<Result<DocumentDto>> HandleAsync(GetDocumentByIdQuery query, CancellationToken cancellationToken = default)
     {
         Domain.Entities.Document? document = await dbContext.Documents
             .AsNoTracking()
@@ -15,7 +17,7 @@ public sealed class GetDocumentByIdHandler(IAppDbContext dbContext)
 
         if (document is null)
         {
-            return null;
+            return Result<DocumentDto>.Failure(ApplicationErrors.NotFound(ErrorCodes.Documents.NotFound, "Document was not found."));
         }
 
         Domain.Entities.IngestionJob[]? failedJobs = await dbContext.IngestionJobs
@@ -23,7 +25,7 @@ public sealed class GetDocumentByIdHandler(IAppDbContext dbContext)
             .Where(job => job.DocumentId == document.Id && job.LastError != null)
             .ToArrayAsync(cancellationToken);
 
-        return new DocumentDto(
+        return Result<DocumentDto>.Success(new DocumentDto(
             document.Id,
             document.Name,
             document.Status.ToString(),
@@ -31,6 +33,6 @@ public sealed class GetDocumentByIdHandler(IAppDbContext dbContext)
             failedJobs
                 .OrderByDescending(job => job.ProcessedAt ?? job.CreatedAt)
                 .Select(job => job.LastError)
-                .FirstOrDefault());
+                .FirstOrDefault()));
     }
 }

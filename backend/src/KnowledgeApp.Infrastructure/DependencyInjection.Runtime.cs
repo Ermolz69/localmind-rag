@@ -15,6 +15,7 @@ public static partial class DependencyInjection
         services.AddSingleton<IAppPathProvider, AppPathProvider>();
         services.AddHostedService<LocalRuntimeInitializer>();
         services.AddSingleton<AiRuntimeManager>();
+        services.AddSingleton<IAiRuntimeProvider>(provider => provider.GetRequiredService<AiRuntimeManager>());
         services.AddSingleton<IAiRuntimeManager>(provider => provider.GetRequiredService<AiRuntimeManager>());
         services.AddSingleton<IAiModelRegistry>(provider => provider.GetRequiredService<AiRuntimeManager>());
         services.AddSingleton<IAiRuntimeSetupService>(provider => new LlamaCppRuntimeSetupService(

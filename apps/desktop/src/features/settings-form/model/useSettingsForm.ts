@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AppSettings } from "@entities/settings";
 import type { DiagnosticsStatus } from "@entities/runtime";
-import { diagnosticsApi, getErrorMessage, settingsApi } from "@shared/api";
+import {
+  diagnosticsApi,
+  getErrorMessage,
+  getFieldErrors,
+  settingsApi,
+} from "@shared/api";
 import { useTheme } from "@shared/theme/theme-provider";
 
 export function useSettingsForm() {
@@ -15,9 +20,11 @@ export function useSettingsForm() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
   const load = useCallback(async () => {
     setError(null);
+    setFieldErrors({});
     setIsLoading(true);
     try {
       const [nextSettings, nextDiagnostics] = await Promise.all([
@@ -44,12 +51,14 @@ export function useSettingsForm() {
     }
 
     setError(null);
+    setFieldErrors({});
     setIsSaving(true);
     try {
       await settingsApi.saveSettings(draft);
       setSettings(draft);
     } catch (exception) {
       setError(getErrorMessage(exception, "Unable to save settings."));
+      setFieldErrors(getFieldErrors(exception));
     } finally {
       setIsSaving(false);
     }
@@ -63,6 +72,7 @@ export function useSettingsForm() {
     diagnostics,
     draft,
     error,
+    fieldErrors,
     isDirty: JSON.stringify(settings) !== JSON.stringify(draft),
     isLoading,
     isSaving,

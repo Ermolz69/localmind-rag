@@ -1,6 +1,4 @@
 using KnowledgeApp.Application.Notes;
-using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Notes;
 
@@ -18,7 +16,7 @@ public static class NoteEndpoints
                 GetNotesHandler handler,
                 HttpContext context,
                 CancellationToken cancellationToken) =>
-            ApiResults.Ok(await handler.HandleAsync(new GetNotesQuery(bucketId, query, cursor, limit ?? 50), cancellationToken), context))
+            (await handler.HandleAsync(new GetNotesQuery(bucketId, query, cursor, limit ?? 50), cancellationToken)).ToApiResult(context))
             .WithName("ListNotes")
             .WithTags("Notes")
             .WithSummary("Lists notes.")
@@ -32,8 +30,8 @@ public static class NoteEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            NoteDto created = await handler.HandleAsync(request, cancellationToken);
-            return ApiResults.Created($"/api/notes/{created.Id}", created, context);
+            return (await handler.HandleAsync(request, cancellationToken))
+                .ToCreatedApiResult(context, created => $"/api/notes/{created.Id}");
         })
             .WithName("CreateNote")
             .WithTags("Notes")
@@ -49,13 +47,7 @@ public static class NoteEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            UpdateNoteResult result = await handler.HandleAsync(id, request, cancellationToken);
-            if (!result.Found)
-            {
-                return ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Notes.NotFound, "Note was not found."), context);
-            }
-
-            return ApiResults.Empty(context);
+            return (await handler.HandleAsync(id, request, cancellationToken)).ToApiResult(context);
         })
             .WithName("UpdateNote")
             .WithTags("Notes")
@@ -71,13 +63,7 @@ public static class NoteEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            DeleteNoteResult result = await handler.HandleAsync(id, cancellationToken);
-            if (!result.Found)
-            {
-                return ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Notes.NotFound, "Note was not found."), context);
-            }
-
-            return ApiResults.Empty(context);
+            return (await handler.HandleAsync(id, cancellationToken)).ToApiResult(context);
         })
             .WithName("DeleteNote")
             .WithTags("Notes")

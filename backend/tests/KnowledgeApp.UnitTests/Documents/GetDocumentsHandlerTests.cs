@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Application.Documents;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Documents;
@@ -21,7 +22,7 @@ public sealed class GetDocumentsHandlerTests
         await database.Context.SaveChangesAsync();
         GetDocumentsHandler? handler = new GetDocumentsHandler(database.Context);
 
-        CursorPage<DocumentDto> documents = await handler.HandleAsync(new GetDocumentsQuery());
+        CursorPage<DocumentDto> documents = (await handler.HandleAsync(new GetDocumentsQuery())).AssertSuccess();
 
         Assert.Collection(
             documents.Items,
@@ -40,8 +41,8 @@ public sealed class GetDocumentsHandlerTests
         await database.Context.SaveChangesAsync();
         GetDocumentsHandler handler = new(database.Context);
 
-        CursorPage<DocumentDto> firstPage = await handler.HandleAsync(new GetDocumentsQuery(Limit: 2));
-        CursorPage<DocumentDto> secondPage = await handler.HandleAsync(new GetDocumentsQuery(Cursor: firstPage.NextCursor, Limit: 2));
+        CursorPage<DocumentDto> firstPage = (await handler.HandleAsync(new GetDocumentsQuery(Limit: 2))).AssertSuccess();
+        CursorPage<DocumentDto> secondPage = (await handler.HandleAsync(new GetDocumentsQuery(Cursor: firstPage.NextCursor, Limit: 2))).AssertSuccess();
 
         Assert.True(firstPage.HasMore);
         Assert.NotNull(firstPage.NextCursor);
@@ -51,14 +52,14 @@ public sealed class GetDocumentsHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_Should_Return_Null_When_Document_Is_Missing()
+    public async Task HandleAsync_Should_Return_NotFound_When_Document_Is_Missing()
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
         GetDocumentByIdHandler? handler = new GetDocumentByIdHandler(database.Context);
 
-        DocumentDto? document = await handler.HandleAsync(new GetDocumentByIdQuery(Guid.NewGuid()));
+        Result<DocumentDto> document = await handler.HandleAsync(new GetDocumentByIdQuery(Guid.NewGuid()));
 
-        Assert.Null(document);
+        Assert.Equal("DOCUMENT_NOT_FOUND", document.AssertFailure(ErrorType.NotFound).Code);
     }
 
     private sealed class TestDatabase : IAsyncDisposable

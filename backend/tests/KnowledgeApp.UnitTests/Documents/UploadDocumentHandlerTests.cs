@@ -1,8 +1,8 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Buckets;
 using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Application.Documents;
-using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
@@ -22,7 +22,7 @@ public sealed class UploadDocumentHandlerTests
         UploadDocumentHandler? handler = CreateHandler(database, storage);
         await using MemoryStream? content = new MemoryStream("hello localmind"u8.ToArray());
 
-        UploadDocumentResponse? response = await handler.HandleAsync(new UploadDocumentCommand(content, "notes.txt", "text/plain", content.Length, null));
+        UploadDocumentResponse? response = (await handler.HandleAsync(new UploadDocumentCommand(content, "notes.txt", "text/plain", content.Length, null))).AssertSuccess();
 
         Document? document = await database.Context.Documents.SingleAsync();
         DocumentFile? documentFile = await database.Context.DocumentFiles.SingleAsync();
@@ -103,11 +103,12 @@ public sealed class UploadDocumentHandlerTests
         UploadDocumentHandler? handler = CreateHandler(database);
         await using MemoryStream? content = new MemoryStream("missing bucket"u8.ToArray());
 
-        NotFoundAppException? exception = await Assert.ThrowsAsync<NotFoundAppException>(() =>
-            handler.HandleAsync(new UploadDocumentCommand(content, "missing.txt", "text/plain", content.Length, Guid.NewGuid())));
+        Result<UploadDocumentResponse> result = await handler.HandleAsync(
+            new UploadDocumentCommand(content, "missing.txt", "text/plain", content.Length, Guid.NewGuid()));
 
-        Assert.Equal(ErrorMessages.Buckets.NotFound, exception.Message);
-        Assert.Equal(ErrorCodes.Buckets.NotFound, exception.Code);
+        ApplicationError error = result.AssertFailure(ErrorType.NotFound);
+        Assert.Equal(ErrorMessages.Buckets.NotFound, error.Message);
+        Assert.Equal(ErrorCodes.Buckets.NotFound, error.Code);
     }
 
     [Fact]
@@ -117,9 +118,9 @@ public sealed class UploadDocumentHandlerTests
         UploadDocumentHandler? handler = CreateHandler(database);
         await using MemoryStream? content = new MemoryStream();
 
-        ValidationAppException? exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
-            handler.HandleAsync(new UploadDocumentCommand(content, "empty.txt", "text/plain", 0, null)));
-        Assert.Equal(ErrorCodes.Documents.FileEmpty, exception.Code);
+        Result<UploadDocumentResponse> result = await handler.HandleAsync(
+            new UploadDocumentCommand(content, "empty.txt", "text/plain", 0, null));
+        Assert.Equal(ErrorCodes.Documents.FileEmpty, result.AssertFailure(ErrorType.Validation).Code);
     }
 
     [Fact]
@@ -129,9 +130,9 @@ public sealed class UploadDocumentHandlerTests
         UploadDocumentHandler? handler = CreateHandler(database);
         await using MemoryStream? content = new MemoryStream("nope"u8.ToArray());
 
-        ValidationAppException? exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
-            handler.HandleAsync(new UploadDocumentCommand(content, "archive.zip", "application/zip", content.Length, null)));
-        Assert.Equal(ErrorCodes.Documents.UnsupportedFileType, exception.Code);
+        Result<UploadDocumentResponse> result = await handler.HandleAsync(
+            new UploadDocumentCommand(content, "archive.zip", "application/zip", content.Length, null));
+        Assert.Equal(ErrorCodes.Documents.UnsupportedFileType, result.AssertFailure(ErrorType.Validation).Code);
     }
 
     [Fact]
@@ -141,9 +142,9 @@ public sealed class UploadDocumentHandlerTests
         UploadDocumentHandler? handler = CreateHandler(database);
         await using MemoryStream? content = new MemoryStream([1]);
 
-        ValidationAppException? exception = await Assert.ThrowsAsync<ValidationAppException>(() =>
-            handler.HandleAsync(new UploadDocumentCommand(content, "large.txt", "text/plain", UploadDocumentCommandValidator.MaxFileSizeBytes + 1, null)));
-        Assert.Equal(ErrorCodes.Documents.FileTooLarge, exception.Code);
+        Result<UploadDocumentResponse> result = await handler.HandleAsync(
+            new UploadDocumentCommand(content, "large.txt", "text/plain", UploadDocumentCommandValidator.MaxFileSizeBytes + 1, null));
+        Assert.Equal(ErrorCodes.Documents.FileTooLarge, result.AssertFailure(ErrorType.Validation).Code);
     }
 
     private static UploadDocumentHandler CreateHandler(TestDatabase database, FakeFileStorageService? storage = null)

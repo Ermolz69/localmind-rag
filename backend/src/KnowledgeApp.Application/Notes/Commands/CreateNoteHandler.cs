@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Notes;
 using KnowledgeApp.Domain.Entities;
 
@@ -9,9 +10,13 @@ public sealed class CreateNoteHandler(
     NoteRequestValidator validator,
     ILocalDeviceResolver localDeviceResolver)
 {
-    public async Task<NoteDto> HandleAsync(CreateNoteRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<NoteDto>> HandleAsync(CreateNoteRequest request, CancellationToken cancellationToken = default)
     {
-        validator.Validate(request);
+        Result validation = validator.Validate(request);
+        if (!validation.IsSuccess)
+        {
+            return Result<NoteDto>.Failure(validation);
+        }
 
         Guid localDeviceId = await localDeviceResolver.ResolveCurrentDeviceIdAsync(cancellationToken);
         Note note = new()
@@ -24,6 +29,6 @@ public sealed class CreateNoteHandler(
 
         dbContext.Notes.Add(note);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return NoteMapper.ToDto(note);
+        return Result<NoteDto>.Success(NoteMapper.ToDto(note));
     }
 }

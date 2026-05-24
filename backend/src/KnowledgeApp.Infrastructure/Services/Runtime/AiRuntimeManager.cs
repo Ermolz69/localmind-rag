@@ -16,11 +16,23 @@ public sealed class AiRuntimeManager(
     EmbeddingModelCatalog embeddingModelCatalog,
     EmbeddingModelStore embeddingModelStore,
     ILogger<AiRuntimeManager> logger,
-    IAppDiagnosticLogger? diagnostics = null) : IAiRuntimeManager, IAiModelRegistry, IDisposable
+    IAppDiagnosticLogger? diagnostics = null) : IAiRuntimeManager, IAiModelRegistry, IAiRuntimeProvider, IDisposable
 {
     private readonly AiOptions options = options.Value;
     private readonly object syncRoot = new();
     private Process? runtimeProcess;
+
+    public string ProviderId => "llama-cpp";
+
+    public string ProviderName => "llama.cpp";
+
+    public AiRuntimeProviderCapabilities Capabilities { get; } = new(
+        SupportsEmbeddings: true,
+        SupportsChat: true,
+        SupportsModelListing: true,
+        SupportsSetup: true,
+        SupportsStart: true,
+        SupportsStop: false);
 
     public async Task<RuntimeStatusDto> GetStatusAsync(CancellationToken cancellationToken = default)
     {
@@ -41,6 +53,12 @@ public sealed class AiRuntimeManager(
         };
 
         string? setupReason = GetSetupReason(runtimeAvailable, modelAvailable);
+        string providerStatus = runtimeStatus switch
+        {
+            "RuntimeMissing" or "ModelMissing" => AiRuntimeProviderStatus.Missing,
+            "Running" => AiRuntimeProviderStatus.Running,
+            _ => AiRuntimeProviderStatus.Stopped,
+        };
 
         return new RuntimeStatusDto(
             LocalApiReady: true,
@@ -50,7 +68,13 @@ public sealed class AiRuntimeManager(
             RuntimePath: runtimePath,
             ModelPath: modelPath,
             SetupRequired: setupReason is not null,
-            SetupReason: setupReason);
+            SetupReason: setupReason,
+            ProviderId: ProviderId,
+            ProviderName: ProviderName,
+            ProviderStatus: providerStatus,
+            Capabilities: Capabilities,
+            BaseUrl: options.BaseUrl,
+            FailureReason: setupReason);
     }
 
     public Task<IReadOnlyCollection<string>> ListModelsAsync(CancellationToken cancellationToken = default)

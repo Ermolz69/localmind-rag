@@ -1,4 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -10,24 +12,28 @@ public sealed class UpdateConversationHandler(
     IDateTimeProvider dateTimeProvider,
     ChatRequestValidator validator)
 {
-    public async Task<UpdateConversationResult> HandleAsync(
+    public async Task<Result> HandleAsync(
         Guid conversationId,
         UpdateConversationRequest request,
         CancellationToken cancellationToken = default)
     {
-        validator.Validate(request);
+        Result validation = validator.Validate(request);
+        if (!validation.IsSuccess)
+        {
+            return validation;
+        }
 
         Conversation? conversation = await dbContext.Conversations
             .FirstOrDefaultAsync(item => item.Id == conversationId && item.DeletedAt == null, cancellationToken);
         if (conversation is null)
         {
-            return new UpdateConversationResult(false);
+            return Result.Failure(ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound));
         }
 
         conversation.Title = request.Title.Trim();
         conversation.UpdatedAt = dateTimeProvider.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return new UpdateConversationResult(true);
+        return Result.Success();
     }
 }

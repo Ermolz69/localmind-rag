@@ -1,4 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,7 +8,7 @@ namespace KnowledgeApp.Application.Chats;
 
 public sealed class DeleteConversationHandler(IAppDbContext dbContext, IDateTimeProvider dateTimeProvider)
 {
-    public async Task<DeleteConversationResult> HandleAsync(
+    public async Task<Result> HandleAsync(
         Guid conversationId,
         CancellationToken cancellationToken = default)
     {
@@ -14,7 +16,7 @@ public sealed class DeleteConversationHandler(IAppDbContext dbContext, IDateTime
             .FirstOrDefaultAsync(item => item.Id == conversationId && item.DeletedAt == null, cancellationToken);
         if (conversation is null)
         {
-            return new DeleteConversationResult(false);
+            return Result.Failure(ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound));
         }
 
         DateTimeOffset now = dateTimeProvider.UtcNow;
@@ -31,6 +33,6 @@ public sealed class DeleteConversationHandler(IAppDbContext dbContext, IDateTime
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return new DeleteConversationResult(true);
+        return Result.Success();
     }
 }

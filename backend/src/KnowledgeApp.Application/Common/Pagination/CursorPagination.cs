@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Common;
 
 namespace KnowledgeApp.Application.Common.Pagination;
@@ -23,17 +23,17 @@ public static class CursorPagination
 
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
-    public static int ValidateLimit(int limit)
+    public static Result<int> ValidateLimit(int limit)
     {
         if (limit < 1 || limit > MaxLimit)
         {
-            throw new ValidationAppException(
+            return Result<int>.Failure(ApplicationErrors.Validation(
                 ErrorCodes.Pagination.InvalidLimit,
                 ErrorMessages.Pagination.InvalidLimit,
-                new Dictionary<string, string[]> { ["limit"] = [ErrorMessages.Pagination.LimitOutOfRange] });
+                new Dictionary<string, string[]> { ["limit"] = [ErrorMessages.Pagination.LimitOutOfRange] }));
         }
 
-        return limit;
+        return Result<int>.Success(limit);
     }
 
     public static string CreateFilterHash(object filters)
@@ -43,11 +43,11 @@ public static class CursorPagination
         return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
     }
 
-    public static CursorPayload? Decode(string? cursor, string kind, string filterHash)
+    public static Result<CursorPayload?> Decode(string? cursor, string kind, string filterHash)
     {
         if (string.IsNullOrWhiteSpace(cursor))
         {
-            return null;
+            return Result<CursorPayload?>.Success(null);
         }
 
         try
@@ -60,18 +60,18 @@ public static class CursorPagination
 
             if (payload is null || payload.Kind != kind || payload.FilterHash != filterHash)
             {
-                throw CreateInvalidCursorException();
+                return CreateInvalidCursorFailure();
             }
 
-            return payload;
+            return Result<CursorPayload?>.Success(payload);
         }
         catch (FormatException exception)
         {
-            throw CreateInvalidCursorException(exception);
+            return CreateInvalidCursorFailure(exception);
         }
         catch (JsonException exception)
         {
-            throw CreateInvalidCursorException(exception);
+            return CreateInvalidCursorFailure(exception);
         }
     }
 
@@ -130,11 +130,11 @@ public static class CursorPagination
         return sortedItems.Count;
     }
 
-    private static ValidationAppException CreateInvalidCursorException(Exception? exception = null)
+    private static Result<CursorPayload?> CreateInvalidCursorFailure(Exception? exception = null)
     {
-        return new ValidationAppException(
+        return Result<CursorPayload?>.Failure(ApplicationErrors.Validation(
             ErrorCodes.Pagination.InvalidCursor,
-            exception is null ? ErrorMessages.Pagination.InvalidCursor : $"{ErrorMessages.Pagination.InvalidCursor}: {exception.Message}",
-            new Dictionary<string, string[]> { ["cursor"] = [ErrorMessages.Pagination.InvalidCursor] });
+            ErrorMessages.Pagination.InvalidCursor,
+            new Dictionary<string, string[]> { ["cursor"] = [ErrorMessages.Pagination.InvalidCursor] }));
     }
 }

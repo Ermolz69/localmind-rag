@@ -1,11 +1,12 @@
-using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Search;
 
 namespace KnowledgeApp.Application.Search;
 
 public sealed class ContentSearchRequestValidator
 {
-    public void Validate(ContentSearchRequest request)
+    public Result Validate(ContentSearchRequest request)
     {
         Dictionary<string, string[]> errors = [];
 
@@ -40,10 +41,12 @@ public sealed class ContentSearchRequestValidator
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException(
-                "search.validationFailed",
+            return Result.Failure(ApplicationErrors.Validation(
+                ErrorCodes.Search.ValidationFailed,
                 "Content search request is invalid.",
-                errors);
+                errors));
         }
+
+        return Result.Success();
     }
 }

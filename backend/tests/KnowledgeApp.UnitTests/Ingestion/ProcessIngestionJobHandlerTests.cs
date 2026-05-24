@@ -1,5 +1,7 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Application.Ingestion;
+using KnowledgeApp.Contracts.Ingestion;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.UnitTests;
 
@@ -17,11 +19,11 @@ public sealed class ProcessIngestionJobHandlerTests
         FakeIngestionJobProcessor? processor = new FakeIngestionJobProcessor();
         ProcessIngestionJobHandler? handler = new ProcessIngestionJobHandler(database.Context, processor);
 
-        ProcessIngestionJobResult? missingResult = await handler.HandleAsync(Guid.NewGuid());
-        ProcessIngestionJobResult? result = await handler.HandleAsync(job.Id);
+        Result<ProcessIngestionJobResponse> missingResult = await handler.HandleAsync(Guid.NewGuid());
+        ProcessIngestionJobResponse result = (await handler.HandleAsync(job.Id)).AssertSuccess();
 
-        Assert.False(missingResult.Found);
-        Assert.True(result.Found);
+        Assert.Equal("INGESTION_JOB_NOT_FOUND", missingResult.AssertFailure(ErrorType.NotFound).Code);
+        Assert.Equal(job.Id, result.JobId);
         Assert.Equal(job.Id, processor.LastProcessedJobId);
     }
 

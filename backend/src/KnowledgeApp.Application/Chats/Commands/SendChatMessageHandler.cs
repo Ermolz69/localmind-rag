@@ -1,6 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
@@ -15,19 +15,23 @@ public sealed class SendChatMessageHandler(
     IDateTimeProvider dateTimeProvider,
     ILocalDeviceResolver localDeviceResolver)
 {
-    public async Task<SendChatMessageResult> HandleAsync(
+    public async Task<Result<RagAnswerDto>> HandleAsync(
         Guid conversationId,
         ChatMessageRequest request,
         CancellationToken cancellationToken = default)
     {
-        validator.Validate(request);
+        Result validation = validator.Validate(request);
+        if (!validation.IsSuccess)
+        {
+            return Result<RagAnswerDto>.Failure(validation);
+        }
 
         bool conversationExists = await dbContext.Conversations
             .AsNoTracking()
             .AnyAsync(conversation => conversation.Id == conversationId && conversation.DeletedAt == null, cancellationToken);
         if (!conversationExists)
         {
-            throw new NotFoundAppException(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound);
+            return Result<RagAnswerDto>.Failure(ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound));
         }
 
         DateTimeOffset now = dateTimeProvider.UtcNow;
@@ -53,6 +57,6 @@ public sealed class SendChatMessageHandler(
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return new SendChatMessageResult(answer);
+        return Result<RagAnswerDto>.Success(answer);
     }
 }

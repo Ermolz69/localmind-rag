@@ -9,4 +9,6 @@ public sealed class IngestionJob : Entity
     public IngestionJobStatus Status { get; set; } = IngestionJobStatus.Queued;
     public string? LastError { get; set; }
     public DateTimeOffset? ProcessedAt { get; set; }
+    public int AttemptCount { get; set; }
+    public Guid? LastOperationId { get; set; }
 }

@@ -1,6 +1,4 @@
 using KnowledgeApp.Application.Chats;
-using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Rag;
@@ -17,7 +15,7 @@ public static class ChatEndpoints
                 GetChatsHandler handler,
                 HttpContext context,
                 CancellationToken cancellationToken) =>
-            ApiResults.Ok(await handler.HandleAsync(new GetChatsQuery(cursor, limit ?? 50), cancellationToken), context))
+            (await handler.HandleAsync(new GetChatsQuery(cursor, limit ?? 50), cancellationToken)).ToApiResult(context))
             .WithName("ListChats")
             .WithTags("Chats")
             .WithSummary("Lists conversations.")
@@ -31,10 +29,7 @@ public static class ChatEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            ConversationDto? conversation = await handler.HandleAsync(id, cancellationToken);
-            return conversation is null
-                ? ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound), context)
-                : ApiResults.Ok(conversation, context);
+            return (await handler.HandleAsync(id, cancellationToken)).ToApiResult(context);
         })
             .WithName("GetChat")
             .WithTags("Chats")
@@ -49,10 +44,7 @@ public static class ChatEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            IReadOnlyList<ChatMessageDto>? messages = await handler.HandleAsync(id, cancellationToken);
-            return messages is null
-                ? ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound), context)
-                : ApiResults.Ok(messages, context);
+            return (await handler.HandleAsync(id, cancellationToken)).ToApiResult(context);
         })
             .WithName("ListChatMessages")
             .WithTags("Chats")
@@ -67,8 +59,8 @@ public static class ChatEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            ConversationDto created = await handler.HandleAsync(request, cancellationToken);
-            return ApiResults.Created($"/api/chats/{created.Id}", created, context);
+            return (await handler.HandleAsync(request, cancellationToken))
+                .ToCreatedApiResult(context, created => $"/api/chats/{created.Id}");
         })
             .WithName("CreateChat")
             .WithTags("Chats")
@@ -84,13 +76,7 @@ public static class ChatEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            UpdateConversationResult result = await handler.HandleAsync(id, request, cancellationToken);
-            if (!result.Found)
-            {
-                return ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound), context);
-            }
-
-            return ApiResults.Empty(context);
+            return (await handler.HandleAsync(id, request, cancellationToken)).ToApiResult(context);
         })
             .WithName("UpdateChat")
             .WithTags("Chats")
@@ -106,13 +92,7 @@ public static class ChatEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            DeleteConversationResult result = await handler.HandleAsync(id, cancellationToken);
-            if (!result.Found)
-            {
-                return ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound), context);
-            }
-
-            return ApiResults.Empty(context);
+            return (await handler.HandleAsync(id, cancellationToken)).ToApiResult(context);
         })
             .WithName("DeleteChat")
             .WithTags("Chats")
@@ -128,8 +108,7 @@ public static class ChatEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            SendChatMessageResult result = await handler.HandleAsync(id, request, cancellationToken);
-            return ApiResults.Ok(result.Answer, context);
+            return (await handler.HandleAsync(id, request, cancellationToken)).ToApiResult(context);
         })
             .WithName("SendChatMessage")
             .WithTags("Chats")

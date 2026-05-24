@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Buckets;
 using KnowledgeApp.Domain.Entities;
 
@@ -9,9 +10,13 @@ public sealed class CreateBucketHandler(
     BucketRequestValidator validator,
     ILocalDeviceResolver localDeviceResolver)
 {
-    public async Task<BucketDto> HandleAsync(CreateBucketRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<BucketDto>> HandleAsync(CreateBucketRequest request, CancellationToken cancellationToken = default)
     {
-        validator.Validate(request);
+        Result validation = validator.Validate(request);
+        if (!validation.IsSuccess)
+        {
+            return Result<BucketDto>.Failure(validation);
+        }
 
         Guid localDeviceId = await localDeviceResolver.ResolveCurrentDeviceIdAsync(cancellationToken);
         Bucket bucket = new()
@@ -23,6 +28,6 @@ public sealed class CreateBucketHandler(
 
         dbContext.Buckets.Add(bucket);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return BucketMapper.ToDto(bucket);
+        return Result<BucketDto>.Success(BucketMapper.ToDto(bucket));
     }
 }

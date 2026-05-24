@@ -1,6 +1,4 @@
 using KnowledgeApp.Application.Documents;
-using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Documents;
 
@@ -18,10 +16,9 @@ public static class DocumentEndpoints
                 GetDocumentsHandler handler,
                 HttpContext context,
                 CancellationToken cancellationToken) =>
-            ApiResults.Ok(await handler.HandleAsync(
+            (await handler.HandleAsync(
                 new GetDocumentsQuery(bucketId, status, cursor, limit ?? 50),
-                cancellationToken),
-                context))
+                cancellationToken)).ToApiResult(context))
             .WithName("ListDocuments")
             .WithTags("Documents")
             .WithSummary("Lists documents.")
@@ -37,11 +34,10 @@ public static class DocumentEndpoints
             CancellationToken cancellationToken) =>
         {
             await using Stream? stream = file.OpenReadStream();
-            UploadDocumentResponse? response = await handler.HandleAsync(
+            return (await handler.HandleAsync(
                 new UploadDocumentCommand(stream, file.FileName, file.ContentType, file.Length, bucketId),
-                cancellationToken);
-
-            return ApiResults.Created($"/api/documents/{response.DocumentId}", response, context);
+                cancellationToken))
+                .ToCreatedApiResult(context, response => $"/api/documents/{response.DocumentId}");
         })
             .DisableAntiforgery()
             .WithName("UploadDocument")
@@ -58,10 +54,7 @@ public static class DocumentEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            DocumentDto? document = await handler.HandleAsync(new GetDocumentByIdQuery(id), cancellationToken);
-            return document is null
-                ? ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Documents.NotFound, "Document was not found."), context)
-                : ApiResults.Ok(document, context);
+            return (await handler.HandleAsync(new GetDocumentByIdQuery(id), cancellationToken)).ToApiResult(context);
         })
             .WithName("GetDocument")
             .WithTags("Documents")
@@ -76,13 +69,7 @@ public static class DocumentEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            DeleteDocumentResult result = await handler.HandleAsync(id, cancellationToken);
-            if (!result.Found)
-            {
-                return ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Documents.NotFound, "Document was not found."), context);
-            }
-
-            return ApiResults.Empty(context);
+            return (await handler.HandleAsync(id, cancellationToken)).ToApiResult(context);
         })
             .WithName("DeleteDocument")
             .WithTags("Documents")
@@ -97,16 +84,8 @@ public static class DocumentEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            ReindexDocumentResult result = await handler.HandleAsync(id, cancellationToken);
-            if (!result.Found)
-            {
-                return ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Documents.NotFound, "Document was not found."), context);
-            }
-
-            return ApiResults.Accepted(
-                $"/api/ingestion/jobs/{result.JobId}",
-                new ReindexDocumentResponse(id, result.JobId!.Value, result.Status ?? "Queued"),
-                context);
+            return (await handler.HandleAsync(id, cancellationToken))
+                .ToAcceptedApiResult(context, response => $"/api/ingestion/jobs/{response.IngestionJobId}");
         })
             .WithName("ReindexDocument")
             .WithTags("Documents")

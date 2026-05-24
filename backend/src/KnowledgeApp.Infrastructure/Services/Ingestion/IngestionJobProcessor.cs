@@ -62,6 +62,8 @@ public sealed class IngestionJobProcessor(
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(job => job.Status, IngestionJobStatus.Running)
+                    .SetProperty(job => job.AttemptCount, job => job.AttemptCount + 1)
+                    .SetProperty(job => job.LastOperationId, operationId)
                     .SetProperty(job => job.UpdatedAt, now),
                 cancellationToken);
 
@@ -168,7 +170,7 @@ public sealed class IngestionJobProcessor(
         catch (Exception exception)
         {
             job.Status = IngestionJobStatus.Failed;
-            job.LastError = exception.Message;
+            job.LastError = SanitizeIngestionError(exception);
             job.ProcessedAt = dateTimeProvider.UtcNow;
             document.Status = DocumentStatus.Failed;
             diagnostics?.LogFailure(operationId, exception);
@@ -183,5 +185,19 @@ public sealed class IngestionJobProcessor(
                 [DiagnosticNames.Properties.Status] = job.Status.ToString(),
                 [DiagnosticNames.Properties.DocumentStatus] = document.Status.ToString(),
             });
+    }
+
+    private static string SanitizeIngestionError(Exception exception)
+    {
+        string message = exception.Message;
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return "Document ingestion failed.";
+        }
+
+        string[] safeTerms = ["PDF", "DOCX", "PPTX", "extractable text", "Document file"];
+        return safeTerms.Any(term => message.Contains(term, StringComparison.OrdinalIgnoreCase))
+            ? message
+            : "Document ingestion failed.";
     }
 }

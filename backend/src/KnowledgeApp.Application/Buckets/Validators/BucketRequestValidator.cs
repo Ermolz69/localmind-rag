@@ -1,22 +1,22 @@
 using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Buckets;
 
 namespace KnowledgeApp.Application.Buckets;
 
 public sealed class BucketRequestValidator
 {
-    public void Validate(CreateBucketRequest request)
+    public Result Validate(CreateBucketRequest request)
     {
-        ValidateNameAndDescription(request.Name, request.Description);
+        return ValidateNameAndDescription(request.Name, request.Description);
     }
 
-    public void Validate(UpdateBucketRequest request)
+    public Result Validate(UpdateBucketRequest request)
     {
-        ValidateNameAndDescription(request.Name, request.Description);
+        return ValidateNameAndDescription(request.Name, request.Description);
     }
 
-    private static void ValidateNameAndDescription(string name, string? description)
+    private static Result ValidateNameAndDescription(string name, string? description)
     {
         Dictionary<string, string[]> errors = [];
 
@@ -36,7 +36,12 @@ public sealed class BucketRequestValidator
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException(ErrorCodes.Buckets.ValidationFailed, ErrorMessages.Buckets.RequestInvalid, errors);
+            return Result.Failure(ApplicationErrors.Validation(
+                ErrorCodes.Buckets.ValidationFailed,
+                ErrorMessages.Buckets.RequestInvalid,
+                errors));
         }
+
+        return Result.Success();
     }
 }

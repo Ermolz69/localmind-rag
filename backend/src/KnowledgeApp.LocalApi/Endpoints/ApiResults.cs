@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
 
-internal static class ApiResults
+public static class ApiResults
 {
     public static Ok<ApiResponse<T>> Ok<T>(T data, HttpContext context)
     {
@@ -53,6 +53,20 @@ internal static class ApiResults
     {
         return result.IsSuccess
             ? Ok(result.Value!, context)
+            : Failure(result.Error!, context);
+    }
+
+    public static IResult ToCreatedApiResult<T>(this Result<T> result, HttpContext context, Func<T, string> locationFactory)
+    {
+        return result.IsSuccess
+            ? Created(locationFactory(result.Value!), result.Value!, context)
+            : Failure(result.Error!, context);
+    }
+
+    public static IResult ToAcceptedApiResult<T>(this Result<T> result, HttpContext context, Func<T, string?> locationFactory)
+    {
+        return result.IsSuccess
+            ? Accepted(locationFactory(result.Value!), result.Value!, context)
             : Failure(result.Error!, context);
     }
 

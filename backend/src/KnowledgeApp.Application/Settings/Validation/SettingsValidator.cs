@@ -1,5 +1,5 @@
 using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Domain.Enums;
 
@@ -7,7 +7,7 @@ namespace KnowledgeApp.Application.Settings;
 
 public sealed class SettingsValidator
 {
-    public void Validate(AppSettingsDto request)
+    public Result Validate(AppSettingsDto request)
     {
         Dictionary<string, string[]>? errors = new Dictionary<string, string[]>();
 
@@ -33,8 +33,13 @@ public sealed class SettingsValidator
 
         if (errors.Count > 0)
         {
-            throw new ValidationAppException(ErrorCodes.Settings.ValidationFailed, ErrorMessages.Settings.ValidationFailed, errors);
+            return Result.Failure(ApplicationErrors.Validation(
+                ErrorCodes.Settings.ValidationFailed,
+                ErrorMessages.Settings.ValidationFailed,
+                errors));
         }
+
+        return Result.Success();
     }
 
     private static void AddRequired(Dictionary<string, string[]> errors, string key, string value)

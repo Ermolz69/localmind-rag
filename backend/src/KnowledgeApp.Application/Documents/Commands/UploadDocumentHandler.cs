@@ -1,6 +1,7 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Buckets;
 using KnowledgeApp.Application.Common.Diagnostics;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
@@ -16,7 +17,7 @@ public sealed class UploadDocumentHandler(
     UploadDocumentCommandValidator validator,
     IAppDiagnosticLogger? diagnostics = null)
 {
-    public async Task<UploadDocumentResponse> HandleAsync(UploadDocumentCommand command, CancellationToken cancellationToken = default)
+    public async Task<Result<UploadDocumentResponse>> HandleAsync(UploadDocumentCommand command, CancellationToken cancellationToken = default)
     {
         Guid operationId = diagnostics?.BeginOperation(
             DiagnosticNames.Areas.Documents,
@@ -28,10 +29,20 @@ public sealed class UploadDocumentHandler(
                 [DiagnosticNames.Properties.BucketId] = command.BucketId,
             }) ?? Guid.Empty;
 
-        validator.Validate(command);
+        Result validation = validator.Validate(command);
+        if (!validation.IsSuccess)
+        {
+            return Result<UploadDocumentResponse>.Failure(validation);
+        }
 
         DateTimeOffset now = dateTimeProvider.UtcNow;
-        Bucket? bucket = await bucketResolver.ResolveForUploadAsync(command.BucketId, cancellationToken);
+        Result<Bucket> bucketResult = await bucketResolver.ResolveForUploadAsync(command.BucketId, cancellationToken);
+        if (!bucketResult.IsSuccess)
+        {
+            return Result<UploadDocumentResponse>.Failure(bucketResult.Error!);
+        }
+
+        Bucket bucket = bucketResult.Value!;
         Guid localDeviceId = await localDeviceResolver.ResolveCurrentDeviceIdAsync(cancellationToken);
         Document? document = new Document
         {
@@ -86,6 +97,6 @@ public sealed class UploadDocumentHandler(
                 [DiagnosticNames.Properties.Status] = document.Status.ToString(),
             });
 
-        return new UploadDocumentResponse(document.Id, ingestionJob.Id, document.Status.ToString());
+        return Result<UploadDocumentResponse>.Success(new UploadDocumentResponse(document.Id, ingestionJob.Id, document.Status.ToString()));
     }
 }

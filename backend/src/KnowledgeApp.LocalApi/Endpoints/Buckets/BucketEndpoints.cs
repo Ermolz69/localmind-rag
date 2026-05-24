@@ -1,6 +1,4 @@
 using KnowledgeApp.Application.Buckets;
-using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Buckets;
 using KnowledgeApp.Contracts.Common;
 
@@ -25,7 +23,7 @@ public static class BucketEndpoints
                 GetBucketsPageHandler handler,
                 HttpContext context,
                 CancellationToken cancellationToken) =>
-            ApiResults.Ok(await handler.HandleAsync(new GetBucketsPageQuery(query, cursor, limit ?? 30), cancellationToken), context))
+            (await handler.HandleAsync(new GetBucketsPageQuery(query, cursor, limit ?? 30), cancellationToken)).ToApiResult(context))
             .WithName("ListBucketsPage")
             .WithTags("Buckets")
             .WithSummary("Lists a cursor-paged bucket slice.")
@@ -39,8 +37,8 @@ public static class BucketEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            BucketDto created = await handler.HandleAsync(request, cancellationToken);
-            return ApiResults.Created($"/api/buckets/{created.Id}", created, context);
+            return (await handler.HandleAsync(request, cancellationToken))
+                .ToCreatedApiResult(context, created => $"/api/buckets/{created.Id}");
         })
             .WithName("CreateBucket")
             .WithTags("Buckets")
@@ -56,13 +54,7 @@ public static class BucketEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            UpdateBucketResult result = await handler.HandleAsync(id, request, cancellationToken);
-            if (!result.Found)
-            {
-                return ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Buckets.NotFound, ErrorMessages.Buckets.NotFound), context);
-            }
-
-            return ApiResults.Empty(context);
+            return (await handler.HandleAsync(id, request, cancellationToken)).ToApiResult(context);
         })
             .WithName("UpdateBucket")
             .WithTags("Buckets")
@@ -78,13 +70,7 @@ public static class BucketEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            DeleteBucketResult result = await handler.HandleAsync(id, cancellationToken);
-            if (!result.Found)
-            {
-                return ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Buckets.NotFound, ErrorMessages.Buckets.NotFound), context);
-            }
-
-            return ApiResults.Empty(context);
+            return (await handler.HandleAsync(id, cancellationToken)).ToApiResult(context);
         })
             .WithName("DeleteBucket")
             .WithTags("Buckets")

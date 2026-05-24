@@ -1,4 +1,5 @@
 using KnowledgeApp.Application;
+using KnowledgeApp.Bootstrap.Security;
 using KnowledgeApp.Bootstrap.ProblemDetails;
 using KnowledgeApp.Infrastructure;
 using KnowledgeApp.Observability;
@@ -12,6 +13,15 @@ public static class DependencyInjection
     public static WebApplicationBuilder AddKnowledgeAppBootstrap(this WebApplicationBuilder builder)
     {
         builder.AddKnowledgeAppObservability();
+        builder.Services.Configure<LocalApiSecurityOptions>(builder.Configuration.GetSection(LocalApiSecurityOptions.SectionName));
+        builder.Services.PostConfigure<LocalApiSecurityOptions>(options =>
+        {
+            string? token = Environment.GetEnvironmentVariable("LOCALMIND_LOCAL_API_TOKEN");
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                options.Token = token;
+            }
+        });
         builder.Services.AddProblemDetails();
         builder.Services.AddExceptionHandler<AppExceptionHandler>();
         builder.Services.AddCors(options =>
@@ -31,6 +41,7 @@ public static class DependencyInjection
         app.UseKnowledgeAppObservability();
         app.UseExceptionHandler();
         app.UseStatusCodePages();
+        app.UseMiddleware<LocalApiSecurityMiddleware>();
         app.UseCors();
         return app;
     }

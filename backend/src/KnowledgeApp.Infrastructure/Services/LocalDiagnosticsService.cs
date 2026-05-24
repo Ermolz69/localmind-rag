@@ -59,11 +59,25 @@ public sealed class LocalDiagnosticsService(
     private async Task<DiagnosticsCountsDto> GetCountsAsync(CancellationToken cancellationToken)
     {
         int pendingJobs = await dbContext.IngestionJobs.CountAsync(
-            job => job.Status == IngestionJobStatus.Queued || job.Status == IngestionJobStatus.Running,
+            job => job.Status == IngestionJobStatus.Queued,
+            cancellationToken);
+        int runningJobs = await dbContext.IngestionJobs.CountAsync(
+            job => job.Status == IngestionJobStatus.Running,
             cancellationToken);
         int failedJobs = await dbContext.IngestionJobs.CountAsync(
             job => job.Status == IngestionJobStatus.Failed,
             cancellationToken);
+        int cancelledJobs = await dbContext.IngestionJobs.CountAsync(
+            job => job.Status == IngestionJobStatus.Cancelled,
+            cancellationToken);
+        Domain.Entities.IngestionJob[] processedJobs = await dbContext.IngestionJobs
+            .AsNoTracking()
+            .Where(job => job.ProcessedAt != null)
+            .ToArrayAsync(cancellationToken);
+        Guid? lastProcessedJobId = processedJobs
+            .OrderByDescending(job => job.ProcessedAt)
+            .Select(job => (Guid?)job.Id)
+            .FirstOrDefault();
 
         return new DiagnosticsCountsDto(
             BucketsCount: await dbContext.Buckets.CountAsync(cancellationToken),
@@ -74,7 +88,10 @@ public sealed class LocalDiagnosticsService(
             NotesCount: await dbContext.Notes.CountAsync(cancellationToken),
             ConversationsCount: await dbContext.Conversations.CountAsync(cancellationToken),
             PendingIngestionJobsCount: pendingJobs,
-            FailedIngestionJobsCount: failedJobs);
+            FailedIngestionJobsCount: failedJobs,
+            RunningIngestionJobsCount: runningJobs,
+            CancelledIngestionJobsCount: cancelledJobs,
+            LastProcessedIngestionJobId: lastProcessedJobId);
     }
 
     private async Task<IReadOnlyList<DiagnosticsIngestionErrorDto>> GetLatestErrorsAsync(CancellationToken cancellationToken)
@@ -97,7 +114,9 @@ public sealed class LocalDiagnosticsService(
                 DocumentId: job.DocumentId,
                 DocumentName: documentNames.GetValueOrDefault(job.DocumentId, "Unknown document"),
                 LastError: job.LastError ?? string.Empty,
-                ProcessedAt: job.ProcessedAt))
+                ProcessedAt: job.ProcessedAt,
+                AttemptCount: job.AttemptCount,
+                LastOperationId: job.LastOperationId))
             .ToArray();
     }
 

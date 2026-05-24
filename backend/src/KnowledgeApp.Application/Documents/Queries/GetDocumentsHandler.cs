@@ -2,7 +2,7 @@ using System.Globalization;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Pagination;
 using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
@@ -15,12 +15,30 @@ public sealed class GetDocumentsHandler(IAppDbContext dbContext)
 {
     private const string CursorKind = "documents";
 
-    public async Task<CursorPage<DocumentDto>> HandleAsync(GetDocumentsQuery query, CancellationToken cancellationToken = default)
+    public async Task<Result<CursorPage<DocumentDto>>> HandleAsync(GetDocumentsQuery query, CancellationToken cancellationToken = default)
     {
-        int limit = CursorPagination.ValidateLimit(query.Limit);
-        DocumentStatus? status = ParseStatus(query.Status);
+        Result<int> limitResult = CursorPagination.ValidateLimit(query.Limit);
+        if (!limitResult.IsSuccess)
+        {
+            return Result<CursorPage<DocumentDto>>.Failure(limitResult.Error!);
+        }
+
+        Result<DocumentStatus?> statusResult = ParseStatus(query.Status);
+        if (!statusResult.IsSuccess)
+        {
+            return Result<CursorPage<DocumentDto>>.Failure(statusResult.Error!);
+        }
+
+        int limit = limitResult.Value;
+        DocumentStatus? status = statusResult.Value;
         string filterHash = CursorPagination.CreateFilterHash(new { query.BucketId, Status = status?.ToString() });
-        CursorPayload? cursor = CursorPagination.Decode(query.Cursor, CursorKind, filterHash);
+        Result<CursorPayload?> cursorResult = CursorPagination.Decode(query.Cursor, CursorKind, filterHash);
+        if (!cursorResult.IsSuccess)
+        {
+            return Result<CursorPage<DocumentDto>>.Failure(cursorResult.Error!);
+        }
+
+        CursorPayload? cursor = cursorResult.Value;
 
         IQueryable<Document> documents = dbContext.Documents
             .AsNoTracking()
@@ -64,25 +82,26 @@ public sealed class GetDocumentsHandler(IAppDbContext dbContext)
             .Select(document => ToDocumentDto(document, failedJobs))
             .ToArray();
 
-        return new CursorPage<DocumentDto>(documentDtos, documentPage.NextCursor, documentPage.Limit, documentPage.HasMore);
+        return Result<CursorPage<DocumentDto>>.Success(
+            new CursorPage<DocumentDto>(documentDtos, documentPage.NextCursor, documentPage.Limit, documentPage.HasMore));
     }
 
-    private static DocumentStatus? ParseStatus(string? status)
+    private static Result<DocumentStatus?> ParseStatus(string? status)
     {
         if (string.IsNullOrWhiteSpace(status))
         {
-            return null;
+            return Result<DocumentStatus?>.Success(null);
         }
 
         if (Enum.TryParse(status, ignoreCase: true, out DocumentStatus parsedStatus))
         {
-            return parsedStatus;
+            return Result<DocumentStatus?>.Success(parsedStatus);
         }
 
-        throw new ValidationAppException(
-            ErrorCodes.Documents.InvalidStatus,
-            ErrorMessages.Documents.InvalidStatus,
-            new Dictionary<string, string[]> { ["status"] = [ErrorMessages.Documents.InvalidStatus] });
+        return Result<DocumentStatus?>.Failure(ApplicationErrors.Validation(
+                ErrorCodes.Documents.InvalidStatus,
+                ErrorMessages.Documents.InvalidStatus,
+                new Dictionary<string, string[]> { ["status"] = [ErrorMessages.Documents.InvalidStatus] }));
     }
 
     private static int CompareDocumentToCursor(Document document, CursorPayload cursor)

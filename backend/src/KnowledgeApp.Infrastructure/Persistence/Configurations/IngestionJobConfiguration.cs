@@ -10,5 +10,6 @@ public sealed class IngestionJobConfiguration : IEntityTypeConfiguration<Ingesti
     {
         builder.ToTable("ingestion_jobs");
         builder.HasIndex(job => job.DocumentId);
+        builder.HasIndex(job => job.Status);
     }
 }

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Search;
 using KnowledgeApp.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -13,11 +14,15 @@ public sealed class ContentSearchHandler(
     private const int MaxCandidateCount = 500;
     private const int SnippetLength = 220;
 
-    public async Task<ContentSearchResponse> HandleAsync(
+    public async Task<Result<ContentSearchResponse>> HandleAsync(
         ContentSearchRequest request,
         CancellationToken cancellationToken = default)
     {
-        validator.Validate(request);
+        Result validation = validator.Validate(request);
+        if (!validation.IsSuccess)
+        {
+            return Result<ContentSearchResponse>.Failure(validation);
+        }
 
         string phrase = request.Query.Trim();
         string[] terms = ExtractTerms(phrase);
@@ -47,7 +52,7 @@ public sealed class ContentSearchHandler(
             .Take(request.Limit)
             .ToArray();
 
-        return new ContentSearchResponse(results);
+        return Result<ContentSearchResponse>.Success(new ContentSearchResponse(results));
     }
 
     private async Task<IReadOnlyList<ContentSearchHitDto>> SearchDocumentsAsync(

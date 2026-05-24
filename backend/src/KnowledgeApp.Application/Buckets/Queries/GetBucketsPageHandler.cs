@@ -1,6 +1,7 @@
 using System.Globalization;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Pagination;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Buckets;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Domain.Entities;
@@ -12,14 +13,26 @@ public sealed class GetBucketsPageHandler(IAppDbContext dbContext)
 {
     private const string CursorKind = "buckets";
 
-    public async Task<CursorPage<BucketDto>> HandleAsync(
+    public async Task<Result<CursorPage<BucketDto>>> HandleAsync(
         GetBucketsPageQuery query,
         CancellationToken cancellationToken = default)
     {
-        int limit = CursorPagination.ValidateLimit(query.Limit);
+        Result<int> limitResult = CursorPagination.ValidateLimit(query.Limit);
+        if (!limitResult.IsSuccess)
+        {
+            return Result<CursorPage<BucketDto>>.Failure(limitResult.Error!);
+        }
+
+        int limit = limitResult.Value;
         string? normalizedQuery = string.IsNullOrWhiteSpace(query.Query) ? null : query.Query.Trim();
         string filterHash = CursorPagination.CreateFilterHash(new { Query = normalizedQuery });
-        CursorPayload? cursor = CursorPagination.Decode(query.Cursor, CursorKind, filterHash);
+        Result<CursorPayload?> cursorResult = CursorPagination.Decode(query.Cursor, CursorKind, filterHash);
+        if (!cursorResult.IsSuccess)
+        {
+            return Result<CursorPage<BucketDto>>.Failure(cursorResult.Error!);
+        }
+
+        CursorPayload? cursor = cursorResult.Value;
 
         IQueryable<Bucket> bucketsQuery = dbContext.Buckets
             .AsNoTracking()
@@ -51,7 +64,8 @@ public sealed class GetBucketsPageHandler(IAppDbContext dbContext)
                 false));
         BucketDto[] bucketDtos = bucketPage.Items.Select(BucketMapper.ToDto).ToArray();
 
-        return new CursorPage<BucketDto>(bucketDtos, bucketPage.NextCursor, bucketPage.Limit, bucketPage.HasMore);
+        return Result<CursorPage<BucketDto>>.Success(
+            new CursorPage<BucketDto>(bucketDtos, bucketPage.NextCursor, bucketPage.Limit, bucketPage.HasMore));
     }
 
     private static int CompareBucketToCursor(Bucket bucket, CursorPayload cursor)

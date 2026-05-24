@@ -1,4 +1,6 @@
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Application.Documents;
+using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.UnitTests;
@@ -19,20 +21,18 @@ public sealed class DocumentCommandHandlersTests
         ReindexDocumentHandler? reindex = new ReindexDocumentHandler(database.Context);
         DeleteDocumentHandler? delete = new DeleteDocumentHandler(database.Context, new FixedDateTimeProvider());
 
-        ReindexDocumentResult? reindexResult = await reindex.HandleAsync(document.Id);
-        ReindexDocumentResult? missingReindexResult = await reindex.HandleAsync(Guid.NewGuid());
-        DeleteDocumentResult? deleteResult = await delete.HandleAsync(document.Id);
-        DeleteDocumentResult? missingDeleteResult = await delete.HandleAsync(Guid.NewGuid());
+        ReindexDocumentResponse? reindexResult = (await reindex.HandleAsync(document.Id)).AssertSuccess();
+        Result<ReindexDocumentResponse> missingReindexResult = await reindex.HandleAsync(Guid.NewGuid());
+        Result deleteResult = await delete.HandleAsync(document.Id);
+        Result missingDeleteResult = await delete.HandleAsync(Guid.NewGuid());
 
         Document? storedDocument = await database.Context.Documents.SingleAsync(item => item.Id == document.Id);
         IngestionJob? job = await database.Context.IngestionJobs.SingleAsync(item => item.DocumentId == document.Id);
 
-        Assert.True(reindexResult.Found);
-        Assert.NotNull(reindexResult.JobId);
-        Assert.False(missingReindexResult.Found);
-        Assert.Null(missingReindexResult.JobId);
-        Assert.True(deleteResult.Found);
-        Assert.False(missingDeleteResult.Found);
+        Assert.NotEqual(Guid.Empty, reindexResult.IngestionJobId);
+        Assert.Equal("DOCUMENT_NOT_FOUND", missingReindexResult.AssertFailure(ErrorType.NotFound).Code);
+        deleteResult.AssertSuccess();
+        Assert.Equal("DOCUMENT_NOT_FOUND", missingDeleteResult.AssertFailure(ErrorType.NotFound).Code);
         Assert.NotNull(storedDocument.DeletedAt);
         Assert.Equal(DocumentStatus.Deleted, storedDocument.Status);
         Assert.Equal(SyncStatus.DeletedLocal, storedDocument.SyncStatus);
