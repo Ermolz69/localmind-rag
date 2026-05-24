@@ -26,8 +26,9 @@ sequenceDiagram
     Buckets-->>Handler: Bucket
     Handler->>Storage: Save runtime/app/files/{documentId}/{fileName}
     Storage-->>Handler: StoredFileDto + SHA-256
-    Handler->>DB: Add Document + DocumentFile + IngestionJob
+    Handler->>DB: Add Document + DocumentFile
     Handler->>DB: SaveChanges
+    Handler->>DB: Create Pending IngestionJob
     Handler-->>API: UploadDocumentResponse
     API-->>UI: 201 Created
 ```
@@ -59,30 +60,51 @@ flowchart LR
     Chat --> Answer["Answer with sources"]
 ```
 
-## Ingestion MVP
+## Ingestion Lifecycle
 
 ```mermaid
 sequenceDiagram
     participant Processor as "IngestionJobProcessor"
+    participant Repo as "IIngestionJobRepository"
     participant DB as "SQLite"
     participant Extractor as "DocumentTextExtractor"
     participant Chunker as "DocumentChunker"
 
-    Processor->>DB: Load queued IngestionJob
+    Processor->>Repo: Claim Pending job
+    Repo->>DB: Pending -> Processing, progress 10
     Processor->>DB: Load Document + DocumentFile
-    Processor->>DB: Mark job Running and document Processing
+    Processor->>DB: Mark document Processing
+    Processor->>Repo: Processing, "Extracting text", progress 30
     Processor->>Extractor: Extract text from local file
     alt Supported text/markdown/html/pdf/docx/pptx
         Extractor-->>Processor: Text segments with source metadata
+        Processor->>Repo: Chunking, progress 50
         Processor->>Chunker: Split into chunks
         Chunker-->>Processor: Chunk texts
+        Processor->>Repo: Embedding, progress 75
         Processor->>DB: Replace DocumentChunk rows with page/slide metadata where available
-        Processor->>DB: Mark job Completed and document Indexed
+        Processor->>Repo: Indexed, progress 100
+        Processor->>DB: Mark document Indexed
     else Corrupt or unsupported file
         Extractor-->>Processor: Extraction exception
-        Processor->>DB: Mark job Failed and document Failed
+        Processor->>Repo: Failed with ErrorCode + sanitized ErrorMessage
+        Processor->>DB: Mark document Failed
     end
 ```
+
+Public ingestion statuses are `Pending`, `Processing`, `Chunking`, `Embedding`, `Indexed`, `Failed`, and `Cancelled`.
+
+| API field | Meaning |
+| --- | --- |
+| `status` | Current lifecycle status. |
+| `progressPercent` | Coarse 0-100 progress marker for UI and diagnostics. |
+| `currentStep` | Short human-readable lifecycle step. |
+| `errorCode` | Stable frontend-facing error code when failed. |
+| `errorMessage` | Sanitized failure message safe for users/diagnostics. |
+| `retryCount` | Number of explicit retries requested after failure/cancellation. |
+| `lastOperationId` | Diagnostic operation id for tracing job processing. |
+
+Cancellation is supported for `Pending`, `Processing`, `Chunking`, and `Embedding` jobs. Retry is supported for `Failed` and `Cancelled` jobs and resets the job to `Pending`.
 
 Current MVP support:
 
@@ -91,4 +113,4 @@ Current MVP support:
 - `.pdf` is extracted page by page and stores page numbers on chunks.
 - `.docx` is extracted from document paragraphs.
 - `.pptx` is extracted slide by slide and stores slide numbers on chunks.
-- Corrupt files fail ingestion with the parsing error stored in `IngestionJob.LastError`.
+- Corrupt files fail ingestion with `ErrorCode = INGESTION_JOB_FAILED` and a sanitized `ErrorMessage`.

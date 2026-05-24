@@ -127,7 +127,7 @@ erDiagram
 | `document_files` | Stored original file metadata, local path, file type, hash, and size. |
 | `document_chunks` | Extracted text chunks used by search and RAG. |
 | `document_embeddings` | Embedding vectors stored locally as BLOBs. |
-| `ingestion_jobs` | Queued/running/completed/failed document processing jobs. |
+| `ingestion_jobs` | Pending/processing/chunking/embedding/indexed/failed/cancelled document processing jobs with progress and sanitized diagnostics. |
 | `notes` | Local markdown notes grouped by bucket. |
 | `note_links` | Note-to-note links for future graph/backlink features. |
 | `conversations` | Chat sessions. |

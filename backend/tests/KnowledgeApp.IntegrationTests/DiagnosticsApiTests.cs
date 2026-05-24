@@ -56,7 +56,8 @@ public sealed class DiagnosticsApiTests : IClassFixture<LocalApiTestFactory>
         IngestionJob? failedJob = new IngestionJob
         {
             DocumentId = document.Id,
-            LastError = "PDF file signature is invalid.",
+            ErrorCode = "INGESTION_JOB_FAILED",
+            ErrorMessage = "PDF file signature is invalid.",
             ProcessedAt = DateTimeOffset.UtcNow,
             Status = IngestionJobStatus.Failed,
         };
@@ -75,7 +76,8 @@ public sealed class DiagnosticsApiTests : IClassFixture<LocalApiTestFactory>
             error.JobId == failedJob.Id &&
             error.DocumentId == document.Id &&
             error.DocumentName == document.Name &&
-            error.LastError == failedJob.LastError);
+            error.ErrorCode == failedJob.ErrorCode &&
+            error.ErrorMessage == failedJob.ErrorMessage);
     }
 
     private sealed record DiagnosticsResponse(
@@ -112,8 +114,11 @@ public sealed class DiagnosticsApiTests : IClassFixture<LocalApiTestFactory>
         Guid JobId,
         Guid DocumentId,
         string DocumentName,
-        string LastError,
-        DateTimeOffset? ProcessedAt);
+        string ErrorCode,
+        string ErrorMessage,
+        DateTimeOffset? ProcessedAt,
+        int RetryCount,
+        Guid? LastOperationId);
 
     private sealed record DiagnosticsRuntimeResponse(
         string RuntimeMode,

@@ -12,11 +12,14 @@ internal static class IngestionJobMapper
             job.Id,
             job.DocumentId,
             job.Status.ToString(),
+            job.ProgressPercent,
+            job.CurrentStep,
             job.CreatedAt,
             job.UpdatedAt,
             job.ProcessedAt,
-            job.LastError,
-            job.AttemptCount,
+            job.ErrorCode,
+            job.ErrorMessage,
+            job.RetryCount,
             CanRetry(job.Status),
             CanCancel(job.Status),
             job.LastOperationId);
@@ -29,6 +32,9 @@ internal static class IngestionJobMapper
 
     public static bool CanCancel(IngestionJobStatus status)
     {
-        return status is IngestionJobStatus.Queued or IngestionJobStatus.Running;
+        return status is IngestionJobStatus.Pending
+            or IngestionJobStatus.Processing
+            or IngestionJobStatus.Chunking
+            or IngestionJobStatus.Embedding;
     }
 }

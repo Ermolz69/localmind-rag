@@ -30,7 +30,7 @@ The first observability slice emits operation events for:
 - AI runtime startup/setup;
 - sync status/run skeleton endpoints.
 
-Ingestion diagnostics expose queue health through LocalApi: queued, running, failed, and cancelled job counts; latest sanitized failures; attempt counts; and the last operation id for failed jobs. Raw exception details, local file paths, and stack traces are not public API data.
+Ingestion diagnostics expose queue health through LocalApi: pending, active (`Processing`, `Chunking`, `Embedding`), failed, and cancelled job counts; latest sanitized failures; retry counts; and the last operation id for failed jobs. Raw exception details, local file paths, and stack traces are not public API data.
 
 Request logging captures method, path, endpoint display name, status code, elapsed time, and trace id. Request and response bodies are disabled by default to avoid leaking user documents or chat content.
 

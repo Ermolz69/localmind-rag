@@ -52,14 +52,20 @@ export type DiagnosticsCounts = {
   conversationsCount: number;
   pendingIngestionJobsCount: number;
   failedIngestionJobsCount: number;
+  runningIngestionJobsCount: number;
+  cancelledIngestionJobsCount: number;
+  lastProcessedIngestionJobId: string | null;
 };
 
 export type DiagnosticsIngestionError = {
   jobId: string;
   documentId: string;
   documentName: string;
-  lastError: string;
+  errorCode: string;
+  errorMessage: string;
   processedAt: string | null;
+  retryCount: number;
+  lastOperationId: string | null;
 };
 
 export type DiagnosticsRuntime = {

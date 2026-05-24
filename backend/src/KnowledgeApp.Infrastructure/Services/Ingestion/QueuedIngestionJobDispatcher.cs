@@ -1,17 +1,13 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Diagnostics;
-using KnowledgeApp.Domain.Entities;
-using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Options;
-using KnowledgeApp.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace KnowledgeApp.Infrastructure.Services;
 
 public sealed class QueuedIngestionJobDispatcher(
-    AppDbContext dbContext,
+    IIngestionJobRepository ingestionJobs,
     IIngestionJobProcessor processor,
     IOptions<IngestionWorkerOptions> options,
     ILogger<QueuedIngestionJobDispatcher> logger,
@@ -24,16 +20,7 @@ public sealed class QueuedIngestionJobDispatcher(
         cancellationToken.ThrowIfCancellationRequested();
 
         int batchSize = Math.Max(1, options.BatchSize);
-        IngestionJob[] queuedJobs = await dbContext.IngestionJobs
-            .AsNoTracking()
-            .Where(job => job.Status == IngestionJobStatus.Queued)
-            .ToArrayAsync(cancellationToken);
-        Guid[] jobIds = queuedJobs
-            .OrderBy(job => job.CreatedAt)
-            .ThenBy(job => job.Id)
-            .Take(batchSize)
-            .Select(job => job.Id)
-            .ToArray();
+        IReadOnlyList<Guid> jobIds = await ingestionJobs.ListPendingJobIdsAsync(batchSize, cancellationToken);
 
         int processedCount = 0;
         foreach (Guid jobId in jobIds)

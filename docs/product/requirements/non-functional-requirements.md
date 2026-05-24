@@ -42,7 +42,7 @@ Measurement:
 - Original uploaded files are stored under `runtime/app/files/{documentId}/{originalFileName}` in portable mode.
 - SQLite database path is visible in diagnostics.
 - Reindexing replaces chunks for one document and does not delete unrelated documents, notes, or files.
-- Failed ingestion preserves the original file and stores the error message in `IngestionJob.LastError`.
+- Failed ingestion preserves the original file and stores a stable `ErrorCode` plus sanitized `ErrorMessage` on `IngestionJob`.
 
 ## NFR-05: Maintainability and Quality Gates
 
@@ -55,4 +55,3 @@ Measurement:
 - Unit, integration, and architecture tests are separated in CI.
 - Test reports and coverage artifacts are uploaded in GitHub Actions.
 - Frontend components must use semantic theme tokens and pass the hardcoded color guard.
-

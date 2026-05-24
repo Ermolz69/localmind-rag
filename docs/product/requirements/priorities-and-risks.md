@@ -78,7 +78,7 @@ Impact:
 Mitigation:
 
 - Start with text-based extraction only.
-- Store parsing errors in `IngestionJob.LastError`.
+- Store parsing errors in `IngestionJob.ErrorMessage` with a stable `ErrorCode`.
 - Keep original files safely stored for future reindexing.
 - Add extractor unit tests and integration smoke tests.
 - Defer OCR and advanced layout reconstruction to post-MVP.
@@ -100,4 +100,3 @@ Mitigation:
 - Implement local `sync_outbox` structures only where they do not block local workflows.
 - Prioritize portable startup, local documents, notes, ingestion, and UI feedback.
 - Move remote sync to a dedicated post-MVP milestone.
-

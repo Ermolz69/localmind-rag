@@ -40,8 +40,11 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         Assert.Single(chunks);
         Assert.Equal("First paragraph.\n\nSecond paragraph.", chunks[0].Text);
         Assert.Equal(DocumentStatus.Indexed, storedDocument.Status);
-        Assert.Equal(IngestionJobStatus.Completed, job.Status);
-        Assert.Null(job.LastError);
+        Assert.Equal(IngestionJobStatus.Indexed, job.Status);
+        Assert.Equal(100, job.ProgressPercent);
+        Assert.Equal("Indexed", job.CurrentStep);
+        Assert.Null(job.ErrorCode);
+        Assert.Null(job.ErrorMessage);
         Assert.NotNull(job.ProcessedAt);
 
         DocumentEmbedding? embedding = await database.Context.DocumentEmbeddings.SingleAsync(x => x.DocumentChunkId == chunks[0].Id);
@@ -107,8 +110,8 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         Assert.Contains("First PDF paragraph.", chunks[0].Text, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(1, chunks[0].PageNumber);
         Assert.Equal(DocumentStatus.Indexed, storedDocument.Status);
-        Assert.Equal(IngestionJobStatus.Completed, job.Status);
-        Assert.Null(job.LastError);
+        Assert.Equal(IngestionJobStatus.Indexed, job.Status);
+        Assert.Null(job.ErrorMessage);
     }
 
     [Fact]
@@ -127,8 +130,8 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         Assert.Equal("First DOCX paragraph.", chunk.Text);
         Assert.Null(chunk.PageNumber);
         Assert.Equal(DocumentStatus.Indexed, storedDocument.Status);
-        Assert.Equal(IngestionJobStatus.Completed, job.Status);
-        Assert.Null(job.LastError);
+        Assert.Equal(IngestionJobStatus.Indexed, job.Status);
+        Assert.Null(job.ErrorMessage);
     }
 
     [Fact]
@@ -147,8 +150,8 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         Assert.Equal("First PPTX paragraph.", chunk.Text);
         Assert.Equal(1, chunk.PageNumber);
         Assert.Equal(DocumentStatus.Indexed, storedDocument.Status);
-        Assert.Equal(IngestionJobStatus.Completed, job.Status);
-        Assert.Null(job.LastError);
+        Assert.Equal(IngestionJobStatus.Indexed, job.Status);
+        Assert.Null(job.ErrorMessage);
     }
 
     [Fact]
@@ -165,7 +168,8 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
 
         Assert.Equal(DocumentStatus.Failed, storedDocument.Status);
         Assert.Equal(IngestionJobStatus.Failed, job.Status);
-        Assert.Contains("PDF", job.LastError, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("INGESTION_JOB_FAILED", job.ErrorCode);
+        Assert.Contains("PDF", job.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -182,7 +186,8 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
 
         Assert.Equal(DocumentStatus.Failed, storedDocument.Status);
         Assert.Equal(IngestionJobStatus.Failed, job.Status);
-        Assert.NotNull(job.LastError);
+        Assert.Equal("INGESTION_JOB_FAILED", job.ErrorCode);
+        Assert.NotNull(job.ErrorMessage);
     }
 
     [Fact]
@@ -199,27 +204,26 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
 
         Assert.Equal(DocumentStatus.Failed, storedDocument.Status);
         Assert.Equal(IngestionJobStatus.Failed, job.Status);
-        Assert.NotNull(job.LastError);
+        Assert.Equal("INGESTION_JOB_FAILED", job.ErrorCode);
+        Assert.NotNull(job.ErrorMessage);
     }
 
     [Fact]
-    public async Task ProcessAsync_Should_Throw_When_Job_Is_Missing()
+    public async Task ProcessAsync_Should_Skip_When_Job_Is_Missing()
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
         IngestionJobProcessor? processor = CreateProcessor(database);
 
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync(Guid.NewGuid()));
-
-        Assert.Equal("Ingestion job was not found.", exception.Message);
+        await processor.ProcessAsync(Guid.NewGuid());
     }
 
     [Fact]
-    public async Task ProcessAsync_Should_Not_Process_Already_Running_Job()
+    public async Task ProcessAsync_Should_Not_Process_Already_Processing_Job()
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
         (Guid DocumentId, Guid JobId) document = await CreateDocumentWithJobAsync(database, "running.txt", FileType.PlainText, "Running content.");
         IngestionJob? job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
-        job.Status = IngestionJobStatus.Running;
+        job.Status = IngestionJobStatus.Processing;
         await database.Context.SaveChangesAsync();
         IngestionJobProcessor? processor = CreateProcessor(database);
 
@@ -231,7 +235,29 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         IngestionJob? storedJob = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
 
         Assert.Empty(chunks);
-        Assert.Equal(IngestionJobStatus.Running, storedJob.Status);
+        Assert.Equal(IngestionJobStatus.Processing, storedJob.Status);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_Should_Not_Process_Cancelled_Job()
+    {
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid JobId) document = await CreateDocumentWithJobAsync(database, "cancelled.txt", FileType.PlainText, "Cancelled content.");
+        IngestionJob job = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
+        job.Status = IngestionJobStatus.Cancelled;
+        job.CurrentStep = "Cancelled";
+        await database.Context.SaveChangesAsync();
+        IngestionJobProcessor processor = CreateProcessor(database);
+
+        await processor.ProcessAsync(document.JobId);
+
+        DocumentChunk[] chunks = await database.Context.DocumentChunks
+            .Where(x => x.DocumentId == document.DocumentId)
+            .ToArrayAsync();
+        IngestionJob storedJob = await database.Context.IngestionJobs.SingleAsync(x => x.Id == document.JobId);
+
+        Assert.Empty(chunks);
+        Assert.Equal(IngestionJobStatus.Cancelled, storedJob.Status);
     }
 
     public async ValueTask DisposeAsync()
@@ -252,6 +278,7 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         RawTextExtractor? rawExtractor = new RawTextExtractor();
         return new IngestionJobProcessor(
             database.Context,
+            new IngestionJobRepository(database.Context),
             new DocumentTextExtractorFactory(rawExtractor, new HtmlTextExtractor(), new PdfTextExtractor(new NoOpOcrEngine(), Options.Create(new OcrOptions { Enabled = false })), new DocxTextExtractor(), new PptxTextExtractor()),
             new SimpleDocumentChunker(),
             new DocumentEmbeddingService(new StubEmbeddingGenerator(), new FixedDateTimeProvider()),
@@ -280,7 +307,7 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         IngestionJob? job = new IngestionJob
         {
             DocumentId = document.Id,
-            Status = IngestionJobStatus.Queued,
+            Status = IngestionJobStatus.Pending,
         };
 
         database.Context.Documents.Add(document);
@@ -312,7 +339,7 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         IngestionJob? job = new IngestionJob
         {
             DocumentId = document.Id,
-            Status = IngestionJobStatus.Queued,
+            Status = IngestionJobStatus.Pending,
         };
 
         database.Context.Documents.Add(document);

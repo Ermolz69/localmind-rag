@@ -59,10 +59,12 @@ public sealed class LocalDiagnosticsService(
     private async Task<DiagnosticsCountsDto> GetCountsAsync(CancellationToken cancellationToken)
     {
         int pendingJobs = await dbContext.IngestionJobs.CountAsync(
-            job => job.Status == IngestionJobStatus.Queued,
+            job => job.Status == IngestionJobStatus.Pending,
             cancellationToken);
         int runningJobs = await dbContext.IngestionJobs.CountAsync(
-            job => job.Status == IngestionJobStatus.Running,
+            job => job.Status == IngestionJobStatus.Processing
+                || job.Status == IngestionJobStatus.Chunking
+                || job.Status == IngestionJobStatus.Embedding,
             cancellationToken);
         int failedJobs = await dbContext.IngestionJobs.CountAsync(
             job => job.Status == IngestionJobStatus.Failed,
@@ -98,7 +100,7 @@ public sealed class LocalDiagnosticsService(
     {
         Domain.Entities.IngestionJob[]? failedJobs = await dbContext.IngestionJobs
             .AsNoTracking()
-            .Where(job => job.Status == IngestionJobStatus.Failed && job.LastError != null)
+            .Where(job => job.Status == IngestionJobStatus.Failed && job.ErrorMessage != null)
             .ToArrayAsync(cancellationToken);
         Guid[]? documentIds = failedJobs.Select(job => job.DocumentId).Distinct().ToArray();
         Dictionary<Guid, string>? documentNames = await dbContext.Documents
@@ -113,9 +115,10 @@ public sealed class LocalDiagnosticsService(
                 JobId: job.Id,
                 DocumentId: job.DocumentId,
                 DocumentName: documentNames.GetValueOrDefault(job.DocumentId, "Unknown document"),
-                LastError: job.LastError ?? string.Empty,
+                ErrorCode: job.ErrorCode ?? "INGESTION_JOB_FAILED",
+                ErrorMessage: job.ErrorMessage ?? string.Empty,
                 ProcessedAt: job.ProcessedAt,
-                AttemptCount: job.AttemptCount,
+                RetryCount: job.RetryCount,
                 LastOperationId: job.LastOperationId))
             .ToArray();
     }

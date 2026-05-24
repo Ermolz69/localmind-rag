@@ -20,6 +20,11 @@ public sealed class IngestionJobManagementApiTests(LocalApiTestFactory factory) 
         IngestionJobDto? job = await client.GetApiDataAsync<IngestionJobDto>($"/api/ingestion/jobs/{upload.IngestionJobId}");
         Assert.NotNull(job);
         Assert.True(job.CanCancel);
+        Assert.Equal("Pending", job.Status);
+        Assert.Equal(0, job.ProgressPercent);
+        Assert.Equal("Pending", job.CurrentStep);
+        Assert.Null(job.ErrorCode);
+        Assert.Null(job.ErrorMessage);
 
         using HttpResponseMessage cancelResponse = await client.PostAsync($"/api/ingestion/jobs/{upload.IngestionJobId}/cancel", null);
         Assert.Equal(HttpStatusCode.OK, cancelResponse.StatusCode);
@@ -29,7 +34,7 @@ public sealed class IngestionJobManagementApiTests(LocalApiTestFactory factory) 
         using HttpResponseMessage retryResponse = await client.PostAsync($"/api/ingestion/jobs/{upload.IngestionJobId}/retry", null);
         Assert.Equal(HttpStatusCode.Accepted, retryResponse.StatusCode);
         IngestionJobActionResponse? retry = await retryResponse.Content.ReadApiDataAsync<IngestionJobActionResponse>();
-        Assert.Equal("Queued", retry?.Status);
+        Assert.Equal("Pending", retry?.Status);
     }
 
     [Fact]

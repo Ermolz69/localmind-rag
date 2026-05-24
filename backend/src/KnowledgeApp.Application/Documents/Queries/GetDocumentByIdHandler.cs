@@ -22,7 +22,7 @@ public sealed class GetDocumentByIdHandler(IAppDbContext dbContext)
 
         Domain.Entities.IngestionJob[]? failedJobs = await dbContext.IngestionJobs
             .AsNoTracking()
-            .Where(job => job.DocumentId == document.Id && job.LastError != null)
+            .Where(job => job.DocumentId == document.Id && job.ErrorMessage != null)
             .ToArrayAsync(cancellationToken);
 
         return Result<DocumentDto>.Success(new DocumentDto(
@@ -32,7 +32,7 @@ public sealed class GetDocumentByIdHandler(IAppDbContext dbContext)
             document.CreatedAt,
             failedJobs
                 .OrderByDescending(job => job.ProcessedAt ?? job.CreatedAt)
-                .Select(job => job.LastError)
+                .Select(job => job.ErrorMessage)
                 .FirstOrDefault()));
     }
 }

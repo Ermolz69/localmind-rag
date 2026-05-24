@@ -180,7 +180,9 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         Assert.Single(chunks);
         Assert.Equal("First paragraph.\n\nSecond paragraph.", chunks[0].Text);
         Assert.Equal(DocumentStatus.Indexed, document.Status);
-        Assert.Equal(IngestionJobStatus.Completed, job.Status);
+        Assert.Equal(IngestionJobStatus.Indexed, job.Status);
+        Assert.Equal(100, job.ProgressPercent);
+        Assert.Equal("Indexed", job.CurrentStep);
 
         DocumentEmbedding? embedding = await db.DocumentEmbeddings.SingleAsync(x => x.DocumentChunkId == chunks[0].Id);
         Assert.Equal("BGE-M3", embedding.ModelName);
@@ -212,7 +214,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
             await using AsyncServiceScope scope = autoWorkerFactory.Services.CreateAsyncScope();
             AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             IngestionJob job = await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
-            return job.Status == IngestionJobStatus.Completed;
+            return job.Status == IngestionJobStatus.Indexed;
         });
 
         await using AsyncServiceScope verificationScope = autoWorkerFactory.Services.CreateAsyncScope();
@@ -223,7 +225,8 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 
         Assert.Equal("Automatic worker paragraph.", chunk.Text);
         Assert.Equal(DocumentStatus.Indexed, document.Status);
-        Assert.Equal(IngestionJobStatus.Completed, completedJob.Status);
+        Assert.Equal(IngestionJobStatus.Indexed, completedJob.Status);
+        Assert.Equal(100, completedJob.ProgressPercent);
     }
 
     [Fact]
@@ -260,7 +263,8 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 
         Assert.Equal(DocumentStatus.Failed, document.Status);
         Assert.Equal(IngestionJobStatus.Failed, failedJob.Status);
-        Assert.False(string.IsNullOrWhiteSpace(failedJob.LastError));
+        Assert.Equal("INGESTION_JOB_FAILED", failedJob.ErrorCode);
+        Assert.False(string.IsNullOrWhiteSpace(failedJob.ErrorMessage));
     }
 
     [Fact]
@@ -301,7 +305,8 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 
         Assert.Equal(DocumentStatus.Failed, document.Status);
         Assert.Equal(IngestionJobStatus.Failed, job.Status);
-        Assert.Contains("PDF", job.LastError, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("INGESTION_JOB_FAILED", job.ErrorCode);
+        Assert.Contains("PDF", job.ErrorMessage, StringComparison.OrdinalIgnoreCase);
 
         CursorPage<DocumentDto>? documents = await client.GetApiDataAsync<CursorPage<DocumentDto>>("/api/documents");
         Assert.Contains(documents?.Items ?? [], item => item.Id == upload.DocumentId && item.LastError != null);

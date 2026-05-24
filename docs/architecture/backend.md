@@ -11,7 +11,7 @@ The backend follows Clean Architecture:
 
 - Expected failures are represented with `Result<T>` or `Result` and stable error codes.
 - LocalApi endpoints convert application results through `ApiResults` and return `ApiResponse<T>`.
-- Ingestion jobs are managed as a lifecycle: queued, running, completed, failed, cancelled, retryable, and cancellable.
+- Ingestion jobs are managed as a public lifecycle: `Pending`, `Processing`, `Chunking`, `Embedding`, `Indexed`, `Failed`, and `Cancelled`, with progress, current step, stable error code, sanitized error message, retry count, timestamps, and diagnostic operation id.
 - Runtime-specific behavior is hidden behind provider contracts; llama.cpp is the first provider.
 - LocalApi is local-first: loopback-only by default, with optional token protection for mutating endpoints.
 

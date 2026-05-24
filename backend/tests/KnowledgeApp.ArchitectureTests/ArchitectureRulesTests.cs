@@ -193,6 +193,30 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
+    public void Ingestion_Lifecycle_Code_Should_Use_Job_Repository_Port()
+    {
+        string root = FindRepositoryRoot();
+        string[] sourceFiles =
+        [
+            "backend/src/KnowledgeApp.Application/Documents/Commands/UploadDocumentHandler.cs",
+            "backend/src/KnowledgeApp.Application/Documents/Commands/ReindexDocumentHandler.cs",
+            "backend/src/KnowledgeApp.Application/Ingestion/Commands/ProcessIngestionJobHandler.cs",
+            "backend/src/KnowledgeApp.Application/Ingestion/Commands/RetryIngestionJobHandler.cs",
+            "backend/src/KnowledgeApp.Application/Ingestion/Commands/CancelIngestionJobHandler.cs",
+            "backend/src/KnowledgeApp.Application/Ingestion/Queries/ListIngestionJobsHandler.cs",
+            "backend/src/KnowledgeApp.Application/Ingestion/Queries/GetIngestionJobHandler.cs",
+            "backend/src/KnowledgeApp.Infrastructure/Services/Ingestion/IngestionJobProcessor.cs",
+            "backend/src/KnowledgeApp.Infrastructure/Services/Ingestion/QueuedIngestionJobDispatcher.cs",
+        ];
+
+        foreach (string sourceFile in sourceFiles)
+        {
+            string source = File.ReadAllText(Path.Combine(root, sourceFile));
+            Assert.Contains("IIngestionJobRepository", source);
+        }
+    }
+
+    [Fact]
     public void Runtime_Endpoint_Should_Use_Provider_Registry_Not_Concrete_Runtime_Manager()
     {
         string root = FindRepositoryRoot();

@@ -25,6 +25,7 @@ namespace KnowledgeApp.Infrastructure.Services;
 
 public sealed class IngestionJobProcessor(
     AppDbContext dbContext,
+    IIngestionJobRepository ingestionJobs,
     IDocumentTextExtractorFactory extractorFactory,
     IDocumentChunker chunker,
     IDocumentEmbeddingService documentEmbeddingService,
@@ -38,49 +39,29 @@ public sealed class IngestionJobProcessor(
             DiagnosticNames.Operations.IngestionProcessJob,
             new Dictionary<string, object?> { [DiagnosticNames.Properties.JobId] = jobId }) ?? Guid.Empty;
 
-        IngestionJob? queuedJob = await dbContext.IngestionJobs
-            .AsNoTracking()
-            .FirstOrDefaultAsync(job => job.Id == jobId, cancellationToken);
-        if (queuedJob is null)
+        DateTimeOffset now = dateTimeProvider.UtcNow;
+        IngestionJob? job = await ingestionJobs.ClaimForProcessingAsync(jobId, operationId, now, cancellationToken);
+        if (job is null)
         {
-            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.JobNotFound);
-            throw new InvalidOperationException("Ingestion job was not found.");
-        }
-
-        if (queuedJob.Status != IngestionJobStatus.Queued)
-        {
+            IngestionJob? existingJob = await ingestionJobs.GetAsync(jobId, cancellationToken);
             diagnostics?.LogStep(
                 operationId,
-                DiagnosticNames.Steps.JobSkipped,
-                new Dictionary<string, object?> { [DiagnosticNames.Properties.Status] = queuedJob.Status.ToString() });
+                existingJob is null ? DiagnosticNames.Steps.JobNotFound : DiagnosticNames.Steps.JobSkipped,
+                existingJob is null
+                    ? null
+                    : new Dictionary<string, object?> { [DiagnosticNames.Properties.Status] = existingJob.Status.ToString() });
             return;
         }
 
-        DateTimeOffset now = dateTimeProvider.UtcNow;
-        int claimed = await dbContext.IngestionJobs
-            .Where(job => job.Id == jobId && job.Status == IngestionJobStatus.Queued)
-            .ExecuteUpdateAsync(
-                setters => setters
-                    .SetProperty(job => job.Status, IngestionJobStatus.Running)
-                    .SetProperty(job => job.AttemptCount, job => job.AttemptCount + 1)
-                    .SetProperty(job => job.LastOperationId, operationId)
-                    .SetProperty(job => job.UpdatedAt, now),
-                cancellationToken);
-
-        if (claimed == 0)
-        {
-            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.JobClaimSkipped);
-            return;
-        }
-
-        IngestionJob job = await dbContext.IngestionJobs.SingleAsync(x => x.Id == jobId, cancellationToken);
         Document? document = await dbContext.Documents.FindAsync([job.DocumentId], cancellationToken);
         if (document is null)
         {
-            job.Status = IngestionJobStatus.Failed;
-            job.LastError = "Document was not found.";
-            job.ProcessedAt = dateTimeProvider.UtcNow;
-            await dbContext.SaveChangesAsync(cancellationToken);
+            await ingestionJobs.MarkFailedAsync(
+                jobId,
+                "INGESTION_JOB_FAILED",
+                "Document was not found.",
+                dateTimeProvider.UtcNow,
+                cancellationToken);
             diagnostics?.LogStep(operationId, DiagnosticNames.Steps.DocumentNotFound);
             return;
         }
@@ -97,6 +78,18 @@ public sealed class IngestionJobProcessor(
             if (documentFile is null)
             {
                 throw new InvalidOperationException("Document file was not found.");
+            }
+
+            await ingestionJobs.UpdateStepAsync(
+                jobId,
+                IngestionJobStatus.Processing,
+                "Extracting text",
+                30,
+                dateTimeProvider.UtcNow,
+                cancellationToken);
+            if (await StopIfCancelledAsync(jobId, document, cancellationToken))
+            {
+                return;
             }
 
             string? extension = Path.GetExtension(documentFile.FileName);
@@ -117,6 +110,18 @@ public sealed class IngestionJobProcessor(
             DocumentEmbedding[]? existingEmbeddings = await dbContext.DocumentEmbeddings
                 .Where(x => existingChunkIds.Contains(x.DocumentChunkId))
                 .ToArrayAsync(cancellationToken);
+
+            await ingestionJobs.UpdateStepAsync(
+                jobId,
+                IngestionJobStatus.Chunking,
+                "Chunking document",
+                50,
+                dateTimeProvider.UtcNow,
+                cancellationToken);
+            if (await StopIfCancelledAsync(jobId, document, cancellationToken))
+            {
+                return;
+            }
 
             dbContext.DocumentEmbeddings.RemoveRange(existingEmbeddings);
             dbContext.DocumentChunks.RemoveRange(existingChunks);
@@ -142,6 +147,18 @@ public sealed class IngestionJobProcessor(
             }
 
             dbContext.DocumentChunks.AddRange(newChunks);
+            await ingestionJobs.UpdateStepAsync(
+                jobId,
+                IngestionJobStatus.Embedding,
+                "Generating embeddings",
+                75,
+                dateTimeProvider.UtcNow,
+                cancellationToken);
+            if (await StopIfCancelledAsync(jobId, document, cancellationToken))
+            {
+                return;
+            }
+
             IReadOnlyList<DocumentEmbedding>? newEmbeddings = await documentEmbeddingService.GenerateAsync(newChunks, cancellationToken);
             dbContext.DocumentEmbeddings.AddRange(newEmbeddings);
             diagnostics?.LogStep(
@@ -153,38 +170,71 @@ public sealed class IngestionJobProcessor(
                     [DiagnosticNames.Properties.EmbeddingsCount] = newEmbeddings.Count,
                 });
 
-            job.Status = IngestionJobStatus.Completed;
-            job.LastError = null;
-            job.ProcessedAt = dateTimeProvider.UtcNow;
+            if (await StopIfCancelledAsync(jobId, document, cancellationToken))
+            {
+                return;
+            }
+
             document.Status = DocumentStatus.Indexed;
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await ingestionJobs.MarkIndexedAsync(jobId, dateTimeProvider.UtcNow, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            job.Status = IngestionJobStatus.Queued;
-            job.LastError = null;
-            job.ProcessedAt = null;
             document.Status = DocumentStatus.Queued;
             await dbContext.SaveChangesAsync(CancellationToken.None);
+            await ingestionJobs.UpdateStepAsync(
+                jobId,
+                IngestionJobStatus.Pending,
+                "Pending",
+                0,
+                dateTimeProvider.UtcNow,
+                CancellationToken.None);
             throw;
         }
         catch (Exception exception)
         {
-            job.Status = IngestionJobStatus.Failed;
-            job.LastError = SanitizeIngestionError(exception);
-            job.ProcessedAt = dateTimeProvider.UtcNow;
+            string sanitizedError = SanitizeIngestionError(exception);
+            await ingestionJobs.MarkFailedAsync(
+                jobId,
+                "INGESTION_JOB_FAILED",
+                sanitizedError,
+                dateTimeProvider.UtcNow,
+                cancellationToken);
             document.Status = DocumentStatus.Failed;
             diagnostics?.LogFailure(operationId, exception);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        IngestionJob? finishedJob = await ingestionJobs.GetAsync(jobId, cancellationToken);
         diagnostics?.LogStep(
             operationId,
             DiagnosticNames.Steps.JobFinished,
             new Dictionary<string, object?>
             {
-                [DiagnosticNames.Properties.Status] = job.Status.ToString(),
+                [DiagnosticNames.Properties.Status] = finishedJob?.Status.ToString(),
                 [DiagnosticNames.Properties.DocumentStatus] = document.Status.ToString(),
             });
+    }
+
+    private async Task<bool> StopIfCancelledAsync(Guid jobId, Document document, CancellationToken cancellationToken)
+    {
+        IngestionJob? currentJob = await ingestionJobs.GetAsync(jobId, cancellationToken);
+        if (currentJob?.Status != IngestionJobStatus.Cancelled)
+        {
+            return false;
+        }
+
+        dbContext.ChangeTracker.Clear();
+        Document? currentDocument = await dbContext.Documents.FindAsync([document.Id], cancellationToken);
+        if (currentDocument is not null)
+        {
+            currentDocument.Status = DocumentStatus.Queued;
+            currentDocument.UpdatedAt = dateTimeProvider.UtcNow;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return true;
     }
 
     private static string SanitizeIngestionError(Exception exception)

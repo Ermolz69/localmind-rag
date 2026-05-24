@@ -31,11 +31,11 @@ Priority levels:
 | ID | Priority | User Story | Acceptance Criteria |
 | --- | --- | --- | --- |
 | US-09 | Must | As a user, I want to upload local documents, so that they become part of my knowledge base. | UI supports file picker or drag-and-drop upload; backend saves original file locally. |
-| US-10 | Must | As a user, I want the app to validate uploaded documents, so that unsupported or broken files fail clearly. | Upload validates file name, size, and extension; ingestion stores parsing errors in `IngestionJob.LastError`. |
+| US-10 | Must | As a user, I want the app to validate uploaded documents, so that unsupported or broken files fail clearly. | Upload validates file name, size, and extension; ingestion stores `ErrorCode` and sanitized `ErrorMessage`. |
 | US-11 | Must | As a user, I want text to be extracted from common document formats, so that documents can be searched later. | `.txt`, `.md`, `.html`, `.pdf`, `.docx`, and `.pptx` are extracted by local extractors. |
 | US-12 | Must | As a user, I want documents to be split into chunks, so that search and RAG can use relevant fragments. | Ingestion creates `DocumentChunk` records in stable order; reindexing replaces old chunks. |
 | US-13 | Should | As a user, I want chunks to keep page or slide references where possible, so that answers can cite useful sources. | PDF chunks store page number; PPTX chunks store slide number; DOCX chunks keep document-level source metadata. |
-| US-14 | Must | As a user, I want to see document processing status, so that I know whether a file is queued, processing, indexed, or failed. | UI displays `Queued`, `Processing`, `Indexed`, and `Failed` states and shows failure reason when available. |
+| US-14 | Must | As a user, I want to see document processing status, so that I know whether a file is pending, processing, chunking, embedding, indexed, failed, or cancelled. | UI displays `Pending`, `Processing`, `Chunking`, `Embedding`, `Indexed`, `Failed`, and `Cancelled` states plus progress and failure reason when available. |
 
 ## Epic 4: Notes
 
@@ -61,4 +61,3 @@ Priority levels:
 | US-22 | Must | As a user, I want a portable Windows package, so that I can run the app without installing developer tools. | Release artifact contains desktop executable, LocalApi sidecar, config, and runtime folders. |
 | US-23 | Must | As a developer, I want CI checks to run automatically, so that broken commits are caught early. | GitHub Actions runs backend format/build/tests, frontend lint/typecheck/build, color guard, Docker compose validation, test reports, and coverage. |
 | US-24 | Should | As a developer, I want architecture tests, so that project layers stay clean as the app grows. | Tests prevent Domain/Application from depending on Infrastructure and protect frontend slice boundaries where applicable. |
-

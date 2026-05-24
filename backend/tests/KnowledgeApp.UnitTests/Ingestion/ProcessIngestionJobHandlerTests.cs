@@ -3,6 +3,7 @@ using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Application.Ingestion;
 using KnowledgeApp.Contracts.Ingestion;
 using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Infrastructure.Services;
 using KnowledgeApp.UnitTests;
 
 namespace KnowledgeApp.UnitTests.Ingestion;
@@ -17,7 +18,7 @@ public sealed class ProcessIngestionJobHandlerTests
         database.Context.IngestionJobs.Add(job);
         await database.Context.SaveChangesAsync();
         FakeIngestionJobProcessor? processor = new FakeIngestionJobProcessor();
-        ProcessIngestionJobHandler? handler = new ProcessIngestionJobHandler(database.Context, processor);
+        ProcessIngestionJobHandler? handler = new ProcessIngestionJobHandler(new IngestionJobRepository(database.Context), processor);
 
         Result<ProcessIngestionJobResponse> missingResult = await handler.HandleAsync(Guid.NewGuid());
         ProcessIngestionJobResponse result = (await handler.HandleAsync(job.Id)).AssertSuccess();

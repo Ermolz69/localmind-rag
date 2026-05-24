@@ -7,12 +7,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Ingestion;
 
-public sealed class RetryIngestionJobHandler(IAppDbContext dbContext, IDateTimeProvider dateTimeProvider)
+public sealed class RetryIngestionJobHandler(
+    IAppDbContext dbContext,
+    IIngestionJobRepository ingestionJobs,
+    IDateTimeProvider dateTimeProvider)
 {
     public async Task<Result<IngestionJobActionResponse>> HandleAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
-        Domain.Entities.IngestionJob? job = await dbContext.IngestionJobs
-            .FirstOrDefaultAsync(item => item.Id == jobId, cancellationToken);
+        Domain.Entities.IngestionJob? job = await ingestionJobs.GetAsync(jobId, cancellationToken);
         if (job is null)
         {
             return Result<IngestionJobActionResponse>.Failure(
@@ -25,23 +27,21 @@ public sealed class RetryIngestionJobHandler(IAppDbContext dbContext, IDateTimeP
                 ApplicationErrors.Conflict(ErrorCodes.Ingestion.JobNotRetryable, ErrorMessages.Ingestion.JobNotRetryable));
         }
 
-        job.Status = IngestionJobStatus.Queued;
-        job.LastError = null;
-        job.ProcessedAt = null;
-        job.UpdatedAt = dateTimeProvider.UtcNow;
-        job.LastOperationId = Guid.NewGuid();
+        DateTimeOffset now = dateTimeProvider.UtcNow;
+        Guid operationId = Guid.NewGuid();
+        await ingestionJobs.ResetForRetryAsync(job.Id, operationId, now, cancellationToken);
 
         Domain.Entities.Document? document = await dbContext.Documents
             .FirstOrDefaultAsync(item => item.Id == job.DocumentId && item.DeletedAt == null, cancellationToken);
         if (document is not null)
         {
             document.Status = DocumentStatus.Queued;
-            document.UpdatedAt = dateTimeProvider.UtcNow;
+            document.UpdatedAt = now;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Result<IngestionJobActionResponse>.Success(
-            new IngestionJobActionResponse(job.Id, job.Status.ToString(), ErrorMessages.Ingestion.RetryQueued));
+            new IngestionJobActionResponse(job.Id, IngestionJobStatus.Pending.ToString(), ErrorMessages.Ingestion.RetryQueued));
     }
 }

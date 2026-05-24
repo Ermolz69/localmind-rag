@@ -7,12 +7,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Ingestion;
 
-public sealed class CancelIngestionJobHandler(IAppDbContext dbContext, IDateTimeProvider dateTimeProvider)
+public sealed class CancelIngestionJobHandler(
+    IAppDbContext dbContext,
+    IIngestionJobRepository ingestionJobs,
+    IDateTimeProvider dateTimeProvider)
 {
     public async Task<Result<IngestionJobActionResponse>> HandleAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
-        Domain.Entities.IngestionJob? job = await dbContext.IngestionJobs
-            .FirstOrDefaultAsync(item => item.Id == jobId, cancellationToken);
+        Domain.Entities.IngestionJob? job = await ingestionJobs.GetAsync(jobId, cancellationToken);
         if (job is null)
         {
             return Result<IngestionJobActionResponse>.Failure(
@@ -25,23 +27,21 @@ public sealed class CancelIngestionJobHandler(IAppDbContext dbContext, IDateTime
                 ApplicationErrors.Conflict(ErrorCodes.Ingestion.JobNotCancellable, ErrorMessages.Ingestion.JobNotCancellable));
         }
 
-        job.Status = IngestionJobStatus.Cancelled;
-        job.LastError = null;
-        job.ProcessedAt = dateTimeProvider.UtcNow;
-        job.UpdatedAt = dateTimeProvider.UtcNow;
-        job.LastOperationId = Guid.NewGuid();
+        DateTimeOffset now = dateTimeProvider.UtcNow;
+        Guid operationId = Guid.NewGuid();
+        await ingestionJobs.MarkCancelledAsync(job.Id, operationId, now, cancellationToken);
 
         Domain.Entities.Document? document = await dbContext.Documents
             .FirstOrDefaultAsync(item => item.Id == job.DocumentId && item.DeletedAt == null, cancellationToken);
         if (document is not null)
         {
             document.Status = DocumentStatus.Queued;
-            document.UpdatedAt = dateTimeProvider.UtcNow;
+            document.UpdatedAt = now;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Result<IngestionJobActionResponse>.Success(
-            new IngestionJobActionResponse(job.Id, job.Status.ToString(), ErrorMessages.Ingestion.Cancelled));
+            new IngestionJobActionResponse(job.Id, IngestionJobStatus.Cancelled.ToString(), ErrorMessages.Ingestion.Cancelled));
     }
 }

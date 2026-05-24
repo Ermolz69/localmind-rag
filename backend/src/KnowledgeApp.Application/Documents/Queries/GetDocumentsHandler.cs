@@ -76,7 +76,7 @@ public sealed class GetDocumentsHandler(IAppDbContext dbContext)
         Guid[] documentIds = documentPage.Items.Select(document => document.Id).ToArray();
         IngestionJob[] failedJobs = await dbContext.IngestionJobs
             .AsNoTracking()
-            .Where(job => documentIds.Contains(job.DocumentId) && job.LastError != null)
+            .Where(job => documentIds.Contains(job.DocumentId) && job.ErrorMessage != null)
             .ToArrayAsync(cancellationToken);
         DocumentDto[] documentDtos = documentPage.Items
             .Select(document => ToDocumentDto(document, failedJobs))
@@ -133,7 +133,7 @@ public sealed class GetDocumentsHandler(IAppDbContext dbContext)
         string? lastError = failedJobs
             .Where(job => job.DocumentId == document.Id)
             .OrderByDescending(job => job.ProcessedAt ?? job.CreatedAt)
-            .Select(job => job.LastError)
+            .Select(job => job.ErrorMessage)
             .FirstOrDefault();
 
         return new DocumentDto(document.Id, document.Name, document.Status.ToString(), document.CreatedAt, lastError);

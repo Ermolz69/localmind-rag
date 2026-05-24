@@ -14,6 +14,7 @@ public sealed class UploadDocumentHandler(
     IDateTimeProvider dateTimeProvider,
     IBucketResolver bucketResolver,
     ILocalDeviceResolver localDeviceResolver,
+    IIngestionJobRepository ingestionJobs,
     UploadDocumentCommandValidator validator,
     IAppDiagnosticLogger? diagnostics = null)
 {
@@ -64,13 +65,6 @@ public sealed class UploadDocumentHandler(
             LocalPath = storedFile.LocalPath,
             SizeBytes = storedFile.SizeBytes,
         };
-        IngestionJob? ingestionJob = new IngestionJob
-        {
-            CreatedAt = now,
-            DocumentId = document.Id,
-            Status = IngestionJobStatus.Queued,
-        };
-
         diagnostics?.LogStep(
             operationId,
             DiagnosticNames.Steps.DocumentCreated,
@@ -78,14 +72,13 @@ public sealed class UploadDocumentHandler(
             {
                 [DiagnosticNames.Properties.DocumentId] = document.Id,
                 [DiagnosticNames.Properties.BucketId] = bucket.Id,
-                [DiagnosticNames.Properties.IngestionJobId] = ingestionJob.Id,
             });
 
         dbContext.Documents.Add(document);
         dbContext.DocumentFiles.Add(documentFile);
-        dbContext.IngestionJobs.Add(ingestionJob);
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        IngestionJob ingestionJob = await ingestionJobs.CreatePendingAsync(document.Id, now, cancellationToken);
 
         diagnostics?.LogStep(
             operationId,

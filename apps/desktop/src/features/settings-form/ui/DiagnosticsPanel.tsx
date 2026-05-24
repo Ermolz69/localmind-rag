@@ -58,7 +58,9 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
               className="rounded-md border border-border bg-muted p-3 text-sm"
             >
               <p className="font-medium">{error.documentName}</p>
-              <p className="mt-1 text-muted-foreground">{error.lastError}</p>
+              <p className="mt-1 text-muted-foreground">
+                {error.errorCode}: {error.errorMessage}
+              </p>
             </div>
           ))}
         </div>

@@ -7,6 +7,7 @@ using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
+using KnowledgeApp.Infrastructure.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,7 +38,9 @@ public sealed class UploadDocumentHandlerTests
         Assert.Equal(FileType.PlainText, documentFile.FileType);
         Assert.Contains($"runtime/app/files/{document.Id}/notes.txt", documentFile.LocalPath, StringComparison.Ordinal);
         Assert.Equal(document.Id, ingestionJob.DocumentId);
-        Assert.Equal(IngestionJobStatus.Queued, ingestionJob.Status);
+        Assert.Equal(IngestionJobStatus.Pending, ingestionJob.Status);
+        Assert.Equal(0, ingestionJob.ProgressPercent);
+        Assert.Equal("Pending", ingestionJob.CurrentStep);
         Assert.Equal(1, storage.SaveCalls);
     }
 
@@ -156,6 +159,7 @@ public sealed class UploadDocumentHandlerTests
             clock,
             new BucketResolver(database.Context, clock),
             new FakeLocalDeviceResolver(),
+            new IngestionJobRepository(database.Context),
             new UploadDocumentCommandValidator());
     }
 

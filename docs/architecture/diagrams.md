@@ -182,11 +182,11 @@ sequenceDiagram
 flowchart LR
     Upload["POST /api/documents/upload"] --> Storage["Local file storage"]
     Storage --> Record["Document + DocumentFile records"]
-    Record --> Job["Queued IngestionJob"]
-    Job --> Extract["Text extractor"]
-    Extract --> Chunk["Chunk text"]
-    Chunk --> Embed["Generate embeddings"]
-    Embed --> Persist["Persist chunks and vectors"]
+    Record --> Job["Pending IngestionJob"]
+    Job --> Processing["Processing: extract text"]
+    Processing --> Chunk["Chunking: split text"]
+    Chunk --> Embed["Embedding: generate vectors"]
+    Embed --> Persist["Indexed: persist chunks and vectors"]
     Persist --> Search["Available to semantic search"]
 ```
 

@@ -3,6 +3,7 @@ using KnowledgeApp.Application.Ingestion;
 using KnowledgeApp.Contracts.Ingestion;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
+using KnowledgeApp.Infrastructure.Services;
 using KnowledgeApp.UnitTests;
 
 namespace KnowledgeApp.UnitTests.Ingestion;
@@ -13,27 +14,36 @@ public sealed class IngestionJobLifecycleHandlerTests
     public async Task Retry_Should_Requeue_Failed_Job()
     {
         await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
-        IngestionJob job = new() { DocumentId = Guid.NewGuid(), Status = IngestionJobStatus.Failed, LastError = "failed", AttemptCount = 1 };
+        IngestionJob job = new()
+        {
+            DocumentId = Guid.NewGuid(),
+            Status = IngestionJobStatus.Failed,
+            ErrorCode = "INGESTION_JOB_FAILED",
+            ErrorMessage = "failed",
+            RetryCount = 1,
+        };
         database.Context.IngestionJobs.Add(job);
         await database.Context.SaveChangesAsync();
-        RetryIngestionJobHandler handler = new(database.Context, new FixedDateTimeProvider());
+        RetryIngestionJobHandler handler = new(database.Context, new IngestionJobRepository(database.Context), new FixedDateTimeProvider());
 
         IngestionJobActionResponse response = (await handler.HandleAsync(job.Id)).AssertSuccess();
 
         IngestionJob stored = await database.Context.IngestionJobs.FindAsync(job.Id) ?? throw new InvalidOperationException();
-        Assert.Equal(IngestionJobStatus.Queued, stored.Status);
-        Assert.Null(stored.LastError);
+        Assert.Equal(IngestionJobStatus.Pending, stored.Status);
+        Assert.Null(stored.ErrorCode);
+        Assert.Null(stored.ErrorMessage);
+        Assert.Equal(2, stored.RetryCount);
         Assert.Equal(job.Id, response.JobId);
     }
 
     [Fact]
-    public async Task Cancel_Should_Reject_Completed_Job()
+    public async Task Cancel_Should_Reject_Indexed_Job()
     {
         await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
-        IngestionJob job = new() { DocumentId = Guid.NewGuid(), Status = IngestionJobStatus.Completed };
+        IngestionJob job = new() { DocumentId = Guid.NewGuid(), Status = IngestionJobStatus.Indexed };
         database.Context.IngestionJobs.Add(job);
         await database.Context.SaveChangesAsync();
-        CancelIngestionJobHandler handler = new(database.Context, new FixedDateTimeProvider());
+        CancelIngestionJobHandler handler = new(database.Context, new IngestionJobRepository(database.Context), new FixedDateTimeProvider());
 
         Result<IngestionJobActionResponse> result = await handler.HandleAsync(job.Id);
 
@@ -45,15 +55,15 @@ public sealed class IngestionJobLifecycleHandlerTests
     {
         await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
         database.Context.IngestionJobs.AddRange(
-            new IngestionJob { DocumentId = Guid.NewGuid(), Status = IngestionJobStatus.Failed, AttemptCount = 2 },
-            new IngestionJob { DocumentId = Guid.NewGuid(), Status = IngestionJobStatus.Queued });
+            new IngestionJob { DocumentId = Guid.NewGuid(), Status = IngestionJobStatus.Failed, RetryCount = 2 },
+            new IngestionJob { DocumentId = Guid.NewGuid(), Status = IngestionJobStatus.Pending });
         await database.Context.SaveChangesAsync();
-        ListIngestionJobsHandler handler = new(database.Context);
+        ListIngestionJobsHandler handler = new(new IngestionJobRepository(database.Context));
 
         IngestionJobListResponse response = (await handler.HandleAsync(new ListIngestionJobsQuery())).AssertSuccess();
 
         Assert.Equal(2, response.TotalCount);
         Assert.Contains(response.Items, item => item.Status == "Failed" && item.CanRetry);
-        Assert.Contains(response.Items, item => item.Status == "Queued" && item.CanCancel);
+        Assert.Contains(response.Items, item => item.Status == "Pending" && item.CanCancel);
     }
 }

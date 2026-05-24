@@ -3,6 +3,7 @@ using KnowledgeApp.Application.Documents;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
+using KnowledgeApp.Infrastructure.Services;
 using KnowledgeApp.UnitTests;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,7 +19,10 @@ public sealed class DocumentCommandHandlersTests
         database.Context.Documents.Add(document);
         await database.Context.SaveChangesAsync();
 
-        ReindexDocumentHandler? reindex = new ReindexDocumentHandler(database.Context);
+        ReindexDocumentHandler? reindex = new ReindexDocumentHandler(
+            database.Context,
+            new IngestionJobRepository(database.Context),
+            new FixedDateTimeProvider());
         DeleteDocumentHandler? delete = new DeleteDocumentHandler(database.Context, new FixedDateTimeProvider());
 
         ReindexDocumentResponse? reindexResult = (await reindex.HandleAsync(document.Id)).AssertSuccess();
@@ -36,6 +40,6 @@ public sealed class DocumentCommandHandlersTests
         Assert.NotNull(storedDocument.DeletedAt);
         Assert.Equal(DocumentStatus.Deleted, storedDocument.Status);
         Assert.Equal(SyncStatus.DeletedLocal, storedDocument.SyncStatus);
-        Assert.Equal(IngestionJobStatus.Queued, job.Status);
+        Assert.Equal(IngestionJobStatus.Pending, job.Status);
     }
 }

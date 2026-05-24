@@ -18,24 +18,24 @@ public sealed class QueuedIngestionJobDispatcherTests
         {
             CreatedAt = new DateTimeOffset(2026, 5, 13, 10, 0, 0, TimeSpan.Zero),
             DocumentId = Guid.NewGuid(),
-            Status = IngestionJobStatus.Queued,
+            Status = IngestionJobStatus.Pending,
         };
         IngestionJob olderJob = new()
         {
             CreatedAt = new DateTimeOffset(2026, 5, 13, 9, 0, 0, TimeSpan.Zero),
             DocumentId = Guid.NewGuid(),
-            Status = IngestionJobStatus.Queued,
+            Status = IngestionJobStatus.Pending,
         };
         IngestionJob runningJob = new()
         {
             DocumentId = Guid.NewGuid(),
-            Status = IngestionJobStatus.Running,
+            Status = IngestionJobStatus.Processing,
         };
         database.Context.IngestionJobs.AddRange(newerJob, olderJob, runningJob);
         await database.Context.SaveChangesAsync();
         FakeIngestionJobProcessor processor = new();
         QueuedIngestionJobDispatcher dispatcher = new(
-            database.Context,
+            new IngestionJobRepository(database.Context),
             processor,
             Options.Create(new IngestionWorkerOptions { BatchSize = 1 }),
             NullLogger<QueuedIngestionJobDispatcher>.Instance);
@@ -52,11 +52,11 @@ public sealed class QueuedIngestionJobDispatcherTests
     public async Task ProcessNextBatchAsync_Should_Respect_Cancellation()
     {
         await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
-        database.Context.IngestionJobs.Add(new IngestionJob { DocumentId = Guid.NewGuid(), Status = IngestionJobStatus.Queued });
+        database.Context.IngestionJobs.Add(new IngestionJob { DocumentId = Guid.NewGuid(), Status = IngestionJobStatus.Pending });
         await database.Context.SaveChangesAsync();
         FakeIngestionJobProcessor processor = new();
         QueuedIngestionJobDispatcher dispatcher = new(
-            database.Context,
+            new IngestionJobRepository(database.Context),
             processor,
             Options.Create(new IngestionWorkerOptions { BatchSize = 1 }),
             NullLogger<QueuedIngestionJobDispatcher>.Instance);
@@ -74,25 +74,25 @@ public sealed class QueuedIngestionJobDispatcherTests
         {
             CreatedAt = new DateTimeOffset(2026, 5, 13, 8, 0, 0, TimeSpan.Zero),
             DocumentId = Guid.NewGuid(),
-            Status = IngestionJobStatus.Queued,
+            Status = IngestionJobStatus.Pending,
         };
         IngestionJob secondJob = new()
         {
             CreatedAt = new DateTimeOffset(2026, 5, 13, 9, 0, 0, TimeSpan.Zero),
             DocumentId = Guid.NewGuid(),
-            Status = IngestionJobStatus.Queued,
+            Status = IngestionJobStatus.Pending,
         };
         IngestionJob thirdJob = new()
         {
             CreatedAt = new DateTimeOffset(2026, 5, 13, 10, 0, 0, TimeSpan.Zero),
             DocumentId = Guid.NewGuid(),
-            Status = IngestionJobStatus.Queued,
+            Status = IngestionJobStatus.Pending,
         };
         database.Context.IngestionJobs.AddRange(firstJob, secondJob, thirdJob);
         await database.Context.SaveChangesAsync();
         FakeIngestionJobProcessor processor = new();
         QueuedIngestionJobDispatcher dispatcher = new(
-            database.Context,
+            new IngestionJobRepository(database.Context),
             processor,
             Options.Create(new IngestionWorkerOptions { BatchSize = 2 }),
             NullLogger<QueuedIngestionJobDispatcher>.Instance);

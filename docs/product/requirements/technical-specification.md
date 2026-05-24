@@ -82,11 +82,11 @@ Priority levels:
 | ID | Priority | User Story | Acceptance Criteria |
 | --- | --- | --- | --- |
 | US-09 | Must | As a user, I want to upload local documents, so that they become part of my knowledge base. | UI supports file picker or drag-and-drop upload; backend saves original file locally. |
-| US-10 | Must | As a user, I want the app to validate uploaded documents, so that unsupported or broken files fail clearly. | Upload validates file name, size, and extension; ingestion stores parsing errors in `IngestionJob.LastError`. |
+| US-10 | Must | As a user, I want the app to validate uploaded documents, so that unsupported or broken files fail clearly. | Upload validates file name, size, and extension; ingestion stores `ErrorCode` and sanitized `ErrorMessage`. |
 | US-11 | Must | As a user, I want text to be extracted from common document formats, so that documents can be searched later. | `.txt`, `.md`, `.html`, `.pdf`, `.docx`, and `.pptx` are extracted by local extractors. |
 | US-12 | Must | As a user, I want documents to be split into chunks, so that search and RAG can use relevant fragments. | Ingestion creates `DocumentChunk` records in stable order; reindexing replaces old chunks. |
 | US-13 | Should | As a user, I want chunks to keep page or slide references where possible, so that answers can cite useful sources. | PDF chunks store page number; PPTX chunks store slide number; DOCX chunks keep document-level source metadata. |
-| US-14 | Must | As a user, I want to see document processing status, so that I know whether a file is queued, processing, indexed, or failed. | UI displays `Queued`, `Processing`, `Indexed`, and `Failed` states and shows failure reason when available. |
+| US-14 | Must | As a user, I want to see document processing status, so that I know whether a file is pending, processing, chunking, embedding, indexed, failed, or cancelled. | UI displays `Pending`, `Processing`, `Chunking`, `Embedding`, `Indexed`, `Failed`, and `Cancelled` states plus progress and failure reason when available. |
 
 ### Epic 4: Notes
 
@@ -157,7 +157,7 @@ Measurement:
 - Original uploaded files are stored under `runtime/app/files/{documentId}/{originalFileName}` in portable mode.
 - SQLite database path is visible in diagnostics.
 - Reindexing replaces chunks for one document and does not delete unrelated documents, notes, or files.
-- Failed ingestion preserves the original file and stores the error message in `IngestionJob.LastError`.
+- Failed ingestion preserves the original file and stores a stable `ErrorCode` plus sanitized `ErrorMessage` on `IngestionJob`.
 
 ### NFR-05: Maintainability and Quality Gates
 
@@ -247,7 +247,7 @@ Impact:
 Mitigation:
 
 - Start with text-based extraction only.
-- Store parsing errors in `IngestionJob.LastError`.
+- Store parsing errors in `IngestionJob.ErrorMessage` with a stable `ErrorCode`.
 - Keep original files safely stored for future reindexing.
 - Add extractor unit tests and integration smoke tests.
 - Defer OCR and advanced layout reconstruction to post-MVP.
@@ -269,4 +269,3 @@ Mitigation:
 - Implement local `sync_outbox` structures only where they do not block local workflows.
 - Prioritize portable startup, local documents, notes, ingestion, and UI feedback.
 - Move remote sync to a dedicated post-MVP milestone.
-
