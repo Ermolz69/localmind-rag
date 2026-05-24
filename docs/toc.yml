@@ -20,6 +20,8 @@
       href: architecture/overview.md
     - name: Backend
       href: architecture/backend.md
+    - name: API contracts
+      href: architecture/api-contracts.md
     - name: Frontend
       href: architecture/frontend.md
     - name: Frontend contracts
@@ -62,4 +64,3 @@
       href: api/openapi.html
     - name: .NET API
       href: auto-generated/dotnet-api/toc.yml
-

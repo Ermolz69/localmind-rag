@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Search;
+using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
@@ -39,7 +40,7 @@ public sealed class SemanticSearchApiTests : IClassFixture<LocalApiTestFactory>
         using HttpResponseMessage? response = await client.PostAsJsonAsync("/api/search/semantic", new SemanticSearchRequest(query, Limit: 2));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        SemanticSearchResponse? results = await response.Content.ReadFromJsonAsync<SemanticSearchResponse>();
+        SemanticSearchResponse? results = await response.Content.ReadApiDataAsync<SemanticSearchResponse>();
         Assert.NotNull(results);
         Assert.NotEmpty(results.Sources);
         Assert.Equal(relevant.DocumentId, results.Sources[0].DocumentId);
@@ -56,11 +57,10 @@ public sealed class SemanticSearchApiTests : IClassFixture<LocalApiTestFactory>
         using HttpResponseMessage response = await client.PostAsJsonAsync("/api/search/semantic", new SemanticSearchRequest(" "));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        ValidationProblemDetails? problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
-        Assert.NotNull(problem);
-        Assert.Equal(ErrorCodes.Search.ValidationFailed, problem.Extensions["code"]?.ToString());
-        Assert.NotNull(problem.Extensions["traceId"]);
-        Assert.Equal(ErrorMessages.Search.QueryRequired, problem.Errors[SemanticSearchRequestValidator.QueryField].Single());
+        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+        Assert.Equal(ErrorCodes.Search.ValidationFailed, envelope.Error!.Code);
+        Assert.Contains(envelope.Error.Details ?? [], detail =>
+            detail.Field == SemanticSearchRequestValidator.QueryField && detail.Message == ErrorMessages.Search.QueryRequired);
     }
 
     [Fact]
@@ -71,11 +71,10 @@ public sealed class SemanticSearchApiTests : IClassFixture<LocalApiTestFactory>
         using HttpResponseMessage response = await client.PostAsJsonAsync("/api/search/semantic", new SemanticSearchRequest("query", Limit: 0));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        ValidationProblemDetails? problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
-        Assert.NotNull(problem);
-        Assert.Equal(ErrorCodes.Search.ValidationFailed, problem.Extensions["code"]?.ToString());
-        Assert.NotNull(problem.Extensions["traceId"]);
-        Assert.Equal(ErrorMessages.Search.LimitOutOfRange, problem.Errors[SemanticSearchRequestValidator.LimitField].Single());
+        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+        Assert.Equal(ErrorCodes.Search.ValidationFailed, envelope.Error!.Code);
+        Assert.Contains(envelope.Error.Details ?? [], detail =>
+            detail.Field == SemanticSearchRequestValidator.LimitField && detail.Message == ErrorMessages.Search.LimitOutOfRange);
     }
 
     [Fact]
@@ -93,10 +92,8 @@ public sealed class SemanticSearchApiTests : IClassFixture<LocalApiTestFactory>
         using HttpResponseMessage response = await client.PostAsJsonAsync("/api/search/semantic", new SemanticSearchRequest("query"));
 
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-        ProblemDetails? problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
-        Assert.NotNull(problem);
-        Assert.Equal(ErrorCodes.Unexpected, problem.Extensions["code"]?.ToString());
-        Assert.NotNull(problem.Extensions["traceId"]);
+        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+        Assert.Equal(ErrorCodes.Unexpected, envelope.Error!.Code);
     }
 
     private static async Task<(Guid DocumentId, Guid ChunkId)> AddEmbeddedChunkAsync(

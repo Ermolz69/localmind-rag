@@ -16,7 +16,7 @@ public sealed class RuntimeApiTests
         using LocalApiTestFactory factory = new();
         using HttpClient client = factory.CreateClient();
 
-        RuntimeStatusResponse? status = await client.GetFromJsonAsync<RuntimeStatusResponse>("/api/runtime/status");
+        RuntimeStatusResponse? status = await client.GetApiDataAsync<RuntimeStatusResponse>("/api/runtime/status");
 
         Assert.NotNull(status);
         Assert.True(status.SetupRequired);
@@ -43,7 +43,7 @@ public sealed class RuntimeApiTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(setup.WasCalled);
 
-        RuntimeSetupResponse? setupResponse = await response.Content.ReadFromJsonAsync<RuntimeSetupResponse>();
+        RuntimeSetupResponse? setupResponse = await response.Content.ReadApiDataAsync<RuntimeSetupResponse>();
         Assert.NotNull(setupResponse);
         Assert.NotNull(setupResponse.Status);
     }

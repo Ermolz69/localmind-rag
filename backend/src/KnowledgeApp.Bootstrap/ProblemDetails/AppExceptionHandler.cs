@@ -1,84 +1,70 @@
 using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Contracts.Common;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using MvcProblemDetails = Microsoft.AspNetCore.Mvc.ProblemDetails;
 
 namespace KnowledgeApp.Bootstrap.ProblemDetails;
 
 public sealed class AppExceptionHandler(
-    IProblemDetailsService problemDetailsService,
     IHostEnvironment environment,
     ILogger<AppExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
-        MvcProblemDetails? problemDetails = CreateProblemDetails(httpContext, exception);
-        if (problemDetails.Status >= StatusCodes.Status500InternalServerError)
+        ApiExceptionEnvelope envelope = CreateEnvelope(httpContext, exception);
+        if (envelope.StatusCode >= StatusCodes.Status500InternalServerError)
         {
             logger.LogError(exception, "Unhandled API exception.");
         }
         else
         {
-            logger.LogInformation(exception, "Handled API exception: {Code}", problemDetails.Extensions["code"]);
+            logger.LogInformation(exception, "Handled API exception: {Code}", envelope.Response.Error?.Code);
         }
 
-        httpContext.Response.StatusCode = problemDetails.Status ?? StatusCodes.Status500InternalServerError;
-        return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
-        {
-            HttpContext = httpContext,
-            Exception = exception,
-            ProblemDetails = problemDetails,
-        });
+        httpContext.Response.StatusCode = envelope.StatusCode;
+        httpContext.Response.ContentType = "application/json";
+        await httpContext.Response.WriteAsJsonAsync(envelope.Response, cancellationToken);
+        return true;
     }
 
-    private MvcProblemDetails CreateProblemDetails(HttpContext httpContext, Exception exception)
+    private ApiExceptionEnvelope CreateEnvelope(HttpContext httpContext, Exception exception)
     {
-        string? traceId = httpContext.TraceIdentifier;
-        MvcProblemDetails? problem = exception switch
+        return exception switch
         {
-            ValidationAppException validationException => CreateValidationProblem(validationException),
-            NotFoundAppException appException => Create(StatusCodes.Status404NotFound, ProblemDetailsTitles.NotFound, appException.Message, appException.Code),
-            ConflictAppException appException => Create(StatusCodes.Status409Conflict, ProblemDetailsTitles.Conflict, appException.Message, appException.Code),
-            UnsupportedFileAppException appException => Create(StatusCodes.Status415UnsupportedMediaType, ProblemDetailsTitles.UnsupportedFile, appException.Message, appException.Code),
-            ExternalDependencyAppException appException => Create(StatusCodes.Status503ServiceUnavailable, ProblemDetailsTitles.ExternalDependencyUnavailable, appException.Message, appException.Code),
-            ArgumentException argumentException => Create(StatusCodes.Status400BadRequest, ProblemDetailsTitles.InvalidRequest, argumentException.Message, ErrorCodes.RequestInvalid),
+            ValidationAppException validationException => CreateValidationEnvelope(httpContext, validationException),
+            NotFoundAppException appException => Create(StatusCodes.Status404NotFound, appException.Code, appException.Message, httpContext),
+            ConflictAppException appException => Create(StatusCodes.Status409Conflict, appException.Code, appException.Message, httpContext),
+            UnsupportedFileAppException appException => Create(StatusCodes.Status415UnsupportedMediaType, appException.Code, appException.Message, httpContext),
+            ExternalDependencyAppException appException => Create(StatusCodes.Status503ServiceUnavailable, appException.Code, appException.Message, httpContext),
+            ArgumentException argumentException => Create(StatusCodes.Status400BadRequest, ErrorCodes.RequestInvalid, argumentException.Message, httpContext),
             _ => Create(
                 StatusCodes.Status500InternalServerError,
-                ProblemDetailsTitles.Unexpected,
-                environment.IsDevelopment() ? exception.Message : ErrorMessages.UnexpectedProduction,
-                ErrorCodes.Unexpected),
+                ErrorCodes.Unexpected,
+                environment.IsDevelopment() ? ErrorMessages.UnexpectedDevelopment : ErrorMessages.UnexpectedProduction,
+                httpContext),
         };
-
-        problem.Instance = httpContext.Request.Path;
-        problem.Extensions["traceId"] = traceId;
-        return problem;
     }
 
-    private static MvcProblemDetails Create(int status, string title, string detail, string code)
+    private static ApiExceptionEnvelope Create(int statusCode, string code, string message, HttpContext httpContext)
     {
-        MvcProblemDetails? problem = new MvcProblemDetails
-        {
-            Detail = detail,
-            Status = status,
-            Title = title,
-        };
-        problem.Extensions["code"] = code;
-        return problem;
+        return new ApiExceptionEnvelope(
+            statusCode,
+            ApiResponse.Failure(code, message, httpContext.TraceIdentifier));
     }
 
-    private static ValidationProblemDetails CreateValidationProblem(ValidationAppException exception)
+    private static ApiExceptionEnvelope CreateValidationEnvelope(HttpContext httpContext, ValidationAppException exception)
     {
-        ValidationProblemDetails? problem = new ValidationProblemDetails(exception.Errors.ToDictionary(x => x.Key, x => x.Value))
-        {
-            Detail = exception.Message,
-            Status = StatusCodes.Status400BadRequest,
-            Title = ProblemDetailsTitles.ValidationFailed,
-        };
-        problem.Extensions["code"] = exception.Code;
-        return problem;
+        ApiErrorDetail[] details = exception.Errors
+            .SelectMany(error => error.Value.Select(message => new ApiErrorDetail(error.Key, message)))
+            .ToArray();
+
+        return new ApiExceptionEnvelope(
+            StatusCodes.Status400BadRequest,
+            ApiResponse.Failure(exception.Code, exception.Message, httpContext.TraceIdentifier, details));
     }
+
+    private sealed record ApiExceptionEnvelope(int StatusCode, ApiResponse<object?> Response);
 }

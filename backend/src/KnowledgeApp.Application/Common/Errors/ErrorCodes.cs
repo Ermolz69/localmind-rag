@@ -2,53 +2,55 @@ namespace KnowledgeApp.Application.Common.Errors;
 
 public static class ErrorCodes
 {
-    public const string Unexpected = "errors.unexpected";
-    public const string RequestInvalid = "request.invalid";
+    public const string Unexpected = "INTERNAL_SERVER_ERROR";
+    public const string RequestInvalid = "REQUEST_INVALID";
 
     public static class Buckets
     {
-        public const string ValidationFailed = "buckets.validationFailed";
-        public const string NotFound = "buckets.notFound";
+        public const string ValidationFailed = "VALIDATION_FAILED";
+        public const string NotFound = "BUCKET_NOT_FOUND";
     }
 
     public static class Chats
     {
-        public const string ValidationFailed = "chats.validationFailed";
-        public const string NotFound = "chats.notFound";
+        public const string ValidationFailed = "VALIDATION_FAILED";
+        public const string NotFound = "CHAT_NOT_FOUND";
     }
 
     public static class Documents
     {
-        public const string FileEmpty = "documents.fileEmpty";
-        public const string FileNameRequired = "documents.fileNameRequired";
-        public const string FileTooLarge = "documents.fileTooLarge";
-        public const string InvalidStatus = "documents.invalidStatus";
-        public const string UnsupportedFileType = "documents.unsupportedFileType";
+        public const string FileEmpty = "VALIDATION_FAILED";
+        public const string FileNameRequired = "VALIDATION_FAILED";
+        public const string FileTooLarge = "VALIDATION_FAILED";
+        public const string InvalidStatus = "VALIDATION_FAILED";
+        public const string NotFound = "DOCUMENT_NOT_FOUND";
+        public const string UnsupportedFileType = "VALIDATION_FAILED";
     }
 
     public static class Notes
     {
-        public const string ValidationFailed = "notes.validationFailed";
+        public const string ValidationFailed = "VALIDATION_FAILED";
+        public const string NotFound = "NOTE_NOT_FOUND";
     }
 
     public static class Pagination
     {
-        public const string InvalidCursor = "pagination.invalidCursor";
-        public const string InvalidLimit = "pagination.invalidLimit";
+        public const string InvalidCursor = "VALIDATION_FAILED";
+        public const string InvalidLimit = "VALIDATION_FAILED";
     }
 
     public static class Search
     {
-        public const string ValidationFailed = "search.validationFailed";
+        public const string ValidationFailed = "VALIDATION_FAILED";
     }
 
     public static class Runtime
     {
-        public const string ExternalDependencyUnavailable = "runtime.externalDependencyUnavailable";
+        public const string ExternalDependencyUnavailable = "EXTERNAL_DEPENDENCY_UNAVAILABLE";
     }
 
     public static class Settings
     {
-        public const string ValidationFailed = "settings.validationFailed";
+        public const string ValidationFailed = "VALIDATION_FAILED";
     }
 }

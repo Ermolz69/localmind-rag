@@ -25,7 +25,7 @@ public sealed class DiagnosticsApiTests : IClassFixture<LocalApiTestFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        DiagnosticsResponse? diagnostics = await response.Content.ReadFromJsonAsync<DiagnosticsResponse>();
+        DiagnosticsResponse? diagnostics = await response.Content.ReadApiDataAsync<DiagnosticsResponse>();
 
         Assert.NotNull(diagnostics);
         Assert.False(string.IsNullOrWhiteSpace(diagnostics.Paths.DatabasePath));
@@ -66,7 +66,7 @@ public sealed class DiagnosticsApiTests : IClassFixture<LocalApiTestFactory>
 
         using HttpClient? client = factory.CreateClient();
 
-        DiagnosticsResponse? diagnostics = await client.GetFromJsonAsync<DiagnosticsResponse>("/api/diagnostics");
+        DiagnosticsResponse? diagnostics = await client.GetApiDataAsync<DiagnosticsResponse>("/api/diagnostics");
 
         Assert.NotNull(diagnostics);
         Assert.True(diagnostics.Counts.DocumentsCount >= 1);

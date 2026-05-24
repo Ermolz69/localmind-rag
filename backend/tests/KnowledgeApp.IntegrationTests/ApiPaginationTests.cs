@@ -18,13 +18,13 @@ public sealed class ApiPaginationTests
         ConversationDto first = await ApiScenarioHelpers.CreateConversationAsync(client, "First chat");
         ConversationDto second = await ApiScenarioHelpers.CreateConversationAsync(client, "Second chat");
 
-        CursorPage<ConversationDto>? firstPage = await client.GetFromJsonAsync<CursorPage<ConversationDto>>("/api/chats?limit=1");
+        CursorPage<ConversationDto>? firstPage = await client.GetApiDataAsync<CursorPage<ConversationDto>>("/api/chats?limit=1");
 
         Assert.NotNull(firstPage);
         Assert.True(firstPage.HasMore);
         Assert.NotNull(firstPage.NextCursor);
 
-        CursorPage<ConversationDto>? secondPage = await client.GetFromJsonAsync<CursorPage<ConversationDto>>(
+        CursorPage<ConversationDto>? secondPage = await client.GetApiDataAsync<CursorPage<ConversationDto>>(
             $"/api/chats?limit=1&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
 
         Assert.NotNull(secondPage);
@@ -43,10 +43,9 @@ public sealed class ApiPaginationTests
         HttpResponseMessage response = await client.GetAsync("/api/notes?cursor=not-a-valid-cursor");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        ValidationProblemDetails? problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
-        Assert.NotNull(problem);
-        Assert.Equal("pagination.invalidCursor", problem.Extensions["code"]?.ToString());
-        Assert.Contains("cursor", problem.Errors.Keys);
+        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+        Assert.Equal("VALIDATION_FAILED", envelope.Error!.Code);
+        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "cursor");
     }
 
     [Fact]
@@ -58,7 +57,7 @@ public sealed class ApiPaginationTests
         await CreateBucketAsync(client, "Alpha B");
         await CreateBucketAsync(client, "Beta A");
 
-        CursorPage<BucketDto>? firstPage = await client.GetFromJsonAsync<CursorPage<BucketDto>>(
+        CursorPage<BucketDto>? firstPage = await client.GetApiDataAsync<CursorPage<BucketDto>>(
             "/api/buckets/page?query=Alpha&limit=1");
         Assert.NotNull(firstPage);
         Assert.True(firstPage.HasMore);
@@ -68,9 +67,8 @@ public sealed class ApiPaginationTests
             $"/api/buckets/page?query=Beta&limit=1&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        ValidationProblemDetails? problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
-        Assert.NotNull(problem);
-        Assert.Equal("pagination.invalidCursor", problem.Extensions["code"]?.ToString());
+        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+        Assert.Equal("VALIDATION_FAILED", envelope.Error!.Code);
     }
 
     private static async Task<BucketDto> CreateBucketAsync(HttpClient client, string name)
@@ -80,7 +78,7 @@ public sealed class ApiPaginationTests
             new CreateBucketRequest($"{name}-{Guid.NewGuid():N}", Description: null));
         response.EnsureSuccessStatusCode();
 
-        BucketDto? bucket = await response.Content.ReadFromJsonAsync<BucketDto>();
+        BucketDto? bucket = await response.Content.ReadApiDataAsync<BucketDto>();
         Assert.NotNull(bucket);
         return bucket;
     }

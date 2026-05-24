@@ -53,7 +53,7 @@ public sealed class ChatHandlersTests
         NotFoundAppException exception = await Assert.ThrowsAsync<NotFoundAppException>(
             () => send.HandleAsync(Guid.NewGuid(), new ChatMessageRequest("Hello")));
 
-        Assert.Equal("chats.notFound", exception.Code);
+        Assert.Equal("CHAT_NOT_FOUND", exception.Code);
     }
 
     private sealed class FakeRagAnswerGenerator : IRagAnswerGenerator

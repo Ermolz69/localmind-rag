@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Rag;
@@ -35,7 +36,7 @@ public sealed class ChatRagApiTests
             new ChatMessageRequest(documentText));
 
         Assert.Equal(HttpStatusCode.OK, sendResponse.StatusCode);
-        RagAnswerDto? answer = await sendResponse.Content.ReadFromJsonAsync<RagAnswerDto>();
+        RagAnswerDto? answer = await sendResponse.Content.ReadApiDataAsync<RagAnswerDto>();
         Assert.NotNull(answer);
         Assert.NotEmpty(answer.Answer);
         Assert.NotEmpty(answer.Sources);
@@ -68,7 +69,7 @@ public sealed class ChatRagApiTests
             new ChatMessageRequest($"unknown topic {Guid.NewGuid():N}"));
 
         Assert.Equal(HttpStatusCode.OK, sendResponse.StatusCode);
-        RagAnswerDto? answer = await sendResponse.Content.ReadFromJsonAsync<RagAnswerDto>();
+        RagAnswerDto? answer = await sendResponse.Content.ReadApiDataAsync<RagAnswerDto>();
         Assert.NotNull(answer);
         Assert.Empty(answer.Sources);
         Assert.Equal("No relevant local sources were found for this question.", answer.Answer);
@@ -106,11 +107,9 @@ public sealed class ChatRagApiTests
             new ChatMessageRequest("   "));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Microsoft.AspNetCore.Mvc.ValidationProblemDetails? problem =
-            await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ValidationProblemDetails>();
-        Assert.NotNull(problem);
-        Assert.Equal("chats.validationFailed", problem.Extensions["code"]?.ToString());
-        Assert.Contains("content", problem.Errors.Keys);
+        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+        Assert.Equal("VALIDATION_FAILED", envelope.Error!.Code);
+        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "content");
     }
 
     [Fact]
@@ -137,7 +136,7 @@ public sealed class ChatRagApiTests
             new ChatMessageRequest(documentText));
 
         Assert.Equal(HttpStatusCode.OK, sendResponse.StatusCode);
-        RagAnswerDto? answer = await sendResponse.Content.ReadFromJsonAsync<RagAnswerDto>();
+        RagAnswerDto? answer = await sendResponse.Content.ReadApiDataAsync<RagAnswerDto>();
         Assert.NotNull(answer);
         Assert.Empty(answer.Sources);
         Assert.DoesNotContain(documentText, answer.Answer, StringComparison.Ordinal);
