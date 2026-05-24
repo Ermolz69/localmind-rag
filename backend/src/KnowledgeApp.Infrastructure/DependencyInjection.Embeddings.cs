@@ -17,19 +17,7 @@ public static partial class DependencyInjection
             provider.GetRequiredService<IOptions<AiOptions>>(),
             provider.GetRequiredService<EmbeddingModelCatalog>(),
             new HttpClient()));
-        services.AddSingleton<IEmbeddingGenerator>(provider =>
-        {
-            IOptions<AiOptions> options = provider.GetRequiredService<IOptions<AiOptions>>();
-            if (string.Equals(options.Value.EmbeddingProvider, "Stub", StringComparison.OrdinalIgnoreCase))
-            {
-                return new StubEmbeddingGenerator(options);
-            }
-
-            return new LlamaCppEmbeddingGenerator(
-                new HttpClient(),
-                options,
-                provider.GetRequiredService<EmbeddingModelCatalog>());
-        });
+        services.AddSingleton<IEmbeddingGenerator, ProviderEmbeddingGenerator>();
 
         return services;
     }

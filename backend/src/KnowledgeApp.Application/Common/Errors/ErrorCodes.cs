@@ -47,6 +47,11 @@ public static class ErrorCodes
     public static class Runtime
     {
         public const string ExternalDependencyUnavailable = "EXTERNAL_DEPENDENCY_UNAVAILABLE";
+        public const string AiProviderNotFound = "AI_PROVIDER_NOT_FOUND";
+        public const string AiProviderUnavailable = "AI_PROVIDER_UNAVAILABLE";
+        public const string AiProviderCapabilityUnsupported = "AI_PROVIDER_CAPABILITY_UNSUPPORTED";
+        public const string AiRuntimeUnavailable = "AI_RUNTIME_UNAVAILABLE";
+        public const string AiModelNotFound = "AI_MODEL_NOT_FOUND";
     }
 
     public static class Ingestion

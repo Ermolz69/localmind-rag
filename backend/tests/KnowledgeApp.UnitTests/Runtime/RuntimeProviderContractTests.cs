@@ -1,4 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Runtime;
 using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Services;
@@ -42,6 +44,32 @@ public sealed class RuntimeProviderContractTests
         Assert.True(status.Capabilities.SupportsStart);
     }
 
+    [Fact]
+    public void AiRuntimeProviderRegistry_Should_Select_Configured_Provider()
+    {
+        FakeRuntimeProvider selected = new("stub", "Stub");
+        FakeRuntimeProvider other = new("llama-cpp", "llama.cpp");
+        AiRuntimeProviderRegistry registry = new(
+            [other, selected],
+            Options.Create(new AiOptions { Provider = "stub" }));
+
+        IAiRuntimeProvider provider = registry.GetSelectedProvider();
+
+        Assert.Same(selected, provider);
+    }
+
+    [Fact]
+    public void AiRuntimeProviderRegistry_Should_Return_Stable_Error_For_Missing_Provider()
+    {
+        AiRuntimeProviderRegistry registry = new(
+            [new FakeRuntimeProvider("stub", "Stub")],
+            Options.Create(new AiOptions { Provider = "missing" }));
+
+        ExternalDependencyAppException exception = Assert.Throws<ExternalDependencyAppException>(registry.GetSelectedProvider);
+
+        Assert.Equal(ErrorCodes.Runtime.AiProviderNotFound, exception.Code);
+    }
+
     private sealed class TemporaryRuntimePaths : IAppPathProvider, IDisposable
     {
         private readonly string root = Path.Combine(Path.GetTempPath(), $"localmind-runtime-test-{Guid.NewGuid():N}");
@@ -72,6 +100,56 @@ public sealed class RuntimeProviderContractTests
             {
                 Directory.Delete(root, recursive: true);
             }
+        }
+    }
+
+    private sealed class FakeRuntimeProvider(string id, string name) : IAiRuntimeProvider
+    {
+        public string ProviderId => id;
+
+        public string ProviderName => name;
+
+        public string EmbeddingModelName => "test-embedding-model";
+
+        public AiRuntimeProviderCapabilities Capabilities { get; } = new(
+            SupportsEmbeddings: true,
+            SupportsChat: true,
+            SupportsModelListing: true,
+            SupportsSetup: false,
+            SupportsStart: false,
+            SupportsStop: false);
+
+        public Task<RuntimeStatusDto> GetStatusAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new RuntimeStatusDto(
+                LocalApiReady: true,
+                AiRuntimeStatus: "Running",
+                ModelsAvailable: true,
+                OfflineMode: true,
+                ProviderId: ProviderId,
+                ProviderName: ProviderName,
+                ProviderStatus: AiRuntimeProviderStatus.Running,
+                Capabilities: Capabilities));
+        }
+
+        public Task StartAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyCollection<string>> ListModelsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyCollection<string>>(["test-model"]);
+        }
+
+        public Task<string> GenerateChatCompletionAsync(ChatModelRequest request, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult("answer");
+        }
+
+        public Task<float[]> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<float[]>([1, 0, 0]);
         }
     }
 }

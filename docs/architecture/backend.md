@@ -16,3 +16,16 @@ The backend follows Clean Architecture:
 - LocalApi is local-first: loopback-only by default, with optional token protection for mutating endpoints.
 
 Architecture decisions are recorded under `docs/adr`.
+
+## Feature Structure
+
+Backend code is organized around business features at the API and application-contract boundaries:
+
+- `Buckets`, `Documents`, `Ingestion`, `Search`, `Chats`, `Notes`, `Runtime`, `Settings`, `Diagnostics`, `Sync`, and `Health` are the canonical feature areas.
+- `KnowledgeApp.LocalApi/Endpoints/<Feature>` owns HTTP mapping and OpenAPI metadata only.
+- `KnowledgeApp.Application/<Feature>` owns commands, queries, validators, mappers, and feature use cases.
+- `KnowledgeApp.Contracts/<Feature>` owns public LocalApi request/response DTOs for that feature.
+- `KnowledgeApp.Domain` stays focused on entities, enums, and value objects.
+- `KnowledgeApp.Infrastructure` is grouped by technical capability: persistence, storage, ingestion, search, embeddings, AI runtime, diagnostics, and sync.
+
+New backend code should start from the feature folder at the boundary and move inward only when shared behavior is genuinely cross-feature.

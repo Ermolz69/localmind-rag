@@ -53,3 +53,23 @@ Backend tests are grouped by test type:
 - `KnowledgeApp.ArchitectureTests` protects project boundaries.
 
 Shared test helpers live under `TestSupport` folders. Prefer these helpers for common setup such as uploaded documents, conversations, embedded chunks, and local test database state.
+
+## Integration Tests With Testcontainers
+
+Integration tests run through `WebApplicationFactory` and create an isolated SQLite database under a temporary LocalMind runtime directory. Tests that need external services use Testcontainers for .NET and start their containers automatically.
+
+Requirements:
+
+- Docker Desktop or another Docker engine must be running for container-backed integration tests.
+- Unit tests do not require Docker.
+- No manually created database is required; LocalApi applies EF migrations during test startup.
+
+Run integration tests locally:
+
+```powershell
+dotnet test backend/tests/KnowledgeApp.IntegrationTests/KnowledgeApp.IntegrationTests.csproj
+```
+
+If Docker is unavailable, container-backed tests fail fast. Check that Docker is running, image pulls are allowed, and no local firewall blocks mapped container ports.
+
+In CI, the integration test job runs on an Ubuntu runner with Docker available. CI should fail when containers cannot start, LocalApi cannot apply migrations, or integration tests fail.

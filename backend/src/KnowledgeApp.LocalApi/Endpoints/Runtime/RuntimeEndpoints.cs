@@ -1,6 +1,7 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Runtime;
+using Microsoft.AspNetCore.Mvc;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
 
@@ -9,10 +10,10 @@ public static class RuntimeEndpoints
     public static IEndpointRouteBuilder MapRuntimeEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/runtime/status", async (
-                IAiRuntimeManager runtime,
+                [FromServices] IAiRuntimeProviderRegistry providers,
                 HttpContext context,
                 CancellationToken cancellationToken) =>
-            ApiResults.Ok(await runtime.GetStatusAsync(cancellationToken), context))
+            ApiResults.Ok(await providers.GetSelectedProvider().GetStatusAsync(cancellationToken), context))
             .WithName("GetRuntimeStatus")
             .WithTags("Runtime")
             .WithSummary("Gets runtime status.")
@@ -20,11 +21,11 @@ public static class RuntimeEndpoints
             .Produces<ApiResponse<RuntimeStatusDto>>();
 
         app.MapPost("/api/runtime/ai/start", async (
-            IAiRuntimeManager runtime,
+            [FromServices] IAiRuntimeProviderRegistry providers,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            await runtime.StartAsync(cancellationToken);
+            await providers.GetSelectedProvider().StartAsync(cancellationToken);
             return ApiResults.Accepted<object?>(null, null, context);
         })
             .WithName("StartAiRuntime")
@@ -35,13 +36,13 @@ public static class RuntimeEndpoints
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
         app.MapPost("/api/runtime/ai/setup", async (
-            IAiRuntimeSetupService setup,
-            IAiRuntimeManager runtime,
+            [FromServices] IAiRuntimeSetupService setup,
+            [FromServices] IAiRuntimeProviderRegistry providers,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
             await setup.SetupAsync(cancellationToken);
-            RuntimeStatusDto status = await runtime.GetStatusAsync(cancellationToken);
+            RuntimeStatusDto status = await providers.GetSelectedProvider().GetStatusAsync(cancellationToken);
             return ApiResults.Ok(new RuntimeSetupResponse(
                 RuntimeInstalled: status.AiRuntimeStatus != "RuntimeMissing",
                 ModelInstalled: status.ModelsAvailable,
@@ -59,15 +60,43 @@ public static class RuntimeEndpoints
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
         app.MapGet("/api/runtime/models", async (
-                IAiModelRegistry registry,
+                [FromServices] IAiRuntimeProviderRegistry providers,
                 HttpContext context,
                 CancellationToken cancellationToken) =>
-            ApiResults.Ok(await registry.ListModelsAsync(cancellationToken), context))
+            ApiResults.Ok(await providers.GetSelectedProvider().ListModelsAsync(cancellationToken), context))
             .WithName("ListRuntimeModels")
             .WithTags("Runtime")
             .WithSummary("Lists local AI models.")
             .WithDescription("Returns the local model names discovered by the configured AI model registry.")
             .Produces<ApiResponse<IReadOnlyCollection<string>>>();
+
+        app.MapGet("/api/runtime/providers", async (
+                [FromServices] IAiRuntimeProviderRegistry providers,
+                HttpContext context,
+                CancellationToken cancellationToken) =>
+        {
+            IAiRuntimeProvider selected = providers.GetSelectedProvider();
+            List<RuntimeProviderDto> providerDtos = new();
+            foreach (IAiRuntimeProvider provider in providers.Providers)
+            {
+                RuntimeStatusDto status = await provider.GetStatusAsync(cancellationToken);
+                providerDtos.Add(new RuntimeProviderDto(
+                    Id: provider.ProviderId,
+                    Name: provider.ProviderName,
+                    Selected: string.Equals(provider.ProviderId, selected.ProviderId, StringComparison.OrdinalIgnoreCase),
+                    Status: status.ProviderStatus,
+                    Capabilities: provider.Capabilities,
+                    BaseUrl: status.BaseUrl,
+                    FailureReason: status.FailureReason));
+            }
+
+            return ApiResults.Ok(new RuntimeProviderListResponse(selected.ProviderId, providerDtos), context);
+        })
+            .WithName("ListRuntimeProviders")
+            .WithTags("Runtime")
+            .WithSummary("Lists AI runtime providers.")
+            .WithDescription("Returns providers known to LocalApi with selected-provider, status, and capability metadata.")
+            .Produces<ApiResponse<RuntimeProviderListResponse>>();
 
         return app;
     }

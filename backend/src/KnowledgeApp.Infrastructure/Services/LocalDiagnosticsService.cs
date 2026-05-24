@@ -12,7 +12,7 @@ namespace KnowledgeApp.Infrastructure.Services;
 public sealed class LocalDiagnosticsService(
     IAppPathProvider paths,
     IOptions<LocalRuntimeOptions> runtimeOptions,
-    IAiRuntimeManager aiRuntimeManager,
+    IAiRuntimeProviderRegistry aiRuntimeProviders,
     AppDbContext dbContext) : ILocalDiagnosticsService
 {
     public async Task<DiagnosticsDto> GetAsync(CancellationToken cancellationToken = default)
@@ -44,7 +44,7 @@ public sealed class LocalDiagnosticsService(
     {
         try
         {
-            return await aiRuntimeManager.GetStatusAsync(cancellationToken);
+            return await aiRuntimeProviders.GetSelectedProvider().GetStatusAsync(cancellationToken);
         }
         catch
         {

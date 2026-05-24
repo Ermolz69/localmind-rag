@@ -60,6 +60,11 @@ public static class ErrorMessages
     public static class Runtime
     {
         public const string ExternalDependencyUnavailable = "Local AI runtime dependency is unavailable.";
+        public const string AiProviderNotFound = "Configured AI provider was not found.";
+        public const string AiProviderUnavailable = "Configured AI provider is unavailable.";
+        public const string AiProviderCapabilityUnsupported = "Configured AI provider does not support the requested capability.";
+        public const string AiRuntimeUnavailable = "AI runtime is unavailable.";
+        public const string AiModelNotFound = "AI model was not found.";
     }
 
     public static class Ingestion

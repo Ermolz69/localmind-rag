@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using KnowledgeApp.Application.Abstractions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -13,7 +14,15 @@ public sealed class RuntimeApiTests
     [Fact]
     public async Task RuntimeStatus_Should_Report_SetupRequired_When_AiAssets_Are_Missing()
     {
-        using LocalApiTestFactory factory = new();
+        using LocalApiTestFactory baseFactory = new();
+        using WebApplicationFactory<Program> factory = baseFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+            {
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Ai:Provider"] = "LlamaCpp",
+                });
+            }));
         using HttpClient client = factory.CreateClient();
 
         RuntimeStatusResponse? status = await client.GetApiDataAsync<RuntimeStatusResponse>("/api/runtime/status");

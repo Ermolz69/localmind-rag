@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Application.Common.Errors;
@@ -18,6 +21,7 @@ public sealed class AiRuntimeManager(
     ILogger<AiRuntimeManager> logger,
     IAppDiagnosticLogger? diagnostics = null) : IAiRuntimeManager, IAiModelRegistry, IAiRuntimeProvider, IDisposable
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
     private readonly AiOptions options = options.Value;
     private readonly object syncRoot = new();
     private Process? runtimeProcess;
@@ -25,6 +29,10 @@ public sealed class AiRuntimeManager(
     public string ProviderId => "llama-cpp";
 
     public string ProviderName => "llama.cpp";
+
+    public string EmbeddingModelName => string.IsNullOrWhiteSpace(options.EmbeddingModel)
+        ? embeddingModelCatalog.GetDefault().ModelName
+        : options.EmbeddingModel;
 
     public AiRuntimeProviderCapabilities Capabilities { get; } = new(
         SupportsEmbeddings: true,
@@ -85,6 +93,65 @@ public sealed class AiRuntimeManager(
             .ToArray();
 
         return Task.FromResult(models);
+    }
+
+    public async Task<string> GenerateChatCompletionAsync(ChatModelRequest request, CancellationToken cancellationToken = default)
+    {
+        ChatCompletionRequest payload = new(
+            Model: options.ChatModel,
+            Messages:
+            [
+                new ChatCompletionMessage("system", "Answer using only the provided local context. If no relevant local context is available, say that no relevant local sources were found."),
+                new ChatCompletionMessage("user", $"Context:\n{request.ContextText}\n\nQuestion:\n{request.Question}")
+            ],
+            Temperature: options.Temperature);
+
+        using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(60) };
+        using HttpResponseMessage response = await client.PostAsJsonAsync(BuildUri("/v1/chat/completions"), payload, SerializerOptions, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw await CreateRuntimeUnavailableExceptionAsync("chat completion", response, cancellationToken);
+        }
+
+        ChatCompletionResponse? body = await response.Content.ReadFromJsonAsync<ChatCompletionResponse>(SerializerOptions, cancellationToken);
+        string? content = body?.Choices.FirstOrDefault()?.Message.Content;
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            throw new ExternalDependencyAppException(
+                ErrorCodes.Runtime.AiRuntimeUnavailable,
+                ErrorMessages.Runtime.AiRuntimeUnavailable);
+        }
+
+        return content;
+    }
+
+    public async Task<float[]> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return [];
+        }
+
+        EmbeddingModelManifest manifest = embeddingModelCatalog.GetDefault();
+        EmbeddingRequest payload = new(EmbeddingModelName, text);
+
+        using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(60) };
+        using HttpResponseMessage response = await client.PostAsJsonAsync(BuildUri("/v1/embeddings"), payload, SerializerOptions, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw await CreateRuntimeUnavailableExceptionAsync("embedding generation", response, cancellationToken);
+        }
+
+        EmbeddingResponse? body = await response.Content.ReadFromJsonAsync<EmbeddingResponse>(SerializerOptions, cancellationToken);
+        float[]? embedding = body?.Data.FirstOrDefault()?.Embedding;
+        if (embedding is null || embedding.Length == 0)
+        {
+            throw new ExternalDependencyAppException(
+                ErrorCodes.Runtime.AiRuntimeUnavailable,
+                ErrorMessages.Runtime.AiRuntimeUnavailable);
+        }
+
+        return embedding;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -284,6 +351,27 @@ public sealed class AiRuntimeManager(
 
     private string ResolvePath(string path) => Path.GetFullPath(path, paths.AppRootDirectory);
 
+    private Uri BuildUri(string path)
+    {
+        Uri baseUri = new(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+        return new Uri(baseUri, path.TrimStart('/'));
+    }
+
+    private static async Task<ExternalDependencyAppException> CreateRuntimeUnavailableExceptionAsync(
+        string operation,
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        string body = await response.Content.ReadAsStringAsync(cancellationToken);
+        string detail = string.IsNullOrWhiteSpace(body)
+            ? $"Provider returned HTTP {(int)response.StatusCode} during {operation}."
+            : $"Provider returned HTTP {(int)response.StatusCode} during {operation}.";
+
+        return new ExternalDependencyAppException(
+            ErrorCodes.Runtime.AiRuntimeUnavailable,
+            $"{ErrorMessages.Runtime.AiRuntimeUnavailable} {detail}");
+    }
+
     private void LogRuntimeOutput(string? line, bool isError)
     {
         if (string.IsNullOrWhiteSpace(line))
@@ -300,4 +388,29 @@ public sealed class AiRuntimeManager(
             logger.LogTrace("llama-server: {Line}", line);
         }
     }
+
+    private sealed record EmbeddingRequest(
+        [property: JsonPropertyName("model")] string Model,
+        [property: JsonPropertyName("input")] string Input);
+
+    private sealed record EmbeddingResponse(
+        [property: JsonPropertyName("data")] IReadOnlyList<EmbeddingResponseData> Data);
+
+    private sealed record EmbeddingResponseData(
+        [property: JsonPropertyName("embedding")] float[] Embedding);
+
+    private sealed record ChatCompletionRequest(
+        [property: JsonPropertyName("model")] string Model,
+        [property: JsonPropertyName("messages")] IReadOnlyList<ChatCompletionMessage> Messages,
+        [property: JsonPropertyName("temperature")] double Temperature);
+
+    private sealed record ChatCompletionMessage(
+        [property: JsonPropertyName("role")] string Role,
+        [property: JsonPropertyName("content")] string Content);
+
+    private sealed record ChatCompletionResponse(
+        [property: JsonPropertyName("choices")] IReadOnlyList<ChatCompletionChoice> Choices);
+
+    private sealed record ChatCompletionChoice(
+        [property: JsonPropertyName("message")] ChatCompletionMessage Message);
 }

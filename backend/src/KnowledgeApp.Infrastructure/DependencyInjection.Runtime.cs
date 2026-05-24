@@ -15,7 +15,12 @@ public static partial class DependencyInjection
         services.AddSingleton<IAppPathProvider, AppPathProvider>();
         services.AddHostedService<LocalRuntimeInitializer>();
         services.AddSingleton<AiRuntimeManager>();
+        services.AddSingleton<StubEmbeddingGenerator>();
+        services.AddSingleton<StubChatModelClient>();
         services.AddSingleton<IAiRuntimeProvider>(provider => provider.GetRequiredService<AiRuntimeManager>());
+        services.AddSingleton<IAiRuntimeProvider>(provider => provider.GetRequiredService<StubAiRuntimeProvider>());
+        services.AddSingleton<StubAiRuntimeProvider>();
+        services.AddSingleton<IAiRuntimeProviderRegistry, AiRuntimeProviderRegistry>();
         services.AddSingleton<IAiRuntimeManager>(provider => provider.GetRequiredService<AiRuntimeManager>());
         services.AddSingleton<IAiModelRegistry>(provider => provider.GetRequiredService<AiRuntimeManager>());
         services.AddSingleton<IAiRuntimeSetupService>(provider => new LlamaCppRuntimeSetupService(

@@ -193,6 +193,37 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
+    public void Runtime_Endpoint_Should_Use_Provider_Registry_Not_Concrete_Runtime_Manager()
+    {
+        string root = FindRepositoryRoot();
+        string runtimeEndpoint = File.ReadAllText(Path.Combine(root, "backend/src/KnowledgeApp.LocalApi/Endpoints/Runtime/RuntimeEndpoints.cs"));
+
+        Assert.Contains("IAiRuntimeProviderRegistry", runtimeEndpoint);
+        Assert.DoesNotContain("AiRuntimeManager", runtimeEndpoint);
+    }
+
+    [Fact]
+    public void Frontend_Should_Not_Call_Ai_Runtime_Providers_Directly()
+    {
+        string root = FindRepositoryRoot();
+        string[] frontendFiles = Directory.GetFiles(
+            Path.Combine(root, "apps/desktop/src"),
+            "*.*",
+            SearchOption.AllDirectories)
+            .Where(file => file.EndsWith(".ts", StringComparison.Ordinal) || file.EndsWith(".tsx", StringComparison.Ordinal))
+            .ToArray();
+
+        foreach (string frontendFile in frontendFiles)
+        {
+            string source = File.ReadAllText(frontendFile);
+
+            Assert.DoesNotContain("ollama", source, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("llama.cpp", source, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("11435", source, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
     public void Architecture_Decisions_Should_Be_Documented_In_Adr_Folder()
     {
         string root = FindRepositoryRoot();

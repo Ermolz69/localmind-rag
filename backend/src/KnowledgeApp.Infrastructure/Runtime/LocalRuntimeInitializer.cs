@@ -25,8 +25,15 @@ public sealed class LocalRuntimeInitializer(IServiceProvider services) : IHosted
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Database.MigrateAsync(cancellationToken);
 
-        IAiRuntimeManager? aiRuntime = scope.ServiceProvider.GetRequiredService<IAiRuntimeManager>();
-        await aiRuntime.StartAsync(cancellationToken);
+        IAiRuntimeProviderRegistry? aiRuntimeProviders = scope.ServiceProvider.GetRequiredService<IAiRuntimeProviderRegistry>();
+        try
+        {
+            await aiRuntimeProviders.GetSelectedProvider().StartAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // LocalApi must still boot so the runtime endpoints can report provider errors as envelopes.
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

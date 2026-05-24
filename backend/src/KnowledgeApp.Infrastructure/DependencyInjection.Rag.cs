@@ -8,7 +8,7 @@ public static partial class DependencyInjection
 {
     private static IServiceCollection AddRag(this IServiceCollection services)
     {
-        services.AddSingleton<IChatModelClient, StubChatModelClient>();
+        services.AddSingleton<IChatModelClient, ProviderChatModelClient>();
         services.AddScoped<IRagContextBuilder, RagContextBuilder>();
         services.AddScoped<IRagAnswerGenerator, RagAnswerGenerator>();
 

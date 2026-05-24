@@ -143,7 +143,7 @@ jobs:
 
   backend-integration-tests:
     name: Backend integration tests
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs:
       - backend-build
 
@@ -166,7 +166,7 @@ jobs:
         run: dotnet tool install --global dotnet-reportgenerator-globaltool
 
       - name: Run integration tests with coverage
-        shell: powershell
+        shell: bash
         run: >
           dotnet test backend/tests/KnowledgeApp.IntegrationTests/KnowledgeApp.IntegrationTests.csproj
           --no-build
@@ -195,9 +195,9 @@ jobs:
 
       - name: Generate integration coverage report
         if: always()
-        shell: powershell
+        shell: bash
         run: >
-          & "$env:USERPROFILE\.dotnet\tools\reportgenerator.exe"
+          "$HOME/.dotnet/tools/reportgenerator"
           -reports:"${{ env.TEST_RESULTS_DIR }}/integration/**/coverage.cobertura.xml"
           -targetdir:"${{ env.COVERAGE_REPORT_DIR }}/integration"
           -reporttypes:"Html;Cobertura;MarkdownSummaryGithub"
@@ -206,12 +206,12 @@ jobs:
 
       - name: Add integration coverage summary
         if: always()
-        shell: powershell
+        shell: bash
         run: |
-          $summary = "${{ env.COVERAGE_REPORT_DIR }}/integration/SummaryGithub.md"
-          if (Test-Path $summary) {
-            Get-Content $summary | Add-Content $env:GITHUB_STEP_SUMMARY
-          }
+          summary="${{ env.COVERAGE_REPORT_DIR }}/integration/SummaryGithub.md"
+          if [ -f "$summary" ]; then
+            cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload integration coverage report
         if: always()
