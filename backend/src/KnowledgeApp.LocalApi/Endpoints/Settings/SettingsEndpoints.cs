@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Settings;
+using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Settings;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
@@ -9,28 +10,30 @@ public static class SettingsEndpoints
     {
         app.MapGet("/api/settings", async (
                 ISettingsService settings,
+                HttpContext context,
                 CancellationToken cancellationToken) =>
-            Results.Ok(await settings.GetAsync(cancellationToken)))
+            ApiResults.Ok(await settings.GetAsync(cancellationToken), context))
             .WithName("GetSettings")
             .WithTags("Settings")
             .WithSummary("Gets application settings.")
             .WithDescription("Returns local appearance, AI, runtime path, and sync settings.")
-            .Produces<AppSettingsDto>();
+            .Produces<ApiResponse<AppSettingsDto>>();
 
         app.MapPut("/api/settings", async (
             AppSettingsDto request,
             ISettingsService settings,
+            HttpContext context,
             CancellationToken cancellationToken) =>
         {
             await settings.UpdateAsync(request, cancellationToken);
-            return Results.NoContent();
+            return ApiResults.Empty(context);
         })
             .WithName("UpdateSettings")
             .WithTags("Settings")
             .WithSummary("Updates application settings.")
             .WithDescription("Persists local appearance, AI, runtime path, and sync settings.")
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .Produces<ApiResponse<object?>>()
+            .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
         return app;
     }

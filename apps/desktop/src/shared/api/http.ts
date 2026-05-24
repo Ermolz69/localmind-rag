@@ -1,4 +1,4 @@
-import type { ProblemDetails } from "./common";
+import type { ApiResponse } from "./common";
 import { ApiError } from "./problem-details";
 
 const apiBaseUrl =
@@ -8,13 +8,22 @@ function isJsonResponse(response: Response) {
   return response.headers.get("content-type")?.includes("application/json");
 }
 
-async function readProblemDetails(response: Response) {
+function isApiResponse<T>(body: unknown): body is ApiResponse<T> {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    "success" in body &&
+    "metadata" in body
+  );
+}
+
+async function readJson(response: Response) {
   if (!isJsonResponse(response)) {
     return undefined;
   }
 
   try {
-    return (await response.json()) as ProblemDetails;
+    return (await response.json()) as unknown;
   } catch {
     return undefined;
   }
@@ -30,18 +39,30 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
 
-  if (!response.ok) {
-    throw new ApiError(response.status, await readProblemDetails(response));
-  }
-
   if (response.status === 204) {
     return undefined as T;
   }
 
-  const body = await response.text();
-  if (!body) {
+  const body = await readJson(response);
+  if (body === undefined) {
+    if (!response.ok) {
+      throw new ApiError(response.status);
+    }
+
     return undefined as T;
   }
 
-  return JSON.parse(body) as T;
+  if (!isApiResponse<T>(body)) {
+    if (!response.ok) {
+      throw new ApiError(response.status);
+    }
+
+    return body as T;
+  }
+
+  if (!response.ok || !body.success) {
+    throw new ApiError(response.status, body.error, body.metadata.requestId);
+  }
+
+  return body.data as T;
 }

@@ -15,7 +15,7 @@ internal static class ApiScenarioHelpers
             new CreateConversationRequest(title ?? $"Test chat {Guid.NewGuid():N}"));
         createResponse.EnsureSuccessStatusCode();
 
-        ConversationDto? conversation = await createResponse.Content.ReadFromJsonAsync<ConversationDto>();
+        ConversationDto? conversation = await createResponse.Content.ReadApiDataAsync<ConversationDto>();
         Assert.NotNull(conversation);
         return conversation;
     }
@@ -33,7 +33,7 @@ internal static class ApiScenarioHelpers
         using HttpResponseMessage uploadResponse = await client.PostAsync("/api/documents/upload", form);
         Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
 
-        UploadDocumentResponse? upload = await uploadResponse.Content.ReadFromJsonAsync<UploadDocumentResponse>();
+        UploadDocumentResponse? upload = await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
         Assert.NotNull(upload);
         return upload;
     }

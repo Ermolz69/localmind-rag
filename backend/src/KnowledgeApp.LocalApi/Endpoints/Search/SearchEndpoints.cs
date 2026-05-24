@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Search;
+using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Rag;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
@@ -10,17 +11,18 @@ public static class SearchEndpoints
         app.MapPost("/api/search/semantic", async (
             SemanticSearchRequest request,
             SemanticSearchHandler handler,
+            HttpContext context,
             CancellationToken cancellationToken) =>
         {
             SemanticSearchResponse response = await handler.HandleAsync(request, cancellationToken);
-            return Results.Ok(response);
+            return ApiResults.Ok(response, context);
         })
             .WithName("SemanticSearch")
             .WithTags("Search")
             .WithSummary("Runs semantic search.")
             .WithDescription("Searches indexed document chunks by semantic similarity with optional bucket or document scope.")
-            .Produces<SemanticSearchResponse>()
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .Produces<ApiResponse<SemanticSearchResponse>>()
+            .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
         return app;
     }

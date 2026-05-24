@@ -1,30 +1,29 @@
-import type { ProblemDetails } from "./common";
+import type { ApiEnvelopeError, ApiErrorDetail } from "./common";
 
 export class ApiError extends Error {
   public readonly status: number;
-  public readonly title: string;
-  public readonly detail?: string;
   public readonly code?: string;
-  public readonly traceId?: string;
-  public readonly errors?: Record<string, string[]>;
+  public readonly details?: ApiErrorDetail[] | null;
+  public readonly requestId?: string | null;
 
-  public constructor(status: number, problem?: ProblemDetails) {
-    const title = problem?.title ?? `LocalApi request failed: ${status}`;
-    const detail = problem?.detail;
-    super(detail ? `${title}: ${detail}` : title);
+  public constructor(
+    status: number,
+    error?: ApiEnvelopeError | null,
+    requestId?: string | null,
+  ) {
+    const message = error?.message ?? `LocalApi request failed: ${status}`;
+    super(message);
     this.name = "ApiError";
-    this.status = problem?.status ?? status;
-    this.title = title;
-    this.detail = detail;
-    this.code = problem?.code;
-    this.traceId = problem?.traceId;
-    this.errors = problem?.errors;
+    this.status = status;
+    this.code = error?.code;
+    this.details = error?.details;
+    this.requestId = requestId;
   }
 }
 
 export function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ApiError) {
-    return error.detail ?? error.title;
+    return error.message;
   }
 
   if (error instanceof Error) {

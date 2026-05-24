@@ -41,10 +41,10 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 
         UploadDocumentResponse? upload = await UploadDocumentAsync(client, fileName);
 
-        CursorPage<DocumentDto>? documents = await client.GetFromJsonAsync<CursorPage<DocumentDto>>("/api/documents");
+        CursorPage<DocumentDto>? documents = await client.GetApiDataAsync<CursorPage<DocumentDto>>("/api/documents");
         Assert.Contains(documents?.Items ?? [], document => document.Id == upload.DocumentId && document.Name == fileName);
 
-        DocumentDto? document = await client.GetFromJsonAsync<DocumentDto>($"/api/documents/{upload.DocumentId}");
+        DocumentDto? document = await client.GetApiDataAsync<DocumentDto>($"/api/documents/{upload.DocumentId}");
         Assert.NotNull(document);
         Assert.Equal(fileName, document.Name);
 
@@ -78,7 +78,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         UploadDocumentResponse? selectedUpload = await UploadDocumentAsync(client, selectedFileName, selectedBucket.Id);
         UploadDocumentResponse? otherUpload = await UploadDocumentAsync(client, otherFileName, otherBucket.Id);
 
-        CursorPage<DocumentDto>? filteredDocuments = await client.GetFromJsonAsync<CursorPage<DocumentDto>>($"/api/documents?bucketId={selectedBucket.Id}");
+        CursorPage<DocumentDto>? filteredDocuments = await client.GetApiDataAsync<CursorPage<DocumentDto>>($"/api/documents?bucketId={selectedBucket.Id}");
         Assert.Contains(filteredDocuments?.Items ?? [], document => document.Id == selectedUpload.DocumentId);
         Assert.DoesNotContain(filteredDocuments?.Items ?? [], document => document.Id == otherUpload.DocumentId);
 
@@ -100,13 +100,13 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         UploadDocumentResponse firstUpload = await UploadDocumentAsync(client, $"cursor-a-{Guid.NewGuid():N}.txt", bucket.Id);
         UploadDocumentResponse secondUpload = await UploadDocumentAsync(client, $"cursor-b-{Guid.NewGuid():N}.txt", bucket.Id);
 
-        CursorPage<DocumentDto>? firstPage = await client.GetFromJsonAsync<CursorPage<DocumentDto>>(
+        CursorPage<DocumentDto>? firstPage = await client.GetApiDataAsync<CursorPage<DocumentDto>>(
             $"/api/documents?bucketId={bucket.Id}&limit=1");
         Assert.NotNull(firstPage);
         Assert.True(firstPage.HasMore);
         Assert.NotNull(firstPage.NextCursor);
 
-        CursorPage<DocumentDto>? secondPage = await client.GetFromJsonAsync<CursorPage<DocumentDto>>(
+        CursorPage<DocumentDto>? secondPage = await client.GetApiDataAsync<CursorPage<DocumentDto>>(
             $"/api/documents?bucketId={bucket.Id}&limit=1&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
         Assert.NotNull(secondPage);
         Assert.DoesNotContain(secondPage.Items, document => document.Id == firstPage.Items[0].Id);
@@ -137,10 +137,9 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         using HttpResponseMessage? response = await client.PostAsync("/api/documents/upload", form);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        ValidationProblemDetails? problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
-        Assert.NotNull(problem);
-        Assert.Equal("documents.unsupportedFileType", problem.Extensions["code"]?.ToString());
-        Assert.Contains("fileName", problem.Errors.Keys);
+        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+        Assert.Equal("VALIDATION_FAILED", envelope.Error!.Code);
+        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "fileName");
     }
 
     [Fact]
@@ -155,10 +154,8 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         using HttpResponseMessage? response = await client.PostAsync($"/api/documents/upload?bucketId={Guid.NewGuid()}", form);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        ProblemDetails? problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
-        Assert.NotNull(problem);
-        Assert.Equal("buckets.notFound", problem.Extensions["code"]?.ToString());
-        Assert.False(string.IsNullOrWhiteSpace(problem.Extensions["traceId"]?.ToString()));
+        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+        Assert.Equal("BUCKET_NOT_FOUND", envelope.Error!.Code);
     }
 
     [Fact]
@@ -276,7 +273,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         using HttpResponseMessage? response = await client.PostAsync($"/api/ingestion/jobs/{upload.IngestionJobId}/process", content: null);
 
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-        ProcessIngestionJobResponse? body = await response.Content.ReadFromJsonAsync<ProcessIngestionJobResponse>();
+        ProcessIngestionJobResponse? body = await response.Content.ReadApiDataAsync<ProcessIngestionJobResponse>();
         Assert.NotNull(body);
         Assert.Equal(upload.IngestionJobId, body.JobId);
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
@@ -306,7 +303,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         Assert.Equal(IngestionJobStatus.Failed, job.Status);
         Assert.Contains("PDF", job.LastError, StringComparison.OrdinalIgnoreCase);
 
-        CursorPage<DocumentDto>? documents = await client.GetFromJsonAsync<CursorPage<DocumentDto>>("/api/documents");
+        CursorPage<DocumentDto>? documents = await client.GetApiDataAsync<CursorPage<DocumentDto>>("/api/documents");
         Assert.Contains(documents?.Items ?? [], item => item.Id == upload.DocumentId && item.LastError != null);
     }
 
@@ -400,7 +397,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         string? url = bucketId.HasValue ? $"/api/documents/upload?bucketId={bucketId}" : "/api/documents/upload";
         using HttpResponseMessage? uploadResponse = await client.PostAsync(url, form);
         Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
-        UploadDocumentResponse? upload = await uploadResponse.Content.ReadFromJsonAsync<UploadDocumentResponse>();
+        UploadDocumentResponse? upload = await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
         Assert.NotNull(upload);
         return upload;
     }
@@ -418,7 +415,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 
         using HttpResponseMessage? uploadResponse = await client.PostAsync("/api/documents/upload", form);
         Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
-        UploadDocumentResponse? upload = await uploadResponse.Content.ReadFromJsonAsync<UploadDocumentResponse>();
+        UploadDocumentResponse? upload = await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
         Assert.NotNull(upload);
         return upload;
     }

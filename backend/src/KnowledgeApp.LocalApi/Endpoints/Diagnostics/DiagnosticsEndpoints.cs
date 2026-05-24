@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Runtime;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
@@ -9,13 +10,14 @@ public static class DiagnosticsEndpoints
     {
         app.MapGet("/api/diagnostics", async (
                 ILocalDiagnosticsService diagnostics,
+                HttpContext context,
                 CancellationToken cancellationToken) =>
-            Results.Ok(await diagnostics.GetAsync(cancellationToken)))
+            ApiResults.Ok(await diagnostics.GetAsync(cancellationToken), context))
             .WithName("Diagnostics")
             .WithTags("Diagnostics")
             .WithSummary("Gets local diagnostics.")
             .WithDescription("Returns runtime, storage, ingestion, and sync diagnostics for the local installation.")
-            .Produces<DiagnosticsDto>();
+            .Produces<ApiResponse<DiagnosticsDto>>();
 
         return app;
     }

@@ -1,7 +1,8 @@
 using KnowledgeApp.Application.Documents;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Documents;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
 
@@ -15,21 +16,24 @@ public static class DocumentEndpoints
                 string? cursor,
                 int? limit,
                 GetDocumentsHandler handler,
+                HttpContext context,
                 CancellationToken cancellationToken) =>
-            Results.Ok(await handler.HandleAsync(
+            ApiResults.Ok(await handler.HandleAsync(
                 new GetDocumentsQuery(bucketId, status, cursor, limit ?? 50),
-                cancellationToken)))
+                cancellationToken),
+                context))
             .WithName("ListDocuments")
             .WithTags("Documents")
             .WithSummary("Lists documents.")
             .WithDescription("Returns a cursor-paged document list filtered by optional bucket and status values.")
-            .Produces<CursorPage<DocumentDto>>()
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .Produces<ApiResponse<CursorPage<DocumentDto>>>()
+            .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
         app.MapPost("/api/documents/upload", async (
             IFormFile file,
             Guid? bucketId,
             UploadDocumentHandler handler,
+            HttpContext context,
             CancellationToken cancellationToken) =>
         {
             await using Stream? stream = file.OpenReadStream();
@@ -37,7 +41,7 @@ public static class DocumentEndpoints
                 new UploadDocumentCommand(stream, file.FileName, file.ContentType, file.Length, bucketId),
                 cancellationToken);
 
-            return Results.Created($"/api/documents/{response.DocumentId}", response);
+            return ApiResults.Created($"/api/documents/{response.DocumentId}", response, context);
         })
             .DisableAntiforgery()
             .WithName("UploadDocument")
@@ -45,65 +49,71 @@ public static class DocumentEndpoints
             .WithSummary("Uploads a document.")
             .WithDescription("Stores an uploaded file locally and queues it for ingestion.")
             .Accepts<IFormFile>("multipart/form-data")
-            .Produces<UploadDocumentResponse>(StatusCodes.Status201Created)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .Produces<ApiResponse<UploadDocumentResponse>>(StatusCodes.Status201Created)
+            .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
         app.MapGet("/api/documents/{id:guid}", async (
             Guid id,
             GetDocumentByIdHandler handler,
+            HttpContext context,
             CancellationToken cancellationToken) =>
         {
             DocumentDto? document = await handler.HandleAsync(new GetDocumentByIdQuery(id), cancellationToken);
-            return document is null ? Results.NotFound() : Results.Ok(document);
+            return document is null
+                ? ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Documents.NotFound, "Document was not found."), context)
+                : ApiResults.Ok(document, context);
         })
             .WithName("GetDocument")
             .WithTags("Documents")
             .WithSummary("Gets a document.")
             .WithDescription("Returns document metadata by local document identifier.")
-            .Produces<DocumentDto>()
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ApiResponse<DocumentDto>>()
+            .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
 
-        app.MapDelete("/api/documents/{id:guid}", async Task<Results<NoContent, NotFound>> (
+        app.MapDelete("/api/documents/{id:guid}", async (
             Guid id,
             DeleteDocumentHandler handler,
+            HttpContext context,
             CancellationToken cancellationToken) =>
         {
             DeleteDocumentResult result = await handler.HandleAsync(id, cancellationToken);
             if (!result.Found)
             {
-                return TypedResults.NotFound();
+                return ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Documents.NotFound, "Document was not found."), context);
             }
 
-            return TypedResults.NoContent();
+            return ApiResults.Empty(context);
         })
             .WithName("DeleteDocument")
             .WithTags("Documents")
             .WithSummary("Deletes a document.")
             .WithDescription("Deletes a document record and hides it from local document queries.")
-            .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ApiResponse<object?>>()
+            .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
 
         app.MapPost("/api/documents/{id:guid}/reindex", async (
             Guid id,
             ReindexDocumentHandler handler,
+            HttpContext context,
             CancellationToken cancellationToken) =>
         {
             ReindexDocumentResult result = await handler.HandleAsync(id, cancellationToken);
             if (!result.Found)
             {
-                return Results.NotFound();
+                return ApiResults.Failure(ApplicationErrors.NotFound(ErrorCodes.Documents.NotFound, "Document was not found."), context);
             }
 
-            return Results.Accepted(
+            return ApiResults.Accepted(
                 $"/api/ingestion/jobs/{result.JobId}",
-                new ReindexDocumentResponse(id, result.JobId!.Value, result.Status ?? "Queued"));
+                new ReindexDocumentResponse(id, result.JobId!.Value, result.Status ?? "Queued"),
+                context);
         })
             .WithName("ReindexDocument")
             .WithTags("Documents")
             .WithSummary("Queues document reindexing.")
             .WithDescription("Creates a new ingestion job for an existing document.")
-            .Produces<ReindexDocumentResponse>(StatusCodes.Status202Accepted)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ApiResponse<ReindexDocumentResponse>>(StatusCodes.Status202Accepted)
+            .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
 
         return app;
     }

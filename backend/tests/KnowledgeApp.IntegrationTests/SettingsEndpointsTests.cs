@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +23,7 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
     {
         using HttpClient? client = factory.CreateClient();
 
-        AppSettingsDto? settings = await client.GetFromJsonAsync<AppSettingsDto>("/api/settings");
+        AppSettingsDto? settings = await client.GetApiDataAsync<AppSettingsDto>("/api/settings");
 
         Assert.NotNull(settings);
         Assert.NotNull(settings.Appearance);
@@ -61,9 +62,9 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
 
         using HttpResponseMessage? response = await client.PutAsJsonAsync("/api/settings", request);
 
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        AppSettingsDto? saved = await client.GetFromJsonAsync<AppSettingsDto>("/api/settings");
+        AppSettingsDto? saved = await client.GetApiDataAsync<AppSettingsDto>("/api/settings");
 
         Assert.NotNull(saved);
         Assert.Equal("Dark", saved.Appearance.Theme);
@@ -111,12 +112,11 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
-        ValidationProblemDetails? problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
-
-        Assert.NotNull(problem);
-        Assert.Contains("appearance.theme", problem.Errors.Keys);
-        Assert.Contains("ai.provider", problem.Errors.Keys);
-        Assert.Contains("ai.chatModel", problem.Errors.Keys);
+        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+        Assert.Equal("VALIDATION_FAILED", envelope.Error!.Code);
+        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "appearance.theme");
+        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "ai.provider");
+        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "ai.chatModel");
     }
 
     [Fact]
@@ -145,12 +145,11 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
         using HttpResponseMessage response = await client.PutAsJsonAsync("/api/settings", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        ValidationProblemDetails? problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
-        Assert.NotNull(problem);
-        Assert.Equal("settings.validationFailed", problem.Extensions["code"]?.ToString());
-        Assert.Contains("ai.runtimePath", problem.Errors.Keys);
-        Assert.Contains("ai.modelsPath", problem.Errors.Keys);
-        Assert.Contains("runtimePaths.databasePath", problem.Errors.Keys);
-        Assert.Contains("runtimePaths.logsPath", problem.Errors.Keys);
+        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+        Assert.Equal("VALIDATION_FAILED", envelope.Error!.Code);
+        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "ai.runtimePath");
+        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "ai.modelsPath");
+        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "runtimePaths.databasePath");
+        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "runtimePaths.logsPath");
     }
 }

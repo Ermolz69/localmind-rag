@@ -19,6 +19,29 @@ export type ProblemDetails = {
   errors?: Record<string, string[]>;
 };
 
+export type ApiErrorDetail = {
+  field?: string | null;
+  message: string;
+};
+
+export type ApiEnvelopeError = {
+  code: string;
+  message: string;
+  details?: ApiErrorDetail[] | null;
+};
+
+export type ApiMetadata = {
+  timestamp: string;
+  requestId?: string | null;
+};
+
+export type ApiResponse<T> = {
+  success: boolean;
+  data: T | null;
+  error: ApiEnvelopeError | null;
+  metadata: ApiMetadata;
+};
+
 export function toQueryString(
   params: Record<string, string | number | null | undefined>,
 ) {
