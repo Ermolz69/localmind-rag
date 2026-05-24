@@ -1,31 +1,57 @@
 # Backend Architecture
 
-The backend follows Clean Architecture:
+The backend is a modular monolith with Clean Architecture project boundaries. It is one deployable local sidecar, but code is organized by business feature and adapter responsibility.
 
-- Domain has no infrastructure dependencies.
-- Application owns use cases and ports.
-- Infrastructure implements persistence, runtime, AI, vector, file storage, and sync adapters.
-- LocalApi and SyncApi expose HTTP endpoints without business logic.
+```mermaid
+flowchart TB
+    LocalApi["KnowledgeApp.LocalApi<br/>HTTP + OpenAPI + security + envelope mapping"]
+    Contracts["KnowledgeApp.Contracts<br/>public DTOs"]
+    Application["KnowledgeApp.Application<br/>feature use cases + ports + Result"]
+    Domain["KnowledgeApp.Domain<br/>entities + enums + value objects"]
+    Infrastructure["KnowledgeApp.Infrastructure<br/>SQLite + files + ingestion + vectors + runtime"]
+    Bootstrap["KnowledgeApp.Bootstrap<br/>shared startup, errors, CORS, security"]
+    Observability["KnowledgeApp.Observability<br/>logging + diagnostics"]
 
-## Current Hardening Rules
+    LocalApi --> Contracts
+    LocalApi --> Application
+    LocalApi --> Bootstrap
+    Bootstrap --> Application
+    Bootstrap --> Infrastructure
+    Bootstrap --> Observability
+    Application --> Contracts
+    Application --> Domain
+    Infrastructure --> Application
+    Infrastructure --> Domain
+```
 
-- Expected failures are represented with `Result<T>` or `Result` and stable error codes.
-- LocalApi endpoints convert application results through `ApiResults` and return `ApiResponse<T>`.
-- Ingestion jobs are managed as a public lifecycle: `Pending`, `Processing`, `Chunking`, `Embedding`, `Indexed`, `Failed`, and `Cancelled`, with progress, current step, stable error code, sanitized error message, retry count, timestamps, and diagnostic operation id.
+## Project Rules
+
+- `Domain` has no dependency on Application, Infrastructure, LocalApi, SyncApi, or EF Core.
+- `Application` owns commands, queries, validators, mappers, `Result<T>`, application errors, and ports.
+- `Infrastructure` implements application ports for SQLite, file storage, ingestion, vector search, embeddings, AI runtime, diagnostics, and sync skeletons.
+- `LocalApi` owns HTTP only: route mapping, request parsing, OpenAPI metadata, security middleware, and conversion through `ApiResults`.
+- `Contracts` owns request and response DTOs that are public LocalApi contracts and DocFX/OpenAPI inputs.
+
+## Feature Map
+
+Feature folders are the canonical navigation model:
+
+| Feature | LocalApi | Application | Contracts |
+| --- | --- | --- | --- |
+| Buckets | bucket endpoints | bucket handlers/resolvers | bucket DTOs |
+| Documents | upload/list/get/reindex/delete | document commands, queries, validation | document DTOs |
+| Ingestion | job list/get/process/retry/cancel | lifecycle handlers and mapper | ingestion job DTOs |
+| Search/RAG | content, semantic, chat answer | search/chat handlers | search and RAG DTOs |
+| Chats/Notes | CRUD-style local workflows | feature handlers | feature DTOs |
+| Runtime | status/setup/start/models/providers | runtime ports | runtime DTOs |
+| Settings/Diagnostics/Sync | local state endpoints | feature services | runtime/settings DTOs |
+
+## Current Backend Invariants
+
+- Expected failures use `Result<T>` or `Result` and stable error codes.
+- LocalApi endpoints return `ApiResponse<T>` envelopes except documented exemptions.
+- Ingestion is job-backed and exposes lifecycle state, progress, retry/cancel affordances, and sanitized diagnostics.
 - Runtime-specific behavior is hidden behind provider contracts; llama.cpp is the first provider.
-- LocalApi is local-first: loopback-only by default, with optional token protection for mutating endpoints.
+- LocalApi is loopback-first and can require a local token for mutating endpoints.
 
-Architecture decisions are recorded under `docs/adr`.
-
-## Feature Structure
-
-Backend code is organized around business features at the API and application-contract boundaries:
-
-- `Buckets`, `Documents`, `Ingestion`, `Search`, `Chats`, `Notes`, `Runtime`, `Settings`, `Diagnostics`, `Sync`, and `Health` are the canonical feature areas.
-- `KnowledgeApp.LocalApi/Endpoints/<Feature>` owns HTTP mapping and OpenAPI metadata only.
-- `KnowledgeApp.Application/<Feature>` owns commands, queries, validators, mappers, and feature use cases.
-- `KnowledgeApp.Contracts/<Feature>` owns public LocalApi request/response DTOs for that feature.
-- `KnowledgeApp.Domain` stays focused on entities, enums, and value objects.
-- `KnowledgeApp.Infrastructure` is grouped by technical capability: persistence, storage, ingestion, search, embeddings, AI runtime, diagnostics, and sync.
-
-New backend code should start from the feature folder at the boundary and move inward only when shared behavior is genuinely cross-feature.
+Related decisions live in [Architecture Decisions](./decisions/README.md).

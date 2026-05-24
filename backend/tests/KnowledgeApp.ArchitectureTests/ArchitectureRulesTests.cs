@@ -248,27 +248,40 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
-    public void Architecture_Decisions_Should_Be_Documented_In_Adr_Folder()
+    public void Architecture_Decisions_Should_Be_Documented_In_Decisions_Folder()
     {
         string root = FindRepositoryRoot();
-        string adrRoot = Path.Combine(root, "docs/adr");
+        string decisionsRoot = Path.Combine(root, "docs/architecture/decisions");
         string[] expected =
         [
-            "0001-localapi-envelope-and-result.md",
-            "0002-ingestion-job-lifecycle.md",
-            "0003-ai-runtime-provider-abstraction.md",
-            "0004-localapi-local-security.md",
+            "template.md",
+            "0001-modular-monolith.md",
+            "0002-localapi-as-api-boundary.md",
+            "0003-apiresponse-envelope.md",
+            "0004-result-for-expected-failures.md",
+            "0005-frontend-does-not-call-ai-runtime.md",
+            "0006-local-vector-index-and-offline-mode.md",
+            "0007-ai-runtime-provider-abstraction.md",
+            "0008-ingestion-job-lifecycle.md",
+            "0009-localapi-local-security.md",
         ];
 
         foreach (string fileName in expected)
         {
-            Assert.True(File.Exists(Path.Combine(adrRoot, fileName)), $"{fileName} is missing.");
+            string path = Path.Combine(decisionsRoot, fileName);
+            Assert.True(File.Exists(path), $"{fileName} is missing.");
+
+            string source = File.ReadAllText(path);
+            Assert.Contains("## Status", source);
+            Assert.Contains("## Context", source);
+            Assert.Contains("## Decision", source);
+            Assert.Contains("## Consequences", source);
         }
 
         string toc = File.ReadAllText(Path.Combine(root, "docs/toc.yml"));
-        Assert.Contains("docs/adr", string.Join('/', adrRoot.Split(Path.DirectorySeparatorChar).TakeLast(2)));
-        Assert.Contains("adr/0001-localapi-envelope-and-result.md", toc);
-        Assert.Contains("adr/0004-localapi-local-security.md", toc);
+        Assert.Contains("architecture/decisions/0001-modular-monolith.md", toc);
+        Assert.Contains("architecture/decisions/0009-localapi-local-security.md", toc);
+        Assert.DoesNotContain("adr/", toc);
     }
 
     private static bool TypeUses(Type candidate, Type forbidden)

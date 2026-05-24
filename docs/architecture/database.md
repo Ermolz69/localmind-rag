@@ -1,5 +1,49 @@
-# Database
+# Data And Storage
 
-Local storage uses SQLite. Remote sync will use PostgreSQL when the remote sync backend becomes part of scope. Local embeddings are stored as BLOBs for the MVP and hidden behind vector-search interfaces.
+LocalMind persists user data locally by default. SQLite stores structured application state, uploaded source files live in managed runtime folders, and embeddings stay local behind vector-search interfaces.
 
-For the current ER diagram and MVP table overview, see [MVP Architecture And Walking Skeleton](./mvp-walking-skeleton.md#local-database-er-diagram).
+```mermaid
+erDiagram
+    BUCKETS ||--o{ DOCUMENTS : contains
+    BUCKETS ||--o{ NOTES : groups
+    DOCUMENTS ||--|| DOCUMENT_FILES : stores_original
+    DOCUMENTS ||--o{ DOCUMENT_CHUNKS : splits_into
+    DOCUMENT_CHUNKS ||--|| DOCUMENT_EMBEDDINGS : embeds
+    DOCUMENTS ||--o{ INGESTION_JOBS : schedules
+    CONVERSATIONS ||--o{ CHAT_MESSAGES : has
+    NOTES ||--o{ NOTE_LINKS : links
+    DOCUMENTS ||--o{ SYNC_OUTBOX : queues
+    NOTES ||--o{ SYNC_OUTBOX : queues
+```
+
+## SQLite
+
+SQLite is the local database for buckets, documents, notes, chats, ingestion jobs, settings, diagnostics state, sync state, chunks, and embeddings. EF Core migrations own schema changes.
+
+| Table | Purpose |
+| --- | --- |
+| `buckets` | User-created document/note grouping. |
+| `documents`, `document_files` | Document metadata and managed local file references. |
+| `ingestion_jobs` | Durable ingestion lifecycle, progress, retry/cancel state, and sanitized failures. |
+| `document_chunks`, `document_embeddings` | Searchable chunks and local embedding vectors. |
+| `notes`, `note_links` | Local notes and note relationships. |
+| `conversations`, `chat_messages` | RAG chat history. |
+| `app_settings` | Local settings such as selected bucket and runtime preferences. |
+| `sync_state`, `sync_outbox` | Local sync skeleton state. |
+
+## Files And Indexes
+
+Portable mode stores runtime data under `runtime/app`:
+
+```text
+runtime/app/data      SQLite database
+runtime/app/files     uploaded source files
+runtime/app/indexes   local vector/search indexes
+runtime/app/logs      local logs and diagnostic events
+```
+
+Uploads are copied into `runtime/app/files/{documentId}/` with sanitized file names. The app does not expose arbitrary disk import paths through LocalApi.
+
+## Offline Mode
+
+Documents, chunks, embeddings, notes, chats, and settings are available offline. Remote sync is a separate future boundary and does not own local-first behavior.

@@ -56,7 +56,7 @@ pnpm package
 
 The desktop UI talks only to `KnowledgeApp.LocalApi`. LocalApi owns SQLite, local file storage, ingestion, vector search, AI runtime adapters, and optional sync workers. Remote sync is isolated in `KnowledgeApp.SyncApi`.
 
-See [docs/architecture/architectury.md](docs/architecture/architectury.md), [docs/architecture/diagrams.md](docs/architecture/diagrams.md), and [docs/architecture/observability.md](docs/architecture/observability.md).
+See [docs/architecture/README.md](docs/architecture/README.md), [docs/architecture/diagrams.md](docs/architecture/diagrams.md), and [docs/architecture/observability.md](docs/architecture/observability.md).
 
 ## Requirements
 

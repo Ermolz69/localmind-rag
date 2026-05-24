@@ -30,7 +30,6 @@
           "product/**/*.md",
           "architecture/**/*.md",
           "development/**/*.md",
-          "adr/**/*.md",
           "auto-generated/dotnet-api/**/*.yml"
         ],
         "exclude": [
