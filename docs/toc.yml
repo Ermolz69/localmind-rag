@@ -24,6 +24,10 @@
       href: architecture/backend.md
     - name: API contracts
       href: architecture/api-contracts.md
+    - name: API error taxonomy
+      href: architecture/api-error-taxonomy.md
+    - name: Document ingestion
+      href: architecture/ingestion.md
     - name: Ingestion and RAG
       href: architecture/rag-pipeline.md
     - name: AI runtime
@@ -76,6 +80,8 @@
       href: development/setup.md
     - name: Testing
       href: development/testing.md
+    - name: Documentation workflow
+      href: development/docs-workflow.md
     - name: Coding standards
       href: development/coding-standards.md
     - name: Repository hygiene

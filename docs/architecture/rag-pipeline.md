@@ -62,6 +62,8 @@ flowchart LR
 
 ## Ingestion Lifecycle
 
+This page keeps the ingestion flow diagram close to the RAG pipeline. Full lifecycle rules, retry/cancel behavior, progress semantics, document status updates, and diagnostics fields are documented in [Document ingestion](./ingestion.md).
+
 ```mermaid
 sequenceDiagram
     participant Processor as "IngestionJobProcessor"
@@ -92,19 +94,7 @@ sequenceDiagram
     end
 ```
 
-Public ingestion statuses are `Pending`, `Processing`, `Chunking`, `Embedding`, `Indexed`, `Failed`, and `Cancelled`.
-
-| API field | Meaning |
-| --- | --- |
-| `status` | Current lifecycle status. |
-| `progressPercent` | Coarse 0-100 progress marker for UI and diagnostics. |
-| `currentStep` | Short human-readable lifecycle step. |
-| `errorCode` | Stable frontend-facing error code when failed. |
-| `errorMessage` | Sanitized failure message safe for users/diagnostics. |
-| `retryCount` | Number of explicit retries requested after failure/cancellation. |
-| `lastOperationId` | Diagnostic operation id for tracing job processing. |
-
-Cancellation is supported for `Pending`, `Processing`, `Chunking`, and `Embedding` jobs. Retry is supported for `Failed` and `Cancelled` jobs and resets the job to `Pending`.
+Public ingestion statuses are `Pending`, `Processing`, `Chunking`, `Embedding`, `Indexed`, `Failed`, and `Cancelled`. Cancellation is supported for pending/active jobs, and retry is supported for failed/cancelled jobs.
 
 Current MVP support:
 

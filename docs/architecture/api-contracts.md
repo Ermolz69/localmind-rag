@@ -58,19 +58,9 @@ Do not return `HTTP 200` with `success: false`.
 
 Error `code` values are stable frontend-facing constants. Messages may be refined, but codes should not be changed casually.
 
-Current common codes:
-
-- `VALIDATION_FAILED`
-- `REQUEST_INVALID`
-- `BUCKET_NOT_FOUND`
-- `DOCUMENT_NOT_FOUND`
-- `NOTE_NOT_FOUND`
-- `CHAT_NOT_FOUND`
-- `INGESTION_JOB_NOT_FOUND`
-- `EXTERNAL_DEPENDENCY_UNAVAILABLE`
-- `INTERNAL_SERVER_ERROR`
-
 Validation failures always use `VALIDATION_FAILED` and field-level `details`.
+
+The full stable code list, HTTP status mapping, usage guidance, and error envelope examples live in [API error taxonomy](./api-error-taxonomy.md). New endpoints should choose an existing stable code from that page before introducing a new one.
 
 ## Layering
 

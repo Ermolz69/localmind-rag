@@ -8,14 +8,16 @@ This section describes the system as it is implemented now. It avoids future-ten
 
 1. [System overview](./system.md) explains the runtime shape and project boundaries.
 2. [Backend architecture](./backend.md) explains the modular monolith, feature folders, application ports, and LocalApi boundary.
-3. [API contracts](./api-contracts.md) explains `ApiResponse<T>`, `Result<T>`, error codes, and frontend unwrapping.
-4. [Ingestion and RAG](./rag-pipeline.md) explains upload, ingestion jobs, semantic search, and chat answers with sources.
-5. [AI runtime](./ai-runtime.md) explains provider abstraction, llama.cpp, model listing, chat, and embeddings.
-6. [Data and storage](./database.md) explains SQLite, local files, embeddings, and offline persistence.
-7. [Frontend architecture](./frontend.md) explains the feature-sliced UI and LocalApi-only communication.
-8. [Observability](./observability.md) and [local security](./local-security.md) explain diagnostics, logs, loopback access, token protection, and upload guardrails.
-9. [Diagrams](./diagrams.md) indexes the focused Mermaid diagrams.
-10. [Architecture decisions](./decisions/README.md) records why the system is built this way.
+3. [API contracts](./api-contracts.md) explains `ApiResponse<T>`, `Result<T>`, and frontend unwrapping.
+4. [API error taxonomy](./api-error-taxonomy.md) lists stable error codes, HTTP mappings, and envelope examples.
+5. [Document ingestion](./ingestion.md) explains job lifecycle, progress, retry/cancel rules, and diagnostics.
+6. [Ingestion and RAG](./rag-pipeline.md) explains upload, semantic search, and chat answers with sources.
+7. [AI runtime](./ai-runtime.md) explains provider abstraction, llama.cpp, model listing, chat, and embeddings.
+8. [Data and storage](./database.md) explains SQLite, local files, embeddings, and offline persistence.
+9. [Frontend architecture](./frontend.md) explains the feature-sliced UI and LocalApi-only communication.
+10. [Observability](./observability.md) and [local security](./local-security.md) explain diagnostics, logs, loopback access, token protection, and upload guardrails.
+11. [Diagrams](./diagrams.md) indexes the focused Mermaid diagrams.
+12. [Architecture decisions](./decisions/README.md) records why the system is built this way.
 
 ## Current Invariants
 
