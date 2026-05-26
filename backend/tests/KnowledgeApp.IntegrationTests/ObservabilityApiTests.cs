@@ -23,11 +23,13 @@ public sealed class ObservabilityApiTests
         using ObservabilityTestContext context = CreateContext();
         using HttpClient client = context.Factory.CreateClient();
 
-        using HttpResponseMessage response = await client.GetAsync("/api/health");
+        using HttpResponseMessage response = await client.GetAsync("/api/v1/health");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
         string logs = await context.ReadLogsAsync("localmind*.log");
-        Assert.Contains("HTTP GET /api/health responded 200", logs, StringComparison.Ordinal);
+
+        Assert.Contains("HTTP GET /api/v1/health responded 200", logs, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -35,17 +37,21 @@ public sealed class ObservabilityApiTests
     {
         using ObservabilityTestContext context = CreateContext();
         using HttpClient client = context.Factory.CreateClient();
+
         AppSettingsDto request = new(
             Appearance: new AppearanceSettingsDto("Broken"),
             Ai: new AiSettingsDto("Unknown", "", "", "", ""),
             RuntimePaths: new RuntimePathsSettingsDto("", "", "", "", ""),
             Sync: new SyncSettingsDto(false, false));
 
-        using HttpResponseMessage response = await client.PutAsJsonAsync("/api/settings", request);
+        using HttpResponseMessage response =
+            await client.PutAsJsonAsync("/api/v1/settings", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
         string logs = await context.ReadLogsAsync("errors*.log");
-        Assert.Contains("HTTP PUT /api/settings responded 400", logs, StringComparison.Ordinal);
+
+        Assert.Contains("HTTP PUT /api/v1/settings responded 400", logs, StringComparison.Ordinal);
         Assert.Contains("TraceId", logs, StringComparison.Ordinal);
     }
 
@@ -54,14 +60,18 @@ public sealed class ObservabilityApiTests
     {
         using ObservabilityTestContext context = CreateContext();
         using HttpClient client = context.Factory.CreateClient();
-        ConversationDto conversation = await ApiScenarioHelpers.CreateConversationAsync(client);
+
+        ConversationDto conversation =
+            await ApiScenarioHelpers.CreateConversationAsync(client);
 
         using HttpResponseMessage response = await client.PostAsJsonAsync(
-            $"/api/chats/{conversation.Id}/messages",
+            $"/api/v1/chats/{conversation.Id}/messages",
             new ChatMessageRequest("What local sources exist?"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
         string events = await context.ReadLogsAsync("advanced-events*.ndjson");
+
         Assert.Contains("\"EventKind\":\"Diagnostic\"", events, StringComparison.Ordinal);
         Assert.Contains("build-context", events, StringComparison.Ordinal);
         Assert.Contains("answer-generated", events, StringComparison.Ordinal);
@@ -76,12 +86,17 @@ public sealed class ObservabilityApiTests
                 services.RemoveAll<IEmbeddingGenerator>();
                 services.AddSingleton<IEmbeddingGenerator, FailingEmbeddingGenerator>();
             }));
+
         using HttpClient client = context.Factory.CreateClient();
 
-        using HttpResponseMessage response = await client.PostAsJsonAsync("/api/search/semantic", new SemanticSearchRequest("diagnostic failure"));
+        using HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/v1/search/semantic",
+            new SemanticSearchRequest("diagnostic failure"));
 
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+
         string events = await context.ReadLogsAsync("advanced-events*.ndjson");
+
         Assert.Contains(DiagnosticNames.Steps.SemanticSearchStarted, events, StringComparison.Ordinal);
         Assert.Contains(DiagnosticNames.Steps.SemanticSearchFailed, events, StringComparison.Ordinal);
         Assert.Contains("Synthetic embedding failure.", events, StringComparison.Ordinal);
@@ -89,27 +104,36 @@ public sealed class ObservabilityApiTests
 
     private static ObservabilityTestContext CreateContext(Action<IWebHostBuilder>? configure = null)
     {
-        string root = Path.Combine(Path.GetTempPath(), "localmind-observability", Guid.NewGuid().ToString("N"));
-        string logsPath = Path.Combine(root, "logs");
-        Directory.CreateDirectory(logsPath);
-        LocalApiTestFactory baseFactory = new();
-        WebApplicationFactory<Program> factory = baseFactory.WithWebHostBuilder(builder =>
-        {
-            builder.ConfigureAppConfiguration((_, configuration) =>
-            {
-                Dictionary<string, string?> settings = new()
-                {
-                    ["Observability:Enabled"] = "true",
-                    ["Observability:Mode"] = "Advanced",
-                    ["Observability:LogsPath"] = logsPath,
-                    ["Observability:MinimumLevel"] = "Information",
-                    ["Observability:EnableDebugTrace"] = "false",
-                };
+        string root = Path.Combine(
+            Path.GetTempPath(),
+            "localmind-observability",
+            Guid.NewGuid().ToString("N"));
 
-                configuration.AddInMemoryCollection(settings);
+        string logsPath = Path.Combine(root, "logs");
+
+        Directory.CreateDirectory(logsPath);
+
+        LocalApiTestFactory baseFactory = new();
+
+        WebApplicationFactory<Program> factory =
+            baseFactory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureAppConfiguration((_, configuration) =>
+                {
+                    Dictionary<string, string?> settings = new()
+                    {
+                        ["Observability:Enabled"] = "true",
+                        ["Observability:Mode"] = "Advanced",
+                        ["Observability:LogsPath"] = logsPath,
+                        ["Observability:MinimumLevel"] = "Information",
+                        ["Observability:EnableDebugTrace"] = "false",
+                    };
+
+                    configuration.AddInMemoryCollection(settings);
+                });
+
+                configure?.Invoke(builder);
             });
-            configure?.Invoke(builder);
-        });
 
         return new ObservabilityTestContext(root, logsPath, baseFactory, factory);
     }
@@ -118,7 +142,9 @@ public sealed class ObservabilityApiTests
     {
         public string ModelName => "failing-test-model";
 
-        public Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default)
+        public Task<float[]> GenerateAsync(
+            string text,
+            CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Synthetic embedding failure.");
         }
@@ -135,6 +161,7 @@ public sealed class ObservabilityApiTests
         public async Task<string> ReadLogsAsync(string pattern)
         {
             DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(5);
+
             while (DateTimeOffset.UtcNow < deadline)
             {
                 string content = string.Join(
@@ -159,8 +186,14 @@ public sealed class ObservabilityApiTests
 
         private static string ReadLogFile(string path)
         {
-            using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using FileStream stream = new(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+
             using StreamReader reader = new(stream);
+
             return reader.ReadToEnd();
         }
 

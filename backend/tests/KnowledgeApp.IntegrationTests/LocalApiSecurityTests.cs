@@ -15,10 +15,14 @@ public sealed class LocalApiSecurityTests(LocalApiTestFactory factory) : IClassF
         using WebApplicationFactory<Program> secureFactory = CreateSecureFactory();
         using HttpClient client = secureFactory.CreateClient();
 
-        using HttpResponseMessage response = await client.PostAsJsonAsync("/api/buckets", new CreateBucketRequest("Secure", null));
+        using HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/v1/buckets",
+            new CreateBucketRequest("Secure", null));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+
         ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+
         Assert.Equal("LOCAL_TOKEN_REQUIRED", envelope.Error?.Code);
     }
 
@@ -27,10 +31,12 @@ public sealed class LocalApiSecurityTests(LocalApiTestFactory factory) : IClassF
     {
         using WebApplicationFactory<Program> secureFactory = CreateSecureFactory();
         using HttpClient client = secureFactory.CreateClient();
-        using HttpRequestMessage request = new(HttpMethod.Post, "/api/buckets")
+
+        using HttpRequestMessage request = new(HttpMethod.Post, "/api/v1/buckets")
         {
             Content = JsonContent.Create(new CreateBucketRequest("Secure", null)),
         };
+
         request.Headers.Add("X-LocalMind-Token", "test-token");
 
         using HttpResponseMessage response = await client.SendAsync(request);

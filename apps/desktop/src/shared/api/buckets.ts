@@ -1,10 +1,12 @@
 import type { BucketDto, CreateBucketRequest } from "@entities/bucket";
+
 import type { CursorPage } from "./common";
 import { toQueryString } from "./common";
 import { request } from "./http";
 
 export const bucketsApi = {
-  getBuckets: () => request<BucketDto[]>("/api/buckets"),
+  getBuckets: () => request<BucketDto[]>("/buckets"),
+
   getBucketsPage: ({
     query,
     cursor,
@@ -15,10 +17,11 @@ export const bucketsApi = {
     limit?: number;
   }) =>
     request<CursorPage<BucketDto>>(
-      `/api/buckets/page${toQueryString({ query, cursor, limit })}`,
+      `/buckets/page${toQueryString({ query, cursor, limit })}`,
     ),
+
   createBucket: (payload: CreateBucketRequest) =>
-    request<BucketDto>("/api/buckets", {
+    request<BucketDto>("/buckets", {
       method: "POST",
       body: JSON.stringify(payload),
     }),

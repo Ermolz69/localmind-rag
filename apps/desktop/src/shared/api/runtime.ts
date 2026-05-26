@@ -3,17 +3,21 @@ import type {
   RuntimeStatus,
   SyncStatus,
 } from "@entities/runtime";
+
 import { request } from "./http";
 
 export const runtimeApi = {
-  getRuntimeStatus: () => request<RuntimeStatus>("/api/runtime/status"),
+  getRuntimeStatus: () => request<RuntimeStatus>("/runtime/status"),
+
   setupAiRuntime: () =>
-    request<RuntimeSetupResponse>("/api/runtime/ai/setup", {
+    request<RuntimeSetupResponse>("/runtime/ai/setup", {
       method: "POST",
     }),
+
   startAiRuntime: () =>
-    request<void>("/api/runtime/ai/start", {
+    request<void>("/runtime/ai/start", {
       method: "POST",
     }),
-  getSyncStatus: () => request<SyncStatus>("/api/sync/status"),
+
+  getSyncStatus: () => request<SyncStatus>("/sync/status"),
 };

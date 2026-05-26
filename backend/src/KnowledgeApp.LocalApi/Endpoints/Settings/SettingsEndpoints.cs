@@ -8,10 +8,10 @@ public static class SettingsEndpoints
 {
     public static IEndpointRouteBuilder MapSettingsEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/settings", async (
-                ISettingsService settings,
-                HttpContext context,
-                CancellationToken cancellationToken) =>
+        app.MapGet("/settings", async (
+            ISettingsService settings,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
             ApiResults.Ok(await settings.GetAsync(cancellationToken), context))
             .WithName("GetSettings")
             .WithTags("Settings")
@@ -19,7 +19,7 @@ public static class SettingsEndpoints
             .WithDescription("Returns local appearance, AI, runtime path, and sync settings.")
             .Produces<ApiResponse<AppSettingsDto>>();
 
-        app.MapPut("/api/settings", async (
+        app.MapPut("/settings", async (
             AppSettingsDto request,
             ISettingsService settings,
             HttpContext context,

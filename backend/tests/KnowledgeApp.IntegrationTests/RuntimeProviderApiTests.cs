@@ -15,10 +15,15 @@ public sealed class RuntimeProviderApiTests(LocalApiTestFactory factory) : IClas
     {
         using HttpClient client = factory.CreateClient();
 
-        RuntimeProviderListResponse providers = (await client.GetApiDataAsync<RuntimeProviderListResponse>("/api/runtime/providers"))!;
+        RuntimeProviderListResponse providers =
+            (await client.GetApiDataAsync<RuntimeProviderListResponse>(
+                "/api/v1/runtime/providers"))!;
 
         Assert.Equal("stub", providers.SelectedProviderId);
-        RuntimeProviderDto provider = Assert.Single(providers.Providers, provider => provider.Selected);
+
+        RuntimeProviderDto provider =
+            Assert.Single(providers.Providers, provider => provider.Selected);
+
         Assert.Equal("stub", provider.Id);
         Assert.True(provider.Capabilities.SupportsEmbeddings);
         Assert.True(provider.Capabilities.SupportsChat);
@@ -27,20 +32,26 @@ public sealed class RuntimeProviderApiTests(LocalApiTestFactory factory) : IClas
     [Fact]
     public async Task RuntimeStatus_Should_Return_Envelope_When_Configured_Provider_Is_Missing()
     {
-        using WebApplicationFactory<Program> missingProviderFactory = factory.WithWebHostBuilder(builder =>
-            builder.ConfigureAppConfiguration((_, configuration) =>
-            {
-                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        using WebApplicationFactory<Program> missingProviderFactory =
+            factory.WithWebHostBuilder(builder =>
+                builder.ConfigureAppConfiguration((_, configuration) =>
                 {
-                    ["Ai:Provider"] = "missing-provider",
-                });
-            }));
+                    configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Ai:Provider"] = "missing-provider",
+                    });
+                }));
+
         using HttpClient client = missingProviderFactory.CreateClient();
 
-        using HttpResponseMessage response = await client.GetAsync("/api/runtime/status", CancellationToken.None);
+        using HttpResponseMessage response =
+            await client.GetAsync("/api/v1/runtime/status", CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        ApiResponse<object?> error = await response.Content.ReadApiErrorAsync();
+
+        ApiResponse<object?> error =
+            await response.Content.ReadApiErrorAsync();
+
         Assert.Equal(ErrorCodes.Runtime.AiProviderNotFound, error.Error?.Code);
     }
 }
@@ -54,14 +65,23 @@ public sealed class RuntimeProviderTestcontainerTests(
     public async Task RuntimeStatus_Should_Use_Container_Injected_Runtime_BaseUrl()
     {
         using HttpClient sidecarClient = new();
-        using HttpResponseMessage sidecarResponse = await sidecarClient.GetAsync($"{httpService.BaseUrl}/health", CancellationToken.None);
+
+        using HttpResponseMessage sidecarResponse =
+            await sidecarClient.GetAsync(
+                $"{httpService.BaseUrl}/health",
+                CancellationToken.None);
+
         Assert.Equal(HttpStatusCode.OK, sidecarResponse.StatusCode);
 
-        using WebApplicationFactory<Program> containerFactory = factory.WithWebHostBuilder(builder =>
-            builder.UseAiRuntimeBaseUrl(httpService.BaseUrl));
+        using WebApplicationFactory<Program> containerFactory =
+            factory.WithWebHostBuilder(builder =>
+                builder.UseAiRuntimeBaseUrl(httpService.BaseUrl));
+
         using HttpClient client = containerFactory.CreateClient();
 
-        RuntimeStatusDto status = (await client.GetApiDataAsync<RuntimeStatusDto>("/api/runtime/status"))!;
+        RuntimeStatusDto status =
+            (await client.GetApiDataAsync<RuntimeStatusDto>(
+                "/api/v1/runtime/status"))!;
 
         Assert.Equal("stub", status.ProviderId);
         Assert.Equal(httpService.BaseUrl, status.BaseUrl);

@@ -28,47 +28,62 @@ public sealed class LocalApiStructureSmokeTests : IClassFixture<LocalApiTestFact
         using HttpClient? client = factory.CreateClient();
 
         HttpResponseMessage? bucketResponse = await client.PostAsJsonAsync(
-            "/api/buckets",
+            "/api/v1/buckets",
             new CreateBucketRequest($"Bucket-{Guid.NewGuid():N}", Description: null));
+
         HttpResponseMessage? noteResponse = await client.PostAsJsonAsync(
-            "/api/notes",
+            "/api/v1/notes",
             new CreateNoteRequest(BucketId: null, "Note", "Body"));
-        HttpResponseMessage? chatResponse = await client.PostAsJsonAsync("/api/chats", new CreateConversationRequest("Chat"));
+
+        HttpResponseMessage? chatResponse = await client.PostAsJsonAsync(
+            "/api/v1/chats",
+            new CreateConversationRequest("Chat"));
 
         Assert.Equal(HttpStatusCode.Created, bucketResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Created, noteResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Created, chatResponse.StatusCode);
-        Assert.NotNull(await client.GetApiDataAsync<BucketDto[]>("/api/buckets"));
-        Assert.NotNull(await client.GetApiDataAsync<CursorPage<NoteDto>>("/api/notes"));
-        Assert.NotNull(await client.GetApiDataAsync<CursorPage<ConversationDto>>("/api/chats"));
+
+        Assert.NotNull(await client.GetApiDataAsync<BucketDto[]>("/api/v1/buckets"));
+        Assert.NotNull(await client.GetApiDataAsync<CursorPage<NoteDto>>("/api/v1/notes"));
+        Assert.NotNull(await client.GetApiDataAsync<CursorPage<ConversationDto>>("/api/v1/chats"));
     }
 
     [Fact]
     public async Task Chat_Endpoints_Should_Get_Update_And_List_Messages()
     {
         using HttpClient client = factory.CreateClient();
+
         HttpResponseMessage createResponse = await client.PostAsJsonAsync(
-            "/api/chats",
+            "/api/v1/chats",
             new CreateConversationRequest("Initial chat"));
+
         createResponse.EnsureSuccessStatusCode();
+
         ConversationDto? created = await createResponse.Content.ReadApiDataAsync<ConversationDto>();
+
         Assert.NotNull(created);
 
-        ConversationDto? fetched = await client.GetApiDataAsync<ConversationDto>($"/api/chats/{created.Id}");
+        ConversationDto? fetched = await client.GetApiDataAsync<ConversationDto>(
+            $"/api/v1/chats/{created.Id}");
+
         Assert.NotNull(fetched);
         Assert.Equal("Initial chat", fetched.Title);
 
         HttpResponseMessage updateResponse = await client.PutAsJsonAsync(
-            $"/api/chats/{created.Id}",
+            $"/api/v1/chats/{created.Id}",
             new UpdateConversationRequest("Renamed chat"));
+
         Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
         HttpResponseMessage sendResponse = await client.PostAsJsonAsync(
-            $"/api/chats/{created.Id}/messages",
+            $"/api/v1/chats/{created.Id}/messages",
             new KnowledgeApp.Contracts.Rag.ChatMessageRequest("Hello"));
+
         Assert.Equal(HttpStatusCode.OK, sendResponse.StatusCode);
 
-        ChatMessageDto[]? messages = await client.GetApiDataAsync<ChatMessageDto[]>($"/api/chats/{created.Id}/messages");
+        ChatMessageDto[]? messages = await client.GetApiDataAsync<ChatMessageDto[]>(
+            $"/api/v1/chats/{created.Id}/messages");
+
         Assert.NotNull(messages);
         Assert.Contains(messages, message => message.Content == "Hello");
     }
@@ -77,25 +92,38 @@ public sealed class LocalApiStructureSmokeTests : IClassFixture<LocalApiTestFact
     public async Task DeleteChat_Should_Soft_Delete_Conversation_And_Hide_Messages()
     {
         using HttpClient client = factory.CreateClient();
+
         HttpResponseMessage createResponse = await client.PostAsJsonAsync(
-            "/api/chats",
+            "/api/v1/chats",
             new CreateConversationRequest("Delete me"));
+
         ConversationDto? created = await createResponse.Content.ReadApiDataAsync<ConversationDto>();
+
         Assert.NotNull(created);
+
         HttpResponseMessage sendResponse = await client.PostAsJsonAsync(
-            $"/api/chats/{created.Id}/messages",
+            $"/api/v1/chats/{created.Id}/messages",
             new KnowledgeApp.Contracts.Rag.ChatMessageRequest("Before delete"));
+
         Assert.Equal(HttpStatusCode.OK, sendResponse.StatusCode);
 
-        HttpResponseMessage deleteResponse = await client.DeleteAsync($"/api/chats/{created.Id}");
+        HttpResponseMessage deleteResponse =
+            await client.DeleteAsync($"/api/v1/chats/{created.Id}");
 
         Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
-        using HttpResponseMessage getResponse = await client.GetAsync($"/api/chats/{created.Id}");
+
+        using HttpResponseMessage getResponse =
+            await client.GetAsync($"/api/v1/chats/{created.Id}");
+
         Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
 
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
         AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Conversation storedConversation = await db.Conversations.SingleAsync(item => item.Id == created.Id);
+
+        Conversation storedConversation =
+            await db.Conversations.SingleAsync(item => item.Id == created.Id);
+
         ChatMessage[] storedMessages = await db.ChatMessages
             .Where(message => message.ConversationId == created.Id)
             .ToArrayAsync();
@@ -108,19 +136,38 @@ public sealed class LocalApiStructureSmokeTests : IClassFixture<LocalApiTestFact
     public async Task ReindexDocumentEndpoint_Should_Create_Queued_Ingestion_Job()
     {
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Document? document = new Document { Name = $"reindex-{Guid.NewGuid():N}.txt", Status = DocumentStatus.Indexed };
+
+        Document? document = new Document
+        {
+            Name = $"reindex-{Guid.NewGuid():N}.txt",
+            Status = DocumentStatus.Indexed,
+        };
+
         db.Documents.Add(document);
+
         await db.SaveChangesAsync();
 
         using HttpClient? client = factory.CreateClient();
 
-        HttpResponseMessage response = await client.PostAsync($"/api/documents/{document.Id}/reindex", content: null);
+        HttpResponseMessage response = await client.PostAsync(
+            $"/api/v1/documents/{document.Id}/reindex",
+            content: null);
 
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-        ReindexDocumentResponse? body = await response.Content.ReadApiDataAsync<ReindexDocumentResponse>();
+        Assert.NotNull(response.Headers.Location);
+
+        ReindexDocumentResponse? body =
+            await response.Content.ReadApiDataAsync<ReindexDocumentResponse>();
+
         Assert.NotNull(body);
         Assert.Equal(document.Id, body.DocumentId);
+
+        Assert.Equal(
+            $"/api/v1/ingestion/jobs/{body.IngestionJobId}",
+            response.Headers.Location!.OriginalString);
+
         Assert.True(await db.IngestionJobs.AnyAsync(job => job.DocumentId == document.Id));
     }
 }

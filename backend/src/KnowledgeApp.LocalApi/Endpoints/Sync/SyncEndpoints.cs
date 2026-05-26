@@ -10,15 +10,20 @@ public static class SyncEndpoints
 {
     public static IEndpointRouteBuilder MapSyncEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/sync/status", async (
+        app.MapGet("/sync/status", async (
             ISyncService sync,
             IAppDiagnosticLogger diagnostics,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            Guid operationId = diagnostics.BeginOperation(DiagnosticNames.Areas.Sync, DiagnosticNames.Operations.SyncStatus);
+            Guid operationId = diagnostics.BeginOperation(
+                DiagnosticNames.Areas.Sync,
+                DiagnosticNames.Operations.SyncStatus);
+
             SyncStatusDto status = await sync.GetStatusAsync(cancellationToken);
+
             diagnostics.LogStep(operationId, DiagnosticNames.Steps.StatusReturned);
+
             return ApiResults.Ok(status, context);
         })
             .WithName("GetSyncStatus")
@@ -27,15 +32,20 @@ public static class SyncEndpoints
             .WithDescription("Returns current remote sync availability and pending operation count.")
             .Produces<ApiResponse<SyncStatusDto>>();
 
-        app.MapPost("/api/sync/run", async (
+        app.MapPost("/sync/run", async (
             ISyncService sync,
             IAppDiagnosticLogger diagnostics,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            Guid operationId = diagnostics.BeginOperation(DiagnosticNames.Areas.Sync, DiagnosticNames.Operations.SyncRun);
+            Guid operationId = diagnostics.BeginOperation(
+                DiagnosticNames.Areas.Sync,
+                DiagnosticNames.Operations.SyncRun);
+
             await sync.RunAsync(cancellationToken);
+
             diagnostics.LogStep(operationId, DiagnosticNames.Steps.RunAccepted);
+
             return ApiResults.Accepted<object?>(null, null, context);
         })
             .WithName("RunSync")
@@ -45,7 +55,7 @@ public static class SyncEndpoints
             .Produces<ApiResponse<object?>>(StatusCodes.Status202Accepted)
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapPost("/api/sync/login", (HttpContext context) =>
+        app.MapPost("/sync/login", (HttpContext context) =>
             ApiResults.Failure(
                 ApplicationErrors.NotImplemented(
                     "SYNC_AUTH_NOT_IMPLEMENTED",
@@ -57,7 +67,7 @@ public static class SyncEndpoints
             .WithDescription("Placeholder for future remote sync authentication.")
             .Produces<ApiResponse<object?>>(StatusCodes.Status501NotImplemented);
 
-        app.MapPost("/api/sync/logout", (HttpContext context) => ApiResults.Empty(context))
+        app.MapPost("/sync/logout", (HttpContext context) => ApiResults.Empty(context))
             .WithName("LogoutSync")
             .WithTags("Sync")
             .WithSummary("Logs out of sync.")

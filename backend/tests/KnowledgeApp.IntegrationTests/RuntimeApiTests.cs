@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using KnowledgeApp.Application.Abstractions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -15,17 +14,21 @@ public sealed class RuntimeApiTests
     public async Task RuntimeStatus_Should_Report_SetupRequired_When_AiAssets_Are_Missing()
     {
         using LocalApiTestFactory baseFactory = new();
-        using WebApplicationFactory<Program> factory = baseFactory.WithWebHostBuilder(builder =>
-            builder.ConfigureAppConfiguration((_, configuration) =>
-            {
-                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+
+        using WebApplicationFactory<Program> factory =
+            baseFactory.WithWebHostBuilder(builder =>
+                builder.ConfigureAppConfiguration((_, configuration) =>
                 {
-                    ["Ai:Provider"] = "LlamaCpp",
-                });
-            }));
+                    configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Ai:Provider"] = "LlamaCpp",
+                    });
+                }));
+
         using HttpClient client = factory.CreateClient();
 
-        RuntimeStatusResponse? status = await client.GetApiDataAsync<RuntimeStatusResponse>("/api/runtime/status");
+        RuntimeStatusResponse? status =
+            await client.GetApiDataAsync<RuntimeStatusResponse>("/api/v1/runtime/status");
 
         Assert.NotNull(status);
         Assert.True(status.SetupRequired);
@@ -38,21 +41,28 @@ public sealed class RuntimeApiTests
     public async Task RuntimeSetup_Should_Invoke_FirstRun_Setup_Service()
     {
         FakeRuntimeSetupService setup = new();
+
         using LocalApiTestFactory baseFactory = new();
-        using WebApplicationFactory<Program> factory = baseFactory.WithWebHostBuilder(builder =>
-            builder.ConfigureTestServices(services =>
-            {
-                services.RemoveAll<IAiRuntimeSetupService>();
-                services.AddSingleton<IAiRuntimeSetupService>(setup);
-            }));
+
+        using WebApplicationFactory<Program> factory =
+            baseFactory.WithWebHostBuilder(builder =>
+                builder.ConfigureTestServices(services =>
+                {
+                    services.RemoveAll<IAiRuntimeSetupService>();
+                    services.AddSingleton<IAiRuntimeSetupService>(setup);
+                }));
+
         using HttpClient client = factory.CreateClient();
 
-        using HttpResponseMessage response = await client.PostAsync("/api/runtime/ai/setup", content: null);
+        using HttpResponseMessage response =
+            await client.PostAsync("/api/v1/runtime/ai/setup", content: null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(setup.WasCalled);
 
-        RuntimeSetupResponse? setupResponse = await response.Content.ReadApiDataAsync<RuntimeSetupResponse>();
+        RuntimeSetupResponse? setupResponse =
+            await response.Content.ReadApiDataAsync<RuntimeSetupResponse>();
+
         Assert.NotNull(setupResponse);
         Assert.NotNull(setupResponse.Status);
     }
@@ -64,6 +74,7 @@ public sealed class RuntimeApiTests
         public Task SetupAsync(CancellationToken cancellationToken = default)
         {
             WasCalled = true;
+
             return Task.CompletedTask;
         }
     }

@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Infrastructure.Persistence;
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,7 +25,8 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
     {
         using HttpClient? client = factory.CreateClient();
 
-        AppSettingsDto? settings = await client.GetApiDataAsync<AppSettingsDto>("/api/settings");
+        AppSettingsDto? settings =
+            await client.GetApiDataAsync<AppSettingsDto>("/api/v1/settings");
 
         Assert.NotNull(settings);
         Assert.NotNull(settings.Appearance);
@@ -60,11 +63,13 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
                 Enabled: true,
                 AutoSync: false));
 
-        using HttpResponseMessage? response = await client.PutAsJsonAsync("/api/settings", request);
+        using HttpResponseMessage? response =
+            await client.PutAsJsonAsync("/api/v1/settings", request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        AppSettingsDto? saved = await client.GetApiDataAsync<AppSettingsDto>("/api/settings");
+        AppSettingsDto? saved =
+            await client.GetApiDataAsync<AppSettingsDto>("/api/v1/settings");
 
         Assert.NotNull(saved);
         Assert.Equal("Dark", saved.Appearance.Theme);
@@ -74,11 +79,17 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
         Assert.False(saved.Sync.AutoSync);
 
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        Domain.Entities.AppSetting? storedTheme = await db.AppSettings.SingleAsync(x => x.Key == "App.Theme");
-        Domain.Entities.AppSetting? storedProvider = await db.AppSettings.SingleAsync(x => x.Key == "Ai.Provider");
-        Domain.Entities.AppSetting? storedSyncEnabled = await db.AppSettings.SingleAsync(x => x.Key == "Sync.Enabled");
+        Domain.Entities.AppSetting? storedTheme =
+            await db.AppSettings.SingleAsync(x => x.Key == "App.Theme");
+
+        Domain.Entities.AppSetting? storedProvider =
+            await db.AppSettings.SingleAsync(x => x.Key == "Ai.Provider");
+
+        Domain.Entities.AppSetting? storedSyncEnabled =
+            await db.AppSettings.SingleAsync(x => x.Key == "Sync.Enabled");
 
         Assert.Equal("Dark", storedTheme.Value);
         Assert.Equal("Ollama", storedProvider.Value);
@@ -108,15 +119,27 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
                 Enabled: false,
                 AutoSync: false));
 
-        using HttpResponseMessage? response = await client.PutAsJsonAsync("/api/settings", request);
+        using HttpResponseMessage? response =
+            await client.PutAsJsonAsync("/api/v1/settings", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
-        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+        ApiResponse<object?> envelope =
+            await response.Content.ReadApiErrorAsync();
+
         Assert.Equal("VALIDATION_FAILED", envelope.Error!.Code);
-        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "appearance.theme");
-        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "ai.provider");
-        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "ai.chatModel");
+
+        Assert.Contains(
+            envelope.Error.Details ?? [],
+            detail => detail.Field == "appearance.theme");
+
+        Assert.Contains(
+            envelope.Error.Details ?? [],
+            detail => detail.Field == "ai.provider");
+
+        Assert.Contains(
+            envelope.Error.Details ?? [],
+            detail => detail.Field == "ai.chatModel");
     }
 
     [Fact]
@@ -142,14 +165,30 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
                 Enabled: false,
                 AutoSync: false));
 
-        using HttpResponseMessage response = await client.PutAsJsonAsync("/api/settings", request);
+        using HttpResponseMessage response =
+            await client.PutAsJsonAsync("/api/v1/settings", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+
+        ApiResponse<object?> envelope =
+            await response.Content.ReadApiErrorAsync();
+
         Assert.Equal("VALIDATION_FAILED", envelope.Error!.Code);
-        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "ai.runtimePath");
-        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "ai.modelsPath");
-        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "runtimePaths.databasePath");
-        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "runtimePaths.logsPath");
+
+        Assert.Contains(
+            envelope.Error.Details ?? [],
+            detail => detail.Field == "ai.runtimePath");
+
+        Assert.Contains(
+            envelope.Error.Details ?? [],
+            detail => detail.Field == "ai.modelsPath");
+
+        Assert.Contains(
+            envelope.Error.Details ?? [],
+            detail => detail.Field == "runtimePaths.databasePath");
+
+        Assert.Contains(
+            envelope.Error.Details ?? [],
+            detail => detail.Field == "runtimePaths.logsPath");
     }
 }

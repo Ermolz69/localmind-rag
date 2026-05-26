@@ -14,6 +14,7 @@
       href: product/requirements/non-functional-requirements.md
     - name: Priorities and risks
       href: product/requirements/priorities-and-risks.md
+
 - name: Architecture
   items:
     - name: Overview
@@ -24,6 +25,8 @@
       href: architecture/backend.md
     - name: API contracts
       href: architecture/api-contracts.md
+    - name: API versioning
+      href: architecture/api-versioning.md
     - name: API error taxonomy
       href: architecture/api-error-taxonomy.md
     - name: Document ingestion
@@ -50,30 +53,32 @@
       href: architecture/diagrams.md
     - name: Technology stack defense
       href: architecture/technology-stack-defense.md
-    - name: Decisions
-      items:
-        - name: Index
-          href: architecture/decisions/README.md
-        - name: Template
-          href: architecture/decisions/template.md
-        - name: Modular monolith
-          href: architecture/decisions/0001-modular-monolith.md
-        - name: LocalApi as API boundary
-          href: architecture/decisions/0002-localapi-as-api-boundary.md
-        - name: ApiResponse envelope
-          href: architecture/decisions/0003-apiresponse-envelope.md
-        - name: Result expected failures
-          href: architecture/decisions/0004-result-for-expected-failures.md
-        - name: Frontend and AI runtime
-          href: architecture/decisions/0005-frontend-does-not-call-ai-runtime.md
-        - name: Local vector index and offline mode
-          href: architecture/decisions/0006-local-vector-index-and-offline-mode.md
-        - name: AI runtime provider abstraction
-          href: architecture/decisions/0007-ai-runtime-provider-abstraction.md
-        - name: Ingestion job lifecycle
-          href: architecture/decisions/0008-ingestion-job-lifecycle.md
-        - name: LocalApi local security
-          href: architecture/decisions/0009-localapi-local-security.md
+
+- name: Decisions
+  items:
+    - name: Index
+      href: architecture/decisions/README.md
+    - name: Template
+      href: architecture/decisions/template.md
+    - name: Modular monolith
+      href: architecture/decisions/0001-modular-monolith.md
+    - name: LocalApi as API boundary
+      href: architecture/decisions/0002-localapi-as-api-boundary.md
+    - name: ApiResponse envelope
+      href: architecture/decisions/0003-apiresponse-envelope.md
+    - name: Result expected failures
+      href: architecture/decisions/0004-result-for-expected-failures.md
+    - name: Frontend and AI runtime
+      href: architecture/decisions/0005-frontend-does-not-call-ai-runtime.md
+    - name: Local vector index and offline mode
+      href: architecture/decisions/0006-local-vector-index-and-offline-mode.md
+    - name: AI runtime provider abstraction
+      href: architecture/decisions/0007-ai-runtime-provider-abstraction.md
+    - name: Ingestion job lifecycle
+      href: architecture/decisions/0008-ingestion-job-lifecycle.md
+    - name: LocalApi local security
+      href: architecture/decisions/0009-localapi-local-security.md
+
 - name: Development
   items:
     - name: Setup
@@ -88,6 +93,7 @@
       href: development/repository-hygiene.md
     - name: Packaging
       href: development/packaging.md
+
 - name: API
   items:
     - name: OpenAPI

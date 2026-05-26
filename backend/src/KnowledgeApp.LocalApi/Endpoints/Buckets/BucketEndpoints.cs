@@ -8,7 +8,10 @@ public static class BucketEndpoints
 {
     public static IEndpointRouteBuilder MapBucketEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/buckets", async (GetBucketsHandler handler, HttpContext context, CancellationToken cancellationToken) =>
+        app.MapGet("/buckets", async (
+            GetBucketsHandler handler,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
             ApiResults.Ok(await handler.HandleAsync(cancellationToken), context))
             .WithName("ListBuckets")
             .WithTags("Buckets")
@@ -16,14 +19,16 @@ public static class BucketEndpoints
             .WithDescription("Returns the buckets available on the local device.")
             .Produces<ApiResponse<IReadOnlyList<BucketDto>>>();
 
-        app.MapGet("/api/buckets/page", async (
-                string? query,
-                string? cursor,
-                int? limit,
-                GetBucketsPageHandler handler,
-                HttpContext context,
-                CancellationToken cancellationToken) =>
-            (await handler.HandleAsync(new GetBucketsPageQuery(query, cursor, limit ?? 30), cancellationToken)).ToApiResult(context))
+        app.MapGet("/buckets/page", async (
+            string? query,
+            string? cursor,
+            int? limit,
+            GetBucketsPageHandler handler,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+            (await handler.HandleAsync(
+                new GetBucketsPageQuery(query, cursor, limit ?? 30),
+                cancellationToken)).ToApiResult(context))
             .WithName("ListBucketsPage")
             .WithTags("Buckets")
             .WithSummary("Lists a cursor-paged bucket slice.")
@@ -31,14 +36,14 @@ public static class BucketEndpoints
             .Produces<ApiResponse<CursorPage<BucketDto>>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapPost("/api/buckets", async (
+        app.MapPost("/buckets", async (
             CreateBucketRequest request,
             CreateBucketHandler handler,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
             return (await handler.HandleAsync(request, cancellationToken))
-                .ToCreatedApiResult(context, created => $"/api/buckets/{created.Id}");
+                .ToCreatedApiResult(context, created => $"{ApiVersions.V1Prefix}/buckets/{created.Id}");
         })
             .WithName("CreateBucket")
             .WithTags("Buckets")
@@ -47,7 +52,7 @@ public static class BucketEndpoints
             .Produces<ApiResponse<BucketDto>>(StatusCodes.Status201Created)
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapPut("/api/buckets/{id:guid}", async (
+        app.MapPut("/buckets/{id:guid}", async (
             Guid id,
             UpdateBucketRequest request,
             UpdateBucketHandler handler,
@@ -64,7 +69,7 @@ public static class BucketEndpoints
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapDelete("/api/buckets/{id:guid}", async (
+        app.MapDelete("/buckets/{id:guid}", async (
             Guid id,
             DeleteBucketHandler handler,
             HttpContext context,

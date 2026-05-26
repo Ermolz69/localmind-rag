@@ -1,8 +1,9 @@
 using System.Net;
-using System.Net.Http.Json;
+
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace KnowledgeApp.IntegrationTests;
@@ -21,11 +22,13 @@ public sealed class DiagnosticsApiTests : IClassFixture<LocalApiTestFactory>
     {
         using HttpClient? client = factory.CreateClient();
 
-        using HttpResponseMessage? response = await client.GetAsync("/api/diagnostics");
+        using HttpResponseMessage? response =
+            await client.GetAsync("/api/v1/diagnostics");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        DiagnosticsResponse? diagnostics = await response.Content.ReadApiDataAsync<DiagnosticsResponse>();
+        DiagnosticsResponse? diagnostics =
+            await response.Content.ReadApiDataAsync<DiagnosticsResponse>();
 
         Assert.NotNull(diagnostics);
         Assert.False(string.IsNullOrWhiteSpace(diagnostics.Paths.DatabasePath));
@@ -47,12 +50,15 @@ public sealed class DiagnosticsApiTests : IClassFixture<LocalApiTestFactory>
     public async Task DiagnosticsEndpoint_Should_Return_Counts_And_Latest_Errors()
     {
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
         Document? document = new Document
         {
             Name = $"failed-{Guid.NewGuid():N}.pdf",
             Status = DocumentStatus.Failed,
         };
+
         IngestionJob? failedJob = new IngestionJob
         {
             DocumentId = document.Id,
@@ -61,23 +67,29 @@ public sealed class DiagnosticsApiTests : IClassFixture<LocalApiTestFactory>
             ProcessedAt = DateTimeOffset.UtcNow,
             Status = IngestionJobStatus.Failed,
         };
+
         db.Documents.Add(document);
         db.IngestionJobs.Add(failedJob);
+
         await db.SaveChangesAsync();
 
         using HttpClient? client = factory.CreateClient();
 
-        DiagnosticsResponse? diagnostics = await client.GetApiDataAsync<DiagnosticsResponse>("/api/diagnostics");
+        DiagnosticsResponse? diagnostics =
+            await client.GetApiDataAsync<DiagnosticsResponse>("/api/v1/diagnostics");
 
         Assert.NotNull(diagnostics);
         Assert.True(diagnostics.Counts.DocumentsCount >= 1);
         Assert.True(diagnostics.Counts.FailedIngestionJobsCount >= 1);
-        Assert.Contains(diagnostics.LatestErrors, error =>
-            error.JobId == failedJob.Id &&
-            error.DocumentId == document.Id &&
-            error.DocumentName == document.Name &&
-            error.ErrorCode == failedJob.ErrorCode &&
-            error.ErrorMessage == failedJob.ErrorMessage);
+
+        Assert.Contains(
+            diagnostics.LatestErrors,
+            error =>
+                error.JobId == failedJob.Id
+                && error.DocumentId == document.Id
+                && error.DocumentName == document.Name
+                && error.ErrorCode == failedJob.ErrorCode
+                && error.ErrorMessage == failedJob.ErrorMessage);
     }
 
     private sealed record DiagnosticsResponse(

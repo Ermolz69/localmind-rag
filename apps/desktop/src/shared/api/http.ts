@@ -4,11 +4,13 @@ import { ApiError } from "./problem-details";
 const apiBaseUrl =
   import.meta.env.VITE_LOCAL_API_URL ?? "http://127.0.0.1:49321";
 
+const publicApiPrefix = "/api/v1";
+
 function isJsonResponse(response: Response) {
   return response.headers.get("content-type")?.includes("application/json");
 }
 
-function isApiResponse<T>(body: unknown): body is ApiResponse<T> {
+function isApiResponse(body: unknown): body is ApiResponse<unknown> {
   return (
     typeof body === "object" &&
     body !== null &&
@@ -31,7 +33,8 @@ async function readJson(response: Response) {
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormData = init?.body instanceof FormData;
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+
+  const response = await fetch(`${apiBaseUrl}${publicApiPrefix}${path}`, {
     headers: {
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...init?.headers,
@@ -44,6 +47,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   const body = await readJson(response);
+
   if (body === undefined) {
     if (!response.ok) {
       throw new ApiError(response.status);
@@ -52,7 +56,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as T;
   }
 
-  if (!isApiResponse<T>(body)) {
+  if (!isApiResponse(body)) {
     if (!response.ok) {
       throw new ApiError(response.status);
     }
