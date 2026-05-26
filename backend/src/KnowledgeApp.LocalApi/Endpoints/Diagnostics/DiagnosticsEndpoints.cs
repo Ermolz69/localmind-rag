@@ -8,10 +8,10 @@ public static class DiagnosticsEndpoints
 {
     public static IEndpointRouteBuilder MapDiagnosticsEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/diagnostics", async (
-                ILocalDiagnosticsService diagnostics,
-                HttpContext context,
-                CancellationToken cancellationToken) =>
+        app.MapGet("/diagnostics", async (
+            ILocalDiagnosticsService diagnostics,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
             ApiResults.Ok(await diagnostics.GetAsync(cancellationToken), context))
             .WithName("Diagnostics")
             .WithTags("Diagnostics")

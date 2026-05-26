@@ -9,13 +9,15 @@ public static class ChatEndpoints
 {
     public static IEndpointRouteBuilder MapChatEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/chats", async (
-                string? cursor,
-                int? limit,
-                GetChatsHandler handler,
-                HttpContext context,
-                CancellationToken cancellationToken) =>
-            (await handler.HandleAsync(new GetChatsQuery(cursor, limit ?? 50), cancellationToken)).ToApiResult(context))
+        app.MapGet("/chats", async (
+            string? cursor,
+            int? limit,
+            GetChatsHandler handler,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+            (await handler.HandleAsync(
+                new GetChatsQuery(cursor, limit ?? 50),
+                cancellationToken)).ToApiResult(context))
             .WithName("ListChats")
             .WithTags("Chats")
             .WithSummary("Lists conversations.")
@@ -23,7 +25,7 @@ public static class ChatEndpoints
             .Produces<ApiResponse<CursorPage<ConversationDto>>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapGet("/api/chats/{id:guid}", async (
+        app.MapGet("/chats/{id:guid}", async (
             Guid id,
             GetConversationByIdHandler handler,
             HttpContext context,
@@ -38,7 +40,7 @@ public static class ChatEndpoints
             .Produces<ApiResponse<ConversationDto>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
 
-        app.MapGet("/api/chats/{id:guid}/messages", async (
+        app.MapGet("/chats/{id:guid}/messages", async (
             Guid id,
             GetChatMessagesHandler handler,
             HttpContext context,
@@ -53,14 +55,14 @@ public static class ChatEndpoints
             .Produces<ApiResponse<IReadOnlyList<ChatMessageDto>>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
 
-        app.MapPost("/api/chats", async (
+        app.MapPost("/chats", async (
             CreateConversationRequest request,
             CreateChatHandler handler,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
             return (await handler.HandleAsync(request, cancellationToken))
-                .ToCreatedApiResult(context, created => $"/api/chats/{created.Id}");
+                .ToCreatedApiResult(context, created => $"{ApiVersions.V1Prefix}/chats/{created.Id}");
         })
             .WithName("CreateChat")
             .WithTags("Chats")
@@ -69,7 +71,7 @@ public static class ChatEndpoints
             .Produces<ApiResponse<ConversationDto>>(StatusCodes.Status201Created)
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapPut("/api/chats/{id:guid}", async (
+        app.MapPut("/chats/{id:guid}", async (
             Guid id,
             UpdateConversationRequest request,
             UpdateConversationHandler handler,
@@ -86,7 +88,7 @@ public static class ChatEndpoints
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapDelete("/api/chats/{id:guid}", async (
+        app.MapDelete("/chats/{id:guid}", async (
             Guid id,
             DeleteConversationHandler handler,
             HttpContext context,
@@ -101,7 +103,7 @@ public static class ChatEndpoints
             .Produces<ApiResponse<object?>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
 
-        app.MapPost("/api/chats/{id:guid}/messages", async (
+        app.MapPost("/chats/{id:guid}/messages", async (
             Guid id,
             ChatMessageRequest request,
             SendChatMessageHandler handler,

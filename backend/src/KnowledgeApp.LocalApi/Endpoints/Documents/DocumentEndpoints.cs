@@ -8,14 +8,14 @@ public static class DocumentEndpoints
 {
     public static IEndpointRouteBuilder MapDocumentEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/documents", async (
-                Guid? bucketId,
-                string? status,
-                string? cursor,
-                int? limit,
-                GetDocumentsHandler handler,
-                HttpContext context,
-                CancellationToken cancellationToken) =>
+        app.MapGet("/documents", async (
+            Guid? bucketId,
+            string? status,
+            string? cursor,
+            int? limit,
+            GetDocumentsHandler handler,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
             (await handler.HandleAsync(
                 new GetDocumentsQuery(bucketId, status, cursor, limit ?? 50),
                 cancellationToken)).ToApiResult(context))
@@ -26,7 +26,7 @@ public static class DocumentEndpoints
             .Produces<ApiResponse<CursorPage<DocumentDto>>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapPost("/api/documents/upload", async (
+        app.MapPost("/documents/upload", async (
             IFormFile file,
             Guid? bucketId,
             UploadDocumentHandler handler,
@@ -34,10 +34,11 @@ public static class DocumentEndpoints
             CancellationToken cancellationToken) =>
         {
             await using Stream? stream = file.OpenReadStream();
+
             return (await handler.HandleAsync(
                 new UploadDocumentCommand(stream, file.FileName, file.ContentType, file.Length, bucketId),
                 cancellationToken))
-                .ToCreatedApiResult(context, response => $"/api/documents/{response.DocumentId}");
+                .ToCreatedApiResult(context, response => $"{ApiVersions.V1Prefix}/documents/{response.DocumentId}");
         })
             .DisableAntiforgery()
             .WithName("UploadDocument")
@@ -48,7 +49,7 @@ public static class DocumentEndpoints
             .Produces<ApiResponse<UploadDocumentResponse>>(StatusCodes.Status201Created)
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapGet("/api/documents/{id:guid}", async (
+        app.MapGet("/documents/{id:guid}", async (
             Guid id,
             GetDocumentByIdHandler handler,
             HttpContext context,
@@ -63,7 +64,7 @@ public static class DocumentEndpoints
             .Produces<ApiResponse<DocumentDto>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
 
-        app.MapDelete("/api/documents/{id:guid}", async (
+        app.MapDelete("/documents/{id:guid}", async (
             Guid id,
             DeleteDocumentHandler handler,
             HttpContext context,
@@ -78,14 +79,16 @@ public static class DocumentEndpoints
             .Produces<ApiResponse<object?>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
 
-        app.MapPost("/api/documents/{id:guid}/reindex", async (
+        app.MapPost("/documents/{id:guid}/reindex", async (
             Guid id,
             ReindexDocumentHandler handler,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
             return (await handler.HandleAsync(id, cancellationToken))
-                .ToAcceptedApiResult(context, response => $"/api/ingestion/jobs/{response.IngestionJobId}");
+                .ToAcceptedApiResult(
+                    context,
+                    response => $"{ApiVersions.V1Prefix}/ingestion/jobs/{response.IngestionJobId}");
         })
             .WithName("ReindexDocument")
             .WithTags("Documents")

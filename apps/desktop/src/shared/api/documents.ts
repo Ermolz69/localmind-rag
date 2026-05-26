@@ -5,6 +5,7 @@ import type {
   ReindexDocumentResponse,
   UploadDocumentResponse,
 } from "@entities/document";
+
 import type { CursorPage } from "./common";
 import { toQueryString } from "./common";
 import { request } from "./http";
@@ -12,33 +13,35 @@ import { request } from "./http";
 export const documentsApi = {
   getDocuments: (params: GetDocumentsRequest = {}) =>
     request<CursorPage<DocumentSummary>>(
-      `/api/documents${toQueryString({
+      `/documents${toQueryString({
         bucketId: params.bucketId,
         status: params.status,
         cursor: params.cursor,
         limit: params.limit,
       })}`,
     ),
+
   uploadDocument: (file: File, bucketId?: string | null) => {
     const form = new FormData();
+
     form.append("file", file);
+
     return request<UploadDocumentResponse>(
-      `/api/documents/upload${toQueryString({ bucketId })}`,
+      `/documents/upload${toQueryString({ bucketId })}`,
       {
         method: "POST",
         body: form,
       },
     );
   },
+
   processIngestionJob: (jobId: string) =>
-    request<ProcessIngestionJobResponse>(
-      `/api/ingestion/jobs/${jobId}/process`,
-      {
-        method: "POST",
-      },
-    ),
+    request<ProcessIngestionJobResponse>(`/ingestion/jobs/${jobId}/process`, {
+      method: "POST",
+    }),
+
   reindexDocument: (documentId: string) =>
-    request<ReindexDocumentResponse>(`/api/documents/${documentId}/reindex`, {
+    request<ReindexDocumentResponse>(`/documents/${documentId}/reindex`, {
       method: "POST",
     }),
 };

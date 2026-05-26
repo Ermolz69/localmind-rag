@@ -1,10 +1,12 @@
 import type { AppSettings } from "@entities/settings";
+
 import { request } from "./http";
 
 export const settingsApi = {
-  getSettings: () => request<AppSettings>("/api/settings"),
+  getSettings: () => request<AppSettings>("/settings"),
+
   saveSettings: (settings: AppSettings) =>
-    request<void>("/api/settings", {
+    request<void>("/settings", {
       method: "PUT",
       body: JSON.stringify(settings),
     }),

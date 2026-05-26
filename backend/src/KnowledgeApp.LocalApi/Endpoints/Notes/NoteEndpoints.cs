@@ -8,15 +8,17 @@ public static class NoteEndpoints
 {
     public static IEndpointRouteBuilder MapNoteEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/notes", async (
-                Guid? bucketId,
-                string? query,
-                string? cursor,
-                int? limit,
-                GetNotesHandler handler,
-                HttpContext context,
-                CancellationToken cancellationToken) =>
-            (await handler.HandleAsync(new GetNotesQuery(bucketId, query, cursor, limit ?? 50), cancellationToken)).ToApiResult(context))
+        app.MapGet("/notes", async (
+            Guid? bucketId,
+            string? query,
+            string? cursor,
+            int? limit,
+            GetNotesHandler handler,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+            (await handler.HandleAsync(
+                new GetNotesQuery(bucketId, query, cursor, limit ?? 50),
+                cancellationToken)).ToApiResult(context))
             .WithName("ListNotes")
             .WithTags("Notes")
             .WithSummary("Lists notes.")
@@ -24,14 +26,14 @@ public static class NoteEndpoints
             .Produces<ApiResponse<CursorPage<NoteDto>>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapPost("/api/notes", async (
+        app.MapPost("/notes", async (
             CreateNoteRequest request,
             CreateNoteHandler handler,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
             return (await handler.HandleAsync(request, cancellationToken))
-                .ToCreatedApiResult(context, created => $"/api/notes/{created.Id}");
+                .ToCreatedApiResult(context, created => $"{ApiVersions.V1Prefix}/notes/{created.Id}");
         })
             .WithName("CreateNote")
             .WithTags("Notes")
@@ -40,7 +42,7 @@ public static class NoteEndpoints
             .Produces<ApiResponse<NoteDto>>(StatusCodes.Status201Created)
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapPut("/api/notes/{id:guid}", async (
+        app.MapPut("/notes/{id:guid}", async (
             Guid id,
             UpdateNoteRequest request,
             UpdateNoteHandler handler,
@@ -57,7 +59,7 @@ public static class NoteEndpoints
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapDelete("/api/notes/{id:guid}", async (
+        app.MapDelete("/notes/{id:guid}", async (
             Guid id,
             DeleteNoteHandler handler,
             HttpContext context,

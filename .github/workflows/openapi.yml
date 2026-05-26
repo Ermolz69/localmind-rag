@@ -1,0 +1,91 @@
+name: OpenAPI compatibility
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: openapi-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+permissions:
+  contents: read
+
+jobs:
+  openapi-compatibility:
+    name: OpenAPI compatibility
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout revision
+        uses: actions/checkout@v4
+        with:
+          path: revision
+
+      - name: Checkout base revision
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: revision/global.json
+
+      - name: Generate revision OpenAPI
+        shell: pwsh
+        run: >
+          & "./revision/scripts/openapi/generate-local-api-spec.ps1"
+          -RepositoryRoot "./revision"
+          -OutputFile "${{ github.workspace }}/artifacts/openapi/revision/local-api-v1.json"
+          -RuntimeRoot "${{ github.workspace }}/artifacts/openapi/runtime/revision"
+          -RuntimeDatabaseFileName "knowledge-app-openapi-revision.db"
+
+      - name: Generate base OpenAPI
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: >
+          & "./revision/scripts/openapi/generate-local-api-spec.ps1"
+          -RepositoryRoot "./base"
+          -OutputFile "${{ github.workspace }}/artifacts/openapi/base/local-api-v1.json"
+          -RuntimeRoot "${{ github.workspace }}/artifacts/openapi/runtime/base"
+          -RuntimeDatabaseFileName "knowledge-app-openapi-base.db"
+
+      - name: Determine whether versioned baseline exists
+        if: github.event_name == 'pull_request'
+        id: versioned-baseline
+        shell: pwsh
+        run: |
+          $baseSpec = Get-Content "${{ github.workspace }}/artifacts/openapi/base/local-api-v1.json" -Raw
+          $hasVersionedPaths = $baseSpec.Contains('"/api/v1/')
+
+          "available=$($hasVersionedPaths.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+          if (-not $hasVersionedPaths) {
+            "## OpenAPI compatibility" >> $env:GITHUB_STEP_SUMMARY
+            "" >> $env:GITHUB_STEP_SUMMARY
+            "Initial /api/v1 baseline is being introduced in this pull request. Breaking-change comparison starts after this versioned baseline is merged." >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Detect breaking OpenAPI changes
+        if: github.event_name == 'pull_request' && steps.versioned-baseline.outputs.available == 'true'
+        uses: oasdiff/oasdiff-action/breaking@v0.0.48
+        with:
+          base: artifacts/openapi/base/local-api-v1.json
+          revision: artifacts/openapi/revision/local-api-v1.json
+          fail-on: WARN
+
+      - name: Upload generated OpenAPI artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-api-openapi-${{ github.run_id }}
+          path: artifacts/openapi
+          if-no-files-found: error

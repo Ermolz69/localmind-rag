@@ -9,14 +9,16 @@ public static class IngestionEndpoints
 {
     public static IEndpointRouteBuilder MapIngestionEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/ingestion/jobs", async (
-                string? status,
-                int? limit,
-                int? offset,
-                [FromServices] ListIngestionJobsHandler handler,
-                HttpContext context,
-                CancellationToken cancellationToken) =>
-            (await handler.HandleAsync(new ListIngestionJobsQuery(status, limit ?? 50, offset ?? 0), cancellationToken)).ToApiResult(context))
+        app.MapGet("/ingestion/jobs", async (
+            string? status,
+            int? limit,
+            int? offset,
+            [FromServices] ListIngestionJobsHandler handler,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+            (await handler.HandleAsync(
+                new ListIngestionJobsQuery(status, limit ?? 50, offset ?? 0),
+                cancellationToken)).ToApiResult(context))
             .WithName("ListIngestionJobs")
             .WithTags("Ingestion")
             .WithSummary("Lists ingestion jobs.")
@@ -24,7 +26,7 @@ public static class IngestionEndpoints
             .Produces<ApiResponse<IngestionJobListResponse>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapGet("/api/ingestion/jobs/{id:guid}", async (
+        app.MapGet("/ingestion/jobs/{id:guid}", async (
             Guid id,
             [FromServices] GetIngestionJobHandler handler,
             HttpContext context,
@@ -37,14 +39,16 @@ public static class IngestionEndpoints
             .Produces<ApiResponse<IngestionJobDto>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
 
-        app.MapPost("/api/ingestion/jobs/{id:guid}/process", async (
+        app.MapPost("/ingestion/jobs/{id:guid}/process", async (
             Guid id,
             [FromServices] ProcessIngestionJobHandler handler,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
             return (await handler.HandleAsync(id, cancellationToken))
-                .ToAcceptedApiResult(context, response => $"/api/ingestion/jobs/{response.JobId}");
+                .ToAcceptedApiResult(
+                    context,
+                    response => $"{ApiVersions.V1Prefix}/ingestion/jobs/{response.JobId}");
         })
             .WithName("ProcessIngestionJob")
             .WithTags("Ingestion")
@@ -54,12 +58,15 @@ public static class IngestionEndpoints
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse<object?>>(StatusCodes.Status409Conflict);
 
-        app.MapPost("/api/ingestion/jobs/{id:guid}/retry", async (
+        app.MapPost("/ingestion/jobs/{id:guid}/retry", async (
             Guid id,
             [FromServices] RetryIngestionJobHandler handler,
             HttpContext context,
             CancellationToken cancellationToken) =>
-            (await handler.HandleAsync(id, cancellationToken)).ToAcceptedApiResult(context, response => $"/api/ingestion/jobs/{response.JobId}"))
+            (await handler.HandleAsync(id, cancellationToken))
+                .ToAcceptedApiResult(
+                    context,
+                    response => $"{ApiVersions.V1Prefix}/ingestion/jobs/{response.JobId}"))
             .WithName("RetryIngestionJob")
             .WithTags("Ingestion")
             .WithSummary("Retries an ingestion job.")
@@ -68,7 +75,7 @@ public static class IngestionEndpoints
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse<object?>>(StatusCodes.Status409Conflict);
 
-        app.MapPost("/api/ingestion/jobs/{id:guid}/cancel", async (
+        app.MapPost("/ingestion/jobs/{id:guid}/cancel", async (
             Guid id,
             [FromServices] CancelIngestionJobHandler handler,
             HttpContext context,

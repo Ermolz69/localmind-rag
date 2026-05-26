@@ -9,7 +9,7 @@ public static class SearchEndpoints
 {
     public static IEndpointRouteBuilder MapSearchEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/search/content", async (
+        app.MapPost("/search/content", async (
             ContentSearchRequest request,
             ContentSearchHandler handler,
             HttpContext context,
@@ -24,7 +24,7 @@ public static class SearchEndpoints
             .Produces<ApiResponse<ContentSearchResponse>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapPost("/api/search/semantic", async (
+        app.MapPost("/search/semantic", async (
             SemanticSearchRequest request,
             SemanticSearchHandler handler,
             HttpContext context,

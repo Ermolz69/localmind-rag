@@ -11,8 +11,8 @@ public sealed class ApiEnvelopeGuardTests(LocalApiTestFactory factory) : IClassF
     private readonly HttpClient client = factory.CreateClient();
 
     [Theory]
-    [InlineData("/api/settings")]
-    [InlineData("/api/buckets")]
+    [InlineData("/api/v1/settings")]
+    [InlineData("/api/v1/buckets")]
     public async Task Representative_Get_Endpoints_Should_Return_ApiResponse_Envelope(string path)
     {
         using HttpResponseMessage response = await client.GetAsync(path);
@@ -32,7 +32,7 @@ public sealed class ApiEnvelopeGuardTests(LocalApiTestFactory factory) : IClassF
     [Fact]
     public async Task Error_Responses_Should_Return_ApiResponse_Envelope_Not_ProblemDetails()
     {
-        using HttpResponseMessage response = await client.GetAsync($"/api/documents/{Guid.NewGuid()}");
+        using HttpResponseMessage response = await client.GetAsync($"/api/v1/documents/{Guid.NewGuid()}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         using JsonDocument document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -50,7 +50,7 @@ public sealed class ApiEnvelopeGuardTests(LocalApiTestFactory factory) : IClassF
     [Fact]
     public async Task Health_Should_Remain_Raw_Json()
     {
-        using HttpResponseMessage response = await client.GetAsync("/api/health");
+        using HttpResponseMessage response = await client.GetAsync("/api/v1/health");
         response.EnsureSuccessStatusCode();
 
         using JsonDocument document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());

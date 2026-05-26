@@ -18,14 +18,15 @@ public sealed class ApiPaginationTests
         ConversationDto first = await ApiScenarioHelpers.CreateConversationAsync(client, "First chat");
         ConversationDto second = await ApiScenarioHelpers.CreateConversationAsync(client, "Second chat");
 
-        CursorPage<ConversationDto>? firstPage = await client.GetApiDataAsync<CursorPage<ConversationDto>>("/api/chats?limit=1");
+        CursorPage<ConversationDto>? firstPage = await client.GetApiDataAsync<CursorPage<ConversationDto>>(
+            "/api/v1/chats?limit=1");
 
         Assert.NotNull(firstPage);
         Assert.True(firstPage.HasMore);
         Assert.NotNull(firstPage.NextCursor);
 
         CursorPage<ConversationDto>? secondPage = await client.GetApiDataAsync<CursorPage<ConversationDto>>(
-            $"/api/chats?limit=1&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
+            $"/api/v1/chats?limit=1&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
 
         Assert.NotNull(secondPage);
         Assert.DoesNotContain(secondPage.Items, conversation => conversation.Id == firstPage.Items[0].Id);
@@ -40,7 +41,7 @@ public sealed class ApiPaginationTests
         using LocalApiTestFactory factory = new();
         using HttpClient client = factory.CreateClient();
 
-        HttpResponseMessage response = await client.GetAsync("/api/notes?cursor=not-a-valid-cursor");
+        HttpResponseMessage response = await client.GetAsync("/api/v1/notes?cursor=not-a-valid-cursor");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
@@ -58,13 +59,14 @@ public sealed class ApiPaginationTests
         await CreateBucketAsync(client, "Beta A");
 
         CursorPage<BucketDto>? firstPage = await client.GetApiDataAsync<CursorPage<BucketDto>>(
-            "/api/buckets/page?query=Alpha&limit=1");
+            "/api/v1/buckets/page?query=Alpha&limit=1");
+
         Assert.NotNull(firstPage);
         Assert.True(firstPage.HasMore);
         Assert.NotNull(firstPage.NextCursor);
 
         HttpResponseMessage response = await client.GetAsync(
-            $"/api/buckets/page?query=Beta&limit=1&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
+            $"/api/v1/buckets/page?query=Beta&limit=1&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
@@ -74,12 +76,15 @@ public sealed class ApiPaginationTests
     private static async Task<BucketDto> CreateBucketAsync(HttpClient client, string name)
     {
         HttpResponseMessage response = await client.PostAsJsonAsync(
-            "/api/buckets",
+            "/api/v1/buckets",
             new CreateBucketRequest($"{name}-{Guid.NewGuid():N}", Description: null));
+
         response.EnsureSuccessStatusCode();
 
         BucketDto? bucket = await response.Content.ReadApiDataAsync<BucketDto>();
+
         Assert.NotNull(bucket);
+
         return bucket;
     }
 }

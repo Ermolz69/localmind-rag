@@ -41,20 +41,37 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 
         UploadDocumentResponse? upload = await UploadDocumentAsync(client, fileName);
 
-        CursorPage<DocumentDto>? documents = await client.GetApiDataAsync<CursorPage<DocumentDto>>("/api/documents");
-        Assert.Contains(documents?.Items ?? [], document => document.Id == upload.DocumentId && document.Name == fileName);
+        CursorPage<DocumentDto>? documents =
+            await client.GetApiDataAsync<CursorPage<DocumentDto>>("/api/v1/documents");
 
-        DocumentDto? document = await client.GetApiDataAsync<DocumentDto>($"/api/documents/{upload.DocumentId}");
+        Assert.Contains(
+            documents?.Items ?? [],
+            document => document.Id == upload.DocumentId && document.Name == fileName);
+
+        DocumentDto? document =
+            await client.GetApiDataAsync<DocumentDto>($"/api/v1/documents/{upload.DocumentId}");
+
         Assert.NotNull(document);
         Assert.Equal(fileName, document.Name);
 
         using IServiceScope? scope = factory.Services.CreateScope();
+
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Document? storedDocument = await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
-        LocalDevice? localDevice = await db.LocalDevices.SingleAsync(x => x.Id == storedDocument.LocalDeviceId);
-        Bucket? defaultBucket = await db.Buckets.SingleAsync(x => x.Id == storedDocument.BucketId);
-        DocumentFile? storedFile = await db.DocumentFiles.SingleAsync(x => x.DocumentId == upload.DocumentId);
-        IngestionJob? ingestionJob = await db.IngestionJobs.SingleAsync(x => x.DocumentId == upload.DocumentId);
+
+        Document? storedDocument =
+            await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
+
+        LocalDevice? localDevice =
+            await db.LocalDevices.SingleAsync(x => x.Id == storedDocument.LocalDeviceId);
+
+        Bucket? defaultBucket =
+            await db.Buckets.SingleAsync(x => x.Id == storedDocument.BucketId);
+
+        DocumentFile? storedFile =
+            await db.DocumentFiles.SingleAsync(x => x.DocumentId == upload.DocumentId);
+
+        IngestionJob? ingestionJob =
+            await db.IngestionJobs.SingleAsync(x => x.DocumentId == upload.DocumentId);
 
         Assert.Equal(BucketConstants.DefaultBucketName, defaultBucket.Name);
         Assert.False(string.IsNullOrWhiteSpace(localDevice.DeviceKey));
@@ -66,25 +83,52 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     public async Task UploadDocument_Should_Use_Selected_Bucket_And_Filter_By_Bucket()
     {
         using HttpClient? client = factory.CreateClient();
+
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Bucket? selectedBucket = new Bucket { Name = $"Selected-{Guid.NewGuid():N}" };
-        Bucket? otherBucket = new Bucket { Name = $"Other-{Guid.NewGuid():N}" };
+
+        Bucket? selectedBucket = new Bucket
+        {
+            Name = $"Selected-{Guid.NewGuid():N}",
+        };
+
+        Bucket? otherBucket = new Bucket
+        {
+            Name = $"Other-{Guid.NewGuid():N}",
+        };
+
         db.Buckets.AddRange(selectedBucket, otherBucket);
+
         await db.SaveChangesAsync();
 
         string? selectedFileName = $"selected-{Guid.NewGuid():N}.txt";
         string? otherFileName = $"other-{Guid.NewGuid():N}.txt";
-        UploadDocumentResponse? selectedUpload = await UploadDocumentAsync(client, selectedFileName, selectedBucket.Id);
-        UploadDocumentResponse? otherUpload = await UploadDocumentAsync(client, otherFileName, otherBucket.Id);
 
-        CursorPage<DocumentDto>? filteredDocuments = await client.GetApiDataAsync<CursorPage<DocumentDto>>($"/api/documents?bucketId={selectedBucket.Id}");
-        Assert.Contains(filteredDocuments?.Items ?? [], document => document.Id == selectedUpload.DocumentId);
-        Assert.DoesNotContain(filteredDocuments?.Items ?? [], document => document.Id == otherUpload.DocumentId);
+        UploadDocumentResponse? selectedUpload =
+            await UploadDocumentAsync(client, selectedFileName, selectedBucket.Id);
+
+        UploadDocumentResponse? otherUpload =
+            await UploadDocumentAsync(client, otherFileName, otherBucket.Id);
+
+        CursorPage<DocumentDto>? filteredDocuments =
+            await client.GetApiDataAsync<CursorPage<DocumentDto>>(
+                $"/api/v1/documents?bucketId={selectedBucket.Id}");
+
+        Assert.Contains(
+            filteredDocuments?.Items ?? [],
+            document => document.Id == selectedUpload.DocumentId);
+
+        Assert.DoesNotContain(
+            filteredDocuments?.Items ?? [],
+            document => document.Id == otherUpload.DocumentId);
 
         await db.Entry(selectedBucket).ReloadAsync();
         await db.Entry(otherBucket).ReloadAsync();
-        Document? selectedDocument = await db.Documents.SingleAsync(x => x.Id == selectedUpload.DocumentId);
+
+        Document? selectedDocument =
+            await db.Documents.SingleAsync(x => x.Id == selectedUpload.DocumentId);
+
         Assert.Equal(selectedBucket.Id, selectedDocument.BucketId);
     }
 
@@ -92,25 +136,55 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     public async Task GetDocuments_Should_Return_Cursor_Page_And_Use_Next_Cursor()
     {
         using HttpClient client = factory.CreateClient();
-        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
-        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Bucket bucket = new() { Name = $"Cursor-{Guid.NewGuid():N}" };
-        db.Buckets.Add(bucket);
-        await db.SaveChangesAsync();
-        UploadDocumentResponse firstUpload = await UploadDocumentAsync(client, $"cursor-a-{Guid.NewGuid():N}.txt", bucket.Id);
-        UploadDocumentResponse secondUpload = await UploadDocumentAsync(client, $"cursor-b-{Guid.NewGuid():N}.txt", bucket.Id);
 
-        CursorPage<DocumentDto>? firstPage = await client.GetApiDataAsync<CursorPage<DocumentDto>>(
-            $"/api/documents?bucketId={bucket.Id}&limit=1");
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        Bucket bucket = new()
+        {
+            Name = $"Cursor-{Guid.NewGuid():N}",
+        };
+
+        db.Buckets.Add(bucket);
+
+        await db.SaveChangesAsync();
+
+        UploadDocumentResponse firstUpload =
+            await UploadDocumentAsync(
+                client,
+                $"cursor-a-{Guid.NewGuid():N}.txt",
+                bucket.Id);
+
+        UploadDocumentResponse secondUpload =
+            await UploadDocumentAsync(
+                client,
+                $"cursor-b-{Guid.NewGuid():N}.txt",
+                bucket.Id);
+
+        CursorPage<DocumentDto>? firstPage =
+            await client.GetApiDataAsync<CursorPage<DocumentDto>>(
+                $"/api/v1/documents?bucketId={bucket.Id}&limit=1");
+
         Assert.NotNull(firstPage);
         Assert.True(firstPage.HasMore);
         Assert.NotNull(firstPage.NextCursor);
 
-        CursorPage<DocumentDto>? secondPage = await client.GetApiDataAsync<CursorPage<DocumentDto>>(
-            $"/api/documents?bucketId={bucket.Id}&limit=1&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
+        CursorPage<DocumentDto>? secondPage =
+            await client.GetApiDataAsync<CursorPage<DocumentDto>>(
+                $"/api/v1/documents?bucketId={bucket.Id}&limit=1&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
+
         Assert.NotNull(secondPage);
-        Assert.DoesNotContain(secondPage.Items, document => document.Id == firstPage.Items[0].Id);
-        Guid[] returnedDocumentIds = firstPage.Items.Concat(secondPage.Items).Select(document => document.Id).ToArray();
+
+        Assert.DoesNotContain(
+            secondPage.Items,
+            document => document.Id == firstPage.Items[0].Id);
+
+        Guid[] returnedDocumentIds = firstPage.Items
+            .Concat(secondPage.Items)
+            .Select(document => document.Id)
+            .ToArray();
+
         Assert.Contains(firstUpload.DocumentId, returnedDocumentIds);
         Assert.Contains(secondUpload.DocumentId, returnedDocumentIds);
     }
@@ -120,7 +194,8 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     {
         using HttpClient? client = factory.CreateClient();
 
-        using HttpResponseMessage? response = await client.GetAsync($"/api/documents/{Guid.NewGuid()}");
+        using HttpResponseMessage? response =
+            await client.GetAsync($"/api/v1/documents/{Guid.NewGuid()}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -131,15 +206,25 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         using HttpClient? client = factory.CreateClient();
         using MultipartFormDataContent? form = new MultipartFormDataContent();
         using ByteArrayContent? file = new ByteArrayContent("unsupported"u8.ToArray());
-        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+
+        file.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+
         form.Add(file, "file", "unsupported.exe");
 
-        using HttpResponseMessage? response = await client.PostAsync("/api/documents/upload", form);
+        using HttpResponseMessage? response =
+            await client.PostAsync("/api/v1/documents/upload", form);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+
+        ApiResponse<object?> envelope =
+            await response.Content.ReadApiErrorAsync();
+
         Assert.Equal("VALIDATION_FAILED", envelope.Error!.Code);
-        Assert.Contains(envelope.Error.Details ?? [], detail => detail.Field == "fileName");
+
+        Assert.Contains(
+            envelope.Error.Details ?? [],
+            detail => detail.Field == "fileName");
     }
 
     [Fact]
@@ -148,13 +233,22 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         using HttpClient? client = factory.CreateClient();
         using MultipartFormDataContent? form = new MultipartFormDataContent();
         using ByteArrayContent? file = new ByteArrayContent("content"u8.ToArray());
-        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+
+        file.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+
         form.Add(file, "file", "notes.txt");
 
-        using HttpResponseMessage? response = await client.PostAsync($"/api/documents/upload?bucketId={Guid.NewGuid()}", form);
+        using HttpResponseMessage? response =
+            await client.PostAsync(
+                $"/api/v1/documents/upload?bucketId={Guid.NewGuid()}",
+                form);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        ApiResponse<object?> envelope = await response.Content.ReadApiErrorAsync();
+
+        ApiResponse<object?> envelope =
+            await response.Content.ReadApiErrorAsync();
+
         Assert.Equal("BUCKET_NOT_FOUND", envelope.Error!.Code);
     }
 
@@ -162,20 +256,34 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     public async Task Uploaded_Text_Document_Should_Be_Processed_Into_Chunks()
     {
         using HttpClient? client = factory.CreateClient();
+
         string? fileName = $"ingestion-{Guid.NewGuid():N}.txt";
-        UploadDocumentResponse? upload = await UploadDocumentAsync(client, fileName, content: "First paragraph.\n\nSecond paragraph.");
+
+        UploadDocumentResponse? upload =
+            await UploadDocumentAsync(
+                client,
+                fileName,
+                content: "First paragraph.\n\nSecond paragraph.");
 
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
-        IIngestionJobProcessor? processor = scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+
+        IIngestionJobProcessor? processor =
+            scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+
         await processor.ProcessAsync(upload.IngestionJobId);
 
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
         DocumentChunk[]? chunks = await db.DocumentChunks
             .Where(x => x.DocumentId == upload.DocumentId)
             .OrderBy(x => x.Index)
             .ToArrayAsync();
-        Document? document = await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
-        IngestionJob? job = await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+
+        Document? document =
+            await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
+
+        IngestionJob? job =
+            await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
 
         Assert.Single(chunks);
         Assert.Equal("First paragraph.\n\nSecond paragraph.", chunks[0].Text);
@@ -184,7 +292,10 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         Assert.Equal(100, job.ProgressPercent);
         Assert.Equal("Indexed", job.CurrentStep);
 
-        DocumentEmbedding? embedding = await db.DocumentEmbeddings.SingleAsync(x => x.DocumentChunkId == chunks[0].Id);
+        DocumentEmbedding? embedding =
+            await db.DocumentEmbeddings.SingleAsync(
+                x => x.DocumentChunkId == chunks[0].Id);
+
         Assert.Equal("BGE-M3", embedding.ModelName);
         Assert.Equal(32, embedding.Dimension);
         Assert.Equal(32 * sizeof(float), embedding.Embedding.Length);
@@ -193,35 +304,62 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     [Fact]
     public async Task Uploaded_Text_Document_Should_Be_Automatically_Processed_By_Worker()
     {
-        using WebApplicationFactory<Program> autoWorkerFactory = factory.WithWebHostBuilder(builder =>
-            builder.ConfigureAppConfiguration((_, configuration) =>
-            {
-                Dictionary<string, string?> settings = new()
+        using WebApplicationFactory<Program> autoWorkerFactory =
+            factory.WithWebHostBuilder(builder =>
+                builder.ConfigureAppConfiguration((_, configuration) =>
                 {
-                    ["IngestionWorker:Enabled"] = "true",
-                    ["IngestionWorker:PollIntervalSeconds"] = "1",
-                    ["IngestionWorker:BatchSize"] = "1",
-                };
+                    Dictionary<string, string?> settings = new()
+                    {
+                        ["IngestionWorker:Enabled"] = "true",
+                        ["IngestionWorker:PollIntervalSeconds"] = "1",
+                        ["IngestionWorker:BatchSize"] = "1",
+                    };
 
-                configuration.AddInMemoryCollection(settings);
-            }));
+                    configuration.AddInMemoryCollection(settings);
+                }));
+
         using HttpClient client = autoWorkerFactory.CreateClient();
+
         string fileName = $"auto-ingestion-{Guid.NewGuid():N}.txt";
-        UploadDocumentResponse upload = await UploadDocumentAsync(client, fileName, content: "Automatic worker paragraph.");
+
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                fileName,
+                content: "Automatic worker paragraph.");
 
         await WaitForAsync(async () =>
         {
-            await using AsyncServiceScope scope = autoWorkerFactory.Services.CreateAsyncScope();
-            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            IngestionJob job = await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+            await using AsyncServiceScope scope =
+                autoWorkerFactory.Services.CreateAsyncScope();
+
+            AppDbContext db =
+                scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            IngestionJob job =
+                await db.IngestionJobs.SingleAsync(
+                    x => x.Id == upload.IngestionJobId);
+
             return job.Status == IngestionJobStatus.Indexed;
         });
 
-        await using AsyncServiceScope verificationScope = autoWorkerFactory.Services.CreateAsyncScope();
-        AppDbContext verificationDb = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
-        DocumentChunk chunk = await verificationDb.DocumentChunks.SingleAsync(x => x.DocumentId == upload.DocumentId);
-        Document document = await verificationDb.Documents.SingleAsync(x => x.Id == upload.DocumentId);
-        IngestionJob completedJob = await verificationDb.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+        await using AsyncServiceScope verificationScope =
+            autoWorkerFactory.Services.CreateAsyncScope();
+
+        AppDbContext verificationDb =
+            verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        DocumentChunk chunk =
+            await verificationDb.DocumentChunks.SingleAsync(
+                x => x.DocumentId == upload.DocumentId);
+
+        Document document =
+            await verificationDb.Documents.SingleAsync(
+                x => x.Id == upload.DocumentId);
+
+        IngestionJob completedJob =
+            await verificationDb.IngestionJobs.SingleAsync(
+                x => x.Id == upload.IngestionJobId);
 
         Assert.Equal("Automatic worker paragraph.", chunk.Text);
         Assert.Equal(DocumentStatus.Indexed, document.Status);
@@ -232,34 +370,59 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     [Fact]
     public async Task Uploaded_Corrupt_Pdf_Document_Should_Be_Automatically_Failed_By_Worker()
     {
-        using WebApplicationFactory<Program> autoWorkerFactory = factory.WithWebHostBuilder(builder =>
-            builder.ConfigureAppConfiguration((_, configuration) =>
-            {
-                Dictionary<string, string?> settings = new()
+        using WebApplicationFactory<Program> autoWorkerFactory =
+            factory.WithWebHostBuilder(builder =>
+                builder.ConfigureAppConfiguration((_, configuration) =>
                 {
-                    ["IngestionWorker:Enabled"] = "true",
-                    ["IngestionWorker:PollIntervalSeconds"] = "1",
-                    ["IngestionWorker:BatchSize"] = "1",
-                };
+                    Dictionary<string, string?> settings = new()
+                    {
+                        ["IngestionWorker:Enabled"] = "true",
+                        ["IngestionWorker:PollIntervalSeconds"] = "1",
+                        ["IngestionWorker:BatchSize"] = "1",
+                    };
 
-                configuration.AddInMemoryCollection(settings);
-            }));
+                    configuration.AddInMemoryCollection(settings);
+                }));
+
         using HttpClient client = autoWorkerFactory.CreateClient();
+
         string fileName = $"auto-failed-{Guid.NewGuid():N}.pdf";
-        UploadDocumentResponse upload = await UploadDocumentAsync(client, fileName, content: "%PDF skeleton", contentType: "application/pdf");
+
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                fileName,
+                content: "%PDF skeleton",
+                contentType: "application/pdf");
 
         await WaitForAsync(async () =>
         {
-            await using AsyncServiceScope scope = autoWorkerFactory.Services.CreateAsyncScope();
-            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            IngestionJob job = await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+            await using AsyncServiceScope scope =
+                autoWorkerFactory.Services.CreateAsyncScope();
+
+            AppDbContext db =
+                scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            IngestionJob job =
+                await db.IngestionJobs.SingleAsync(
+                    x => x.Id == upload.IngestionJobId);
+
             return job.Status == IngestionJobStatus.Failed;
         });
 
-        await using AsyncServiceScope verificationScope = autoWorkerFactory.Services.CreateAsyncScope();
-        AppDbContext verificationDb = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Document document = await verificationDb.Documents.SingleAsync(x => x.Id == upload.DocumentId);
-        IngestionJob failedJob = await verificationDb.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+        await using AsyncServiceScope verificationScope =
+            autoWorkerFactory.Services.CreateAsyncScope();
+
+        AppDbContext verificationDb =
+            verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        Document document =
+            await verificationDb.Documents.SingleAsync(
+                x => x.Id == upload.DocumentId);
+
+        IngestionJob failedJob =
+            await verificationDb.IngestionJobs.SingleAsync(
+                x => x.Id == upload.IngestionJobId);
 
         Assert.Equal(DocumentStatus.Failed, document.Status);
         Assert.Equal(IngestionJobStatus.Failed, failedJob.Status);
@@ -271,19 +434,45 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     public async Task ProcessIngestionJobEndpoint_Should_Process_Uploaded_Text_Document()
     {
         using HttpClient? client = factory.CreateClient();
-        string? fileName = $"endpoint-ingestion-{Guid.NewGuid():N}.txt";
-        UploadDocumentResponse? upload = await UploadDocumentAsync(client, fileName, content: "Endpoint paragraph.");
 
-        using HttpResponseMessage? response = await client.PostAsync($"/api/ingestion/jobs/{upload.IngestionJobId}/process", content: null);
+        string? fileName = $"endpoint-ingestion-{Guid.NewGuid():N}.txt";
+
+        UploadDocumentResponse? upload =
+            await UploadDocumentAsync(
+                client,
+                fileName,
+                content: "Endpoint paragraph.");
+
+        using HttpResponseMessage? response =
+            await client.PostAsync(
+                $"/api/v1/ingestion/jobs/{upload.IngestionJobId}/process",
+                content: null);
 
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-        ProcessIngestionJobResponse? body = await response.Content.ReadApiDataAsync<ProcessIngestionJobResponse>();
+        Assert.NotNull(response.Headers.Location);
+
+        Assert.Equal(
+            $"/api/v1/ingestion/jobs/{upload.IngestionJobId}",
+            response.Headers.Location!.OriginalString);
+
+        ProcessIngestionJobResponse? body =
+            await response.Content.ReadApiDataAsync<ProcessIngestionJobResponse>();
+
         Assert.NotNull(body);
         Assert.Equal(upload.IngestionJobId, body.JobId);
+
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        DocumentChunk? chunk = await db.DocumentChunks.SingleAsync(x => x.DocumentId == upload.DocumentId);
-        Document? document = await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
+
+        DocumentChunk? chunk =
+            await db.DocumentChunks.SingleAsync(
+                x => x.DocumentId == upload.DocumentId);
+
+        Document? document =
+            await db.Documents.SingleAsync(
+                x => x.Id == upload.DocumentId);
+
         Assert.Equal("Endpoint paragraph.", chunk.Text);
         Assert.Equal(DocumentStatus.Indexed, document.Status);
     }
@@ -292,42 +481,80 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     public async Task Uploaded_Corrupt_Pdf_Document_Should_Fail_Ingestion()
     {
         using HttpClient? client = factory.CreateClient();
+
         string? fileName = $"unsupported-{Guid.NewGuid():N}.pdf";
-        UploadDocumentResponse? upload = await UploadDocumentAsync(client, fileName, content: "%PDF skeleton", contentType: "application/pdf");
+
+        UploadDocumentResponse? upload =
+            await UploadDocumentAsync(
+                client,
+                fileName,
+                content: "%PDF skeleton",
+                contentType: "application/pdf");
 
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
-        IIngestionJobProcessor? processor = scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+
+        IIngestionJobProcessor? processor =
+            scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+
         await processor.ProcessAsync(upload.IngestionJobId);
 
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Document? document = await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
-        IngestionJob? job = await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+
+        Document? document =
+            await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
+
+        IngestionJob? job =
+            await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
 
         Assert.Equal(DocumentStatus.Failed, document.Status);
         Assert.Equal(IngestionJobStatus.Failed, job.Status);
         Assert.Equal("INGESTION_JOB_FAILED", job.ErrorCode);
         Assert.Contains("PDF", job.ErrorMessage, StringComparison.OrdinalIgnoreCase);
 
-        CursorPage<DocumentDto>? documents = await client.GetApiDataAsync<CursorPage<DocumentDto>>("/api/documents");
-        Assert.Contains(documents?.Items ?? [], item => item.Id == upload.DocumentId && item.LastError != null);
+        CursorPage<DocumentDto>? documents =
+            await client.GetApiDataAsync<CursorPage<DocumentDto>>("/api/v1/documents");
+
+        Assert.Contains(
+            documents?.Items ?? [],
+            item => item.Id == upload.DocumentId && item.LastError != null);
     }
 
     [Fact]
     public async Task Uploaded_Pdf_Document_Should_Be_Processed_Into_Page_Mapped_Chunks()
     {
         using HttpClient? client = factory.CreateClient();
+
         string? fileName = $"smoke-{Guid.NewGuid():N}.pdf";
-        UploadDocumentResponse? upload = await UploadDocumentAsync(client, fileName, CreatePdfBytes("Integration PDF text."), "application/pdf");
+
+        UploadDocumentResponse? upload =
+            await UploadDocumentAsync(
+                client,
+                fileName,
+                CreatePdfBytes("Integration PDF text."),
+                "application/pdf");
 
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
-        IIngestionJobProcessor? processor = scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+
+        IIngestionJobProcessor? processor =
+            scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+
         await processor.ProcessAsync(upload.IngestionJobId);
 
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        DocumentChunk? chunk = await db.DocumentChunks.SingleAsync(x => x.DocumentId == upload.DocumentId);
-        Document? document = await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
 
-        Assert.Contains("Integration PDF text.", chunk.Text, StringComparison.OrdinalIgnoreCase);
+        DocumentChunk? chunk =
+            await db.DocumentChunks.SingleAsync(
+                x => x.DocumentId == upload.DocumentId);
+
+        Document? document =
+            await db.Documents.SingleAsync(
+                x => x.Id == upload.DocumentId);
+
+        Assert.Contains(
+            "Integration PDF text.",
+            chunk.Text,
+            StringComparison.OrdinalIgnoreCase);
+
         Assert.Equal(1, chunk.PageNumber);
         Assert.Equal(DocumentStatus.Indexed, document.Status);
     }
@@ -336,19 +563,28 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     public async Task Uploaded_Docx_Document_Should_Be_Processed_Into_Chunks()
     {
         using HttpClient? client = factory.CreateClient();
+
         string? fileName = $"smoke-{Guid.NewGuid():N}.docx";
-        UploadDocumentResponse? upload = await UploadDocumentAsync(
-            client,
-            fileName,
-            CreateDocxBytes("Integration DOCX text."),
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+        UploadDocumentResponse? upload =
+            await UploadDocumentAsync(
+                client,
+                fileName,
+                CreateDocxBytes("Integration DOCX text."),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
 
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
-        IIngestionJobProcessor? processor = scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+
+        IIngestionJobProcessor? processor =
+            scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+
         await processor.ProcessAsync(upload.IngestionJobId);
 
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        DocumentChunk? chunk = await db.DocumentChunks.SingleAsync(x => x.DocumentId == upload.DocumentId);
+
+        DocumentChunk? chunk =
+            await db.DocumentChunks.SingleAsync(
+                x => x.DocumentId == upload.DocumentId);
 
         Assert.Equal("Integration DOCX text.", chunk.Text);
         Assert.Null(chunk.PageNumber);
@@ -358,19 +594,28 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     public async Task Uploaded_Pptx_Document_Should_Be_Processed_Into_Slide_Mapped_Chunks()
     {
         using HttpClient? client = factory.CreateClient();
+
         string? fileName = $"smoke-{Guid.NewGuid():N}.pptx";
-        UploadDocumentResponse? upload = await UploadDocumentAsync(
-            client,
-            fileName,
-            CreatePptxBytes("Integration PPTX text."),
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+
+        UploadDocumentResponse? upload =
+            await UploadDocumentAsync(
+                client,
+                fileName,
+                CreatePptxBytes("Integration PPTX text."),
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation");
 
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
-        IIngestionJobProcessor? processor = scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+
+        IIngestionJobProcessor? processor =
+            scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+
         await processor.ProcessAsync(upload.IngestionJobId);
 
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        DocumentChunk? chunk = await db.DocumentChunks.SingleAsync(x => x.DocumentId == upload.DocumentId);
+
+        DocumentChunk? chunk =
+            await db.DocumentChunks.SingleAsync(
+                x => x.DocumentId == upload.DocumentId);
 
         Assert.Equal("Integration PPTX text.", chunk.Text);
         Assert.Equal(1, chunk.PageNumber);
@@ -379,11 +624,15 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     private async Task ClearLastSelectedBucketAsync()
     {
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
         AppSetting[]? settings = await db.AppSettings
             .Where(x => x.Key == BucketSettingsKeys.LastSelectedBucketId)
             .ToArrayAsync();
+
         db.AppSettings.RemoveRange(settings);
+
         await db.SaveChangesAsync();
     }
 
@@ -395,15 +644,35 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         string contentType = "text/plain")
     {
         using MultipartFormDataContent? form = new MultipartFormDataContent();
-        using ByteArrayContent? file = new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(content));
-        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+
+        using ByteArrayContent? file =
+            new ByteArrayContent(Encoding.UTF8.GetBytes(content));
+
+        file.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+
         form.Add(file, "file", fileName);
 
-        string? url = bucketId.HasValue ? $"/api/documents/upload?bucketId={bucketId}" : "/api/documents/upload";
-        using HttpResponseMessage? uploadResponse = await client.PostAsync(url, form);
+        string? url = bucketId.HasValue
+            ? $"/api/v1/documents/upload?bucketId={bucketId}"
+            : "/api/v1/documents/upload";
+
+        using HttpResponseMessage? uploadResponse =
+            await client.PostAsync(url, form);
+
         Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
-        UploadDocumentResponse? upload = await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
+        Assert.NotNull(uploadResponse.Headers.Location);
+
+        Assert.StartsWith(
+            "/api/v1/documents/",
+            uploadResponse.Headers.Location!.OriginalString,
+            StringComparison.Ordinal);
+
+        UploadDocumentResponse? upload =
+            await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
+
         Assert.NotNull(upload);
+
         return upload;
     }
 
@@ -415,19 +684,35 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     {
         using MultipartFormDataContent? form = new MultipartFormDataContent();
         using ByteArrayContent? file = new ByteArrayContent(content);
-        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+
+        file.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+
         form.Add(file, "file", fileName);
 
-        using HttpResponseMessage? uploadResponse = await client.PostAsync("/api/documents/upload", form);
+        using HttpResponseMessage? uploadResponse =
+            await client.PostAsync("/api/v1/documents/upload", form);
+
         Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
-        UploadDocumentResponse? upload = await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
+        Assert.NotNull(uploadResponse.Headers.Location);
+
+        Assert.StartsWith(
+            "/api/v1/documents/",
+            uploadResponse.Headers.Location!.OriginalString,
+            StringComparison.Ordinal);
+
+        UploadDocumentResponse? upload =
+            await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
+
         Assert.NotNull(upload);
+
         return upload;
     }
 
     private static async Task WaitForAsync(Func<Task<bool>> condition)
     {
         DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+
         while (DateTimeOffset.UtcNow < deadline)
         {
             if (await condition())
@@ -443,45 +728,78 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 
     private static byte[] CreatePdfBytes(string text)
     {
-        string? escapedText = text.Replace(@"\", @"\\", StringComparison.Ordinal)
+        string? escapedText = text
+            .Replace(@"\", @"\\", StringComparison.Ordinal)
             .Replace("(", @"\(", StringComparison.Ordinal)
             .Replace(")", @"\)", StringComparison.Ordinal);
+
         string? content = $"BT /F1 12 Tf 72 720 Td ({escapedText}) Tj ET";
-        string[]? objects = new[]
-        {
+
+        string[]? objects =
+        [
             "<< /Type /Catalog /Pages 2 0 R >>",
             "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
             $"<< /Length {Encoding.ASCII.GetByteCount(content)} >>\nstream\n{content}\nendstream",
             "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-        };
+        ];
+
         StringBuilder? builder = new StringBuilder("%PDF-1.4\n");
-        List<int>? offsets = new List<int> { 0 };
+
+        List<int>? offsets = [0];
+
         for (int index = 0; index < objects.Length; index++)
         {
             offsets.Add(Encoding.ASCII.GetByteCount(builder.ToString()));
-            builder.Append(CultureInfo.InvariantCulture, $"{index + 1} 0 obj\n{objects[index]}\nendobj\n");
+
+            builder.Append(
+                CultureInfo.InvariantCulture,
+                $"{index + 1} 0 obj\n{objects[index]}\nendobj\n");
         }
 
         int xrefOffset = Encoding.ASCII.GetByteCount(builder.ToString());
-        builder.Append(CultureInfo.InvariantCulture, $"xref\n0 {objects.Length + 1}\n");
+
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"xref\n0 {objects.Length + 1}\n");
+
         builder.Append("0000000000 65535 f \n");
+
         foreach (int offset in offsets.Skip(1))
         {
-            builder.Append(CultureInfo.InvariantCulture, $"{offset:D10} 00000 n \n");
+            builder.Append(
+                CultureInfo.InvariantCulture,
+                $"{offset:D10} 00000 n \n");
         }
 
-        builder.Append(CultureInfo.InvariantCulture, $"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xrefOffset}\n%%EOF");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xrefOffset}\n%%EOF");
+
         return Encoding.ASCII.GetBytes(builder.ToString());
     }
 
     private static byte[] CreateDocxBytes(string text)
     {
         using MemoryStream? stream = new MemoryStream();
-        using (WordprocessingDocument? document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true))
+
+        using (
+            WordprocessingDocument? document =
+                WordprocessingDocument.Create(
+                    stream,
+                    WordprocessingDocumentType.Document,
+                    true))
         {
-            MainDocumentPart? mainDocumentPart = document.AddMainDocumentPart();
-            mainDocumentPart.Document = new W.Document(new W.Body(new W.Paragraph(new W.Run(new W.Text(text)))));
+            MainDocumentPart? mainDocumentPart =
+                document.AddMainDocumentPart();
+
+            mainDocumentPart.Document =
+                new W.Document(
+                    new W.Body(
+                        new W.Paragraph(
+                            new W.Run(
+                                new W.Text(text)))));
+
             mainDocumentPart.Document.Save();
         }
 
@@ -491,31 +809,62 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     private static byte[] CreatePptxBytes(string text)
     {
         using MemoryStream? stream = new MemoryStream();
-        using (PresentationDocument? document = PresentationDocument.Create(stream, PresentationDocumentType.Presentation, true))
+
+        using (
+            PresentationDocument? document =
+                PresentationDocument.Create(
+                    stream,
+                    PresentationDocumentType.Presentation,
+                    true))
         {
-            PresentationPart? presentationPart = document.AddPresentationPart();
+            PresentationPart? presentationPart =
+                document.AddPresentationPart();
+
             presentationPart.Presentation = new P.Presentation();
-            SlidePart? slidePart = presentationPart.AddNewPart<SlidePart>("rId1");
+
+            SlidePart? slidePart =
+                presentationPart.AddNewPart<SlidePart>("rId1");
+
             slidePart.Slide = new P.Slide(
                 new P.CommonSlideData(
                     new P.ShapeTree(
                         new P.NonVisualGroupShapeProperties(
-                            new P.NonVisualDrawingProperties { Id = 1U, Name = string.Empty },
+                            new P.NonVisualDrawingProperties
+                            {
+                                Id = 1U,
+                                Name = string.Empty,
+                            },
                             new P.NonVisualGroupShapeDrawingProperties(),
                             new P.ApplicationNonVisualDrawingProperties()),
-                        new P.GroupShapeProperties(new A.TransformGroup()),
+                        new P.GroupShapeProperties(
+                            new A.TransformGroup()),
                         new P.Shape(
                             new P.NonVisualShapeProperties(
-                                new P.NonVisualDrawingProperties { Id = 2U, Name = "Text" },
+                                new P.NonVisualDrawingProperties
+                                {
+                                    Id = 2U,
+                                    Name = "Text",
+                                },
                                 new P.NonVisualShapeDrawingProperties(),
                                 new P.ApplicationNonVisualDrawingProperties()),
                             new P.ShapeProperties(),
                             new P.TextBody(
                                 new A.BodyProperties(),
                                 new A.ListStyle(),
-                                new A.Paragraph(new A.Run(new A.Text(text))))))));
+                                new A.Paragraph(
+                                    new A.Run(
+                                        new A.Text(text))))))));
+
             slidePart.Slide.Save();
-            presentationPart.Presentation.AppendChild(new P.SlideIdList(new P.SlideId { Id = 256U, RelationshipId = "rId1" }));
+
+            presentationPart.Presentation.AppendChild(
+                new P.SlideIdList(
+                    new P.SlideId
+                    {
+                        Id = 256U,
+                        RelationshipId = "rId1",
+                    }));
+
             presentationPart.Presentation.Save();
         }
 
