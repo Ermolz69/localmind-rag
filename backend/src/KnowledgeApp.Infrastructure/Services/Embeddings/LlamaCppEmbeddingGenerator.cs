@@ -1,28 +1,36 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Infrastructure.Options;
+
 using Microsoft.Extensions.Options;
 
 namespace KnowledgeApp.Infrastructure.Services;
 
 public sealed class LlamaCppEmbeddingGenerator(
     HttpClient httpClient,
-    IOptions<AiOptions> options,
+    IOptions<RuntimeOptions> runtimeOptions,
+    IOptions<EmbeddingOptions> embeddingOptions,
     EmbeddingModelCatalog catalog) : IEmbeddingGenerator
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
-    private readonly AiOptions options = options.Value;
+    private static readonly JsonSerializerOptions SerializerOptions =
+        new(JsonSerializerDefaults.Web);
+
+    private readonly RuntimeOptions runtime = runtimeOptions.Value;
+    private readonly EmbeddingOptions embedding = embeddingOptions.Value;
     private readonly EmbeddingModelManifest manifest = catalog.GetDefault();
 
-    public string ModelName => string.IsNullOrWhiteSpace(options.EmbeddingModel)
+    public string ModelName => string.IsNullOrWhiteSpace(embedding.EmbeddingModel)
         ? manifest.ModelName
-        : options.EmbeddingModel;
+        : embedding.EmbeddingModel;
 
-    public async Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default)
+    public async Task<float[]> GenerateAsync(
+        string text,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -30,38 +38,56 @@ public sealed class LlamaCppEmbeddingGenerator(
         }
 
         Uri requestUri = BuildUri("/v1/embeddings");
+
         EmbeddingRequest request = new(ModelName, text);
-        using HttpResponseMessage response = await httpClient.PostAsJsonAsync(requestUri, request, SerializerOptions, cancellationToken);
+
+        using HttpResponseMessage response = await httpClient.PostAsJsonAsync(
+            requestUri,
+            request,
+            SerializerOptions,
+            cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
             string body = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw CreateExternalDependencyException($"llama.cpp embeddings request failed with status {(int)response.StatusCode}: {body}");
+
+            throw CreateExternalDependencyException(
+                $"llama.cpp embeddings request failed with status {(int)response.StatusCode}: {body}");
         }
 
-        EmbeddingResponse? payload = await response.Content.ReadFromJsonAsync<EmbeddingResponse>(SerializerOptions, cancellationToken);
-        float[]? embedding = payload?.Data.FirstOrDefault()?.Embedding;
+        EmbeddingResponse? payload =
+            await response.Content.ReadFromJsonAsync<EmbeddingResponse>(
+                SerializerOptions,
+                cancellationToken);
 
-        if (embedding is null || embedding.Length == 0)
+        float[]? result = payload?.Data.FirstOrDefault()?.Embedding;
+
+        if (result is null || result.Length == 0)
         {
-            throw CreateExternalDependencyException("llama.cpp embeddings response did not contain an embedding vector.");
+            throw CreateExternalDependencyException(
+                "llama.cpp embeddings response did not contain an embedding vector.");
         }
 
-        if (embedding.Length != manifest.Dimension)
+        if (result.Length != manifest.Dimension)
         {
-            throw CreateExternalDependencyException($"llama.cpp embeddings response dimension mismatch. Expected {manifest.Dimension}, got {embedding.Length}.");
+            throw CreateExternalDependencyException(
+                $"llama.cpp embeddings response dimension mismatch. Expected {manifest.Dimension}, got {result.Length}.");
         }
 
-        return embedding;
+        return result;
     }
 
     private Uri BuildUri(string path)
     {
-        Uri baseUri = new(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+        Uri baseUri = new(
+            runtime.BaseUrl.TrimEnd('/') + "/",
+            UriKind.Absolute);
+
         return new Uri(baseUri, path.TrimStart('/'));
     }
 
-    private static ExternalDependencyAppException CreateExternalDependencyException(string detail)
+    private static ExternalDependencyAppException CreateExternalDependencyException(
+        string detail)
     {
         return new ExternalDependencyAppException(
             ErrorCodes.Runtime.ExternalDependencyUnavailable,
@@ -73,7 +99,8 @@ public sealed class LlamaCppEmbeddingGenerator(
         [property: JsonPropertyName("input")] string Input);
 
     private sealed record EmbeddingResponse(
-        [property: JsonPropertyName("data")] IReadOnlyList<EmbeddingResponseData> Data);
+        [property: JsonPropertyName("data")]
+        IReadOnlyList<EmbeddingResponseData> Data);
 
     private sealed record EmbeddingResponseData(
         [property: JsonPropertyName("embedding")] float[] Embedding);

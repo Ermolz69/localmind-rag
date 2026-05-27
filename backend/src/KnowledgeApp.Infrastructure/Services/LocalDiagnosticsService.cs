@@ -1,9 +1,11 @@
 using System.Reflection;
+
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Contracts.Runtime;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Persistence;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -11,7 +13,7 @@ namespace KnowledgeApp.Infrastructure.Services;
 
 public sealed class LocalDiagnosticsService(
     IAppPathProvider paths,
-    IOptions<LocalRuntimeOptions> runtimeOptions,
+    IOptions<RuntimeModeOptions> runtimeModeOptions,
     IAiRuntimeProviderRegistry aiRuntimeProviders,
     AppDbContext dbContext) : ILocalDiagnosticsService
 {
@@ -19,7 +21,8 @@ public sealed class LocalDiagnosticsService(
     {
         RuntimeStatusDto? aiRuntimeStatus = await GetAiRuntimeStatusAsync(cancellationToken);
         DiagnosticsCountsDto? counts = await GetCountsAsync(cancellationToken);
-        IReadOnlyList<DiagnosticsIngestionErrorDto>? latestErrors = await GetLatestErrorsAsync(cancellationToken);
+        IReadOnlyList<DiagnosticsIngestionErrorDto>? latestErrors =
+            await GetLatestErrorsAsync(cancellationToken);
 
         return new DiagnosticsDto(
             Paths: new DiagnosticsPathsDto(
@@ -35,16 +38,19 @@ public sealed class LocalDiagnosticsService(
             Counts: counts,
             LatestErrors: latestErrors,
             Runtime: new DiagnosticsRuntimeDto(
-                RuntimeMode: runtimeOptions.Value.Portable ? "portable" : "dev",
+                RuntimeMode: runtimeModeOptions.Value.Portable ? "portable" : "dev",
                 LocalApiVersion: GetLocalApiVersion(),
                 AiRuntimeStatus: aiRuntimeStatus));
     }
 
-    private async Task<RuntimeStatusDto> GetAiRuntimeStatusAsync(CancellationToken cancellationToken)
+    private async Task<RuntimeStatusDto> GetAiRuntimeStatusAsync(
+        CancellationToken cancellationToken)
     {
         try
         {
-            return await aiRuntimeProviders.GetSelectedProvider().GetStatusAsync(cancellationToken);
+            return await aiRuntimeProviders
+                .GetSelectedProvider()
+                .GetStatusAsync(cancellationToken);
         }
         catch
         {
@@ -56,26 +62,32 @@ public sealed class LocalDiagnosticsService(
         }
     }
 
-    private async Task<DiagnosticsCountsDto> GetCountsAsync(CancellationToken cancellationToken)
+    private async Task<DiagnosticsCountsDto> GetCountsAsync(
+        CancellationToken cancellationToken)
     {
         int pendingJobs = await dbContext.IngestionJobs.CountAsync(
             job => job.Status == IngestionJobStatus.Pending,
             cancellationToken);
+
         int runningJobs = await dbContext.IngestionJobs.CountAsync(
             job => job.Status == IngestionJobStatus.Processing
                 || job.Status == IngestionJobStatus.Chunking
                 || job.Status == IngestionJobStatus.Embedding,
             cancellationToken);
+
         int failedJobs = await dbContext.IngestionJobs.CountAsync(
             job => job.Status == IngestionJobStatus.Failed,
             cancellationToken);
+
         int cancelledJobs = await dbContext.IngestionJobs.CountAsync(
             job => job.Status == IngestionJobStatus.Cancelled,
             cancellationToken);
+
         Domain.Entities.IngestionJob[] processedJobs = await dbContext.IngestionJobs
             .AsNoTracking()
             .Where(job => job.ProcessedAt != null)
             .ToArrayAsync(cancellationToken);
+
         Guid? lastProcessedJobId = processedJobs
             .OrderByDescending(job => job.ProcessedAt)
             .Select(job => (Guid?)job.Id)
@@ -96,17 +108,26 @@ public sealed class LocalDiagnosticsService(
             LastProcessedIngestionJobId: lastProcessedJobId);
     }
 
-    private async Task<IReadOnlyList<DiagnosticsIngestionErrorDto>> GetLatestErrorsAsync(CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<DiagnosticsIngestionErrorDto>> GetLatestErrorsAsync(
+        CancellationToken cancellationToken)
     {
         Domain.Entities.IngestionJob[]? failedJobs = await dbContext.IngestionJobs
             .AsNoTracking()
             .Where(job => job.Status == IngestionJobStatus.Failed && job.ErrorMessage != null)
             .ToArrayAsync(cancellationToken);
-        Guid[]? documentIds = failedJobs.Select(job => job.DocumentId).Distinct().ToArray();
+
+        Guid[]? documentIds = failedJobs
+            .Select(job => job.DocumentId)
+            .Distinct()
+            .ToArray();
+
         Dictionary<Guid, string>? documentNames = await dbContext.Documents
             .AsNoTracking()
             .Where(document => documentIds.Contains(document.Id))
-            .ToDictionaryAsync(document => document.Id, document => document.Name, cancellationToken);
+            .ToDictionaryAsync(
+                document => document.Id,
+                document => document.Name,
+                cancellationToken);
 
         return failedJobs
             .OrderByDescending(job => job.ProcessedAt ?? job.UpdatedAt ?? job.CreatedAt)

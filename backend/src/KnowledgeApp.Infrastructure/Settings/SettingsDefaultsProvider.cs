@@ -2,33 +2,40 @@ using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Options;
+
 using Microsoft.Extensions.Options;
 
 namespace KnowledgeApp.Infrastructure.Settings;
 
 public sealed class SettingsDefaultsProvider(
-    IOptions<LocalRuntimeOptions> runtimeOptions,
-    IOptions<AiOptions> aiOptions) : ISettingsDefaultsProvider
+    IOptions<StorageOptions> storageOptions,
+    IOptions<DatabaseOptions> databaseOptions,
+    IOptions<VectorIndexOptions> vectorIndexOptions,
+    IOptions<RuntimeOptions> runtimeOptions,
+    IOptions<EmbeddingOptions> embeddingOptions) : ISettingsDefaultsProvider
 {
     public AppSettingsDto GetDefaults()
     {
-        LocalRuntimeOptions? runtime = runtimeOptions.Value;
-        AiOptions? ai = aiOptions.Value;
+        StorageOptions storage = storageOptions.Value;
+        DatabaseOptions database = databaseOptions.Value;
+        VectorIndexOptions vectorIndex = vectorIndexOptions.Value;
+        RuntimeOptions runtime = runtimeOptions.Value;
+        EmbeddingOptions embedding = embeddingOptions.Value;
 
         return new AppSettingsDto(
             Appearance: new AppearanceSettingsDto(AppTheme.System.ToString()),
             Ai: new AiSettingsDto(
-                ai.Provider,
-                ai.ChatModel,
-                ai.EmbeddingModel,
-                ai.RuntimePath,
-                ai.ModelsPath),
+                runtime.Provider,
+                runtime.ChatModel,
+                embedding.EmbeddingModel,
+                runtime.RuntimePath,
+                embedding.ModelsPath),
             RuntimePaths: new RuntimePathsSettingsDto(
-                runtime.DataPath,
-                runtime.DatabasePath,
-                runtime.FilesPath,
-                runtime.IndexPath,
-                runtime.LogsPath),
+                storage.DataPath,
+                database.DatabasePath,
+                storage.FilesPath,
+                vectorIndex.IndexPath,
+                storage.LogsPath),
             Sync: new SyncSettingsDto(false, false));
     }
 }
