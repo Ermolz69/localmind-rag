@@ -148,7 +148,7 @@ public sealed class LocalDiagnosticsService(
     public async Task<DiagnosticsRuntimeDto> GetRuntimeAsync(CancellationToken cancellationToken = default)
     {
         RuntimeStatusDto aiRuntimeStatus = await GetAiRuntimeStatusAsync(cancellationToken);
-        
+
         DiagnosticsHealthStatus status = DiagnosticsHealthStatus.Healthy;
         if (aiRuntimeStatus.AiRuntimeStatus == "Missing" || !aiRuntimeStatus.ModelsAvailable)
         {
@@ -190,7 +190,7 @@ public sealed class LocalDiagnosticsService(
     private async Task<IReadOnlyList<DiagnosticsIngestionErrorDto>> GetLatestErrorsAsync(
         CancellationToken cancellationToken)
     {
-        try 
+        try
         {
             Domain.Entities.IngestionJob[] failedJobs = await dbContext.IngestionJobs
                 .AsNoTracking()

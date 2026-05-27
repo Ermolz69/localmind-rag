@@ -13,7 +13,7 @@ public sealed record DiagnosticsDto(
     DiagnosticsRuntimeDto Runtime,
     IReadOnlyList<DiagnosticsIngestionErrorDto> LatestErrors)
 {
-    public DiagnosticsHealthStatus Status => 
+    public DiagnosticsHealthStatus Status =>
         Database.Status == DiagnosticsHealthStatus.Healthy &&
         Storage.Status == DiagnosticsHealthStatus.Healthy &&
         VectorIndex.Status == DiagnosticsHealthStatus.Healthy &&

@@ -24,7 +24,10 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
       </div>
       <div className="grid gap-3 md:grid-cols-4">
         <Metric label="Documents" value={diagnostics.database.documentsCount} />
-        <Metric label="Chunks" value={diagnostics.vectorIndex.documentChunksCount} />
+        <Metric
+          label="Chunks"
+          value={diagnostics.vectorIndex.documentChunksCount}
+        />
         <Metric
           label="Embeddings"
           value={diagnostics.vectorIndex.documentEmbeddingsCount}
