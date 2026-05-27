@@ -74,7 +74,7 @@ public sealed class LocalDiagnosticsService(
                 || job.Status == IngestionJobStatus.Embedding,
             cancellationToken);
 
-        int failedJobs = await dbContext.IngestionJobs.CountAsync(
+        int failedJobsCount = await dbContext.IngestionJobs.CountAsync(
             job => job.Status == IngestionJobStatus.Failed,
             cancellationToken);
 
@@ -82,12 +82,18 @@ public sealed class LocalDiagnosticsService(
             job => job.Status == IngestionJobStatus.Cancelled,
             cancellationToken);
 
-        Guid? lastProcessedJobId = await dbContext.IngestionJobs
+        // SQLite does not support expressions of type 'DateTimeOffset' in ORDER BY clauses.
+        // We fetch a limited subset and sort in memory.
+        Domain.Entities.IngestionJob[] processedJobs = await dbContext.IngestionJobs
             .AsNoTracking()
             .Where(job => job.ProcessedAt != null)
+            .Take(100)
+            .ToArrayAsync(cancellationToken);
+
+        Guid? lastProcessedJobId = processedJobs
             .OrderByDescending(job => job.ProcessedAt)
             .Select(job => (Guid?)job.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstOrDefault();
 
         return new DiagnosticsDatabaseDto(
             Status: status,
@@ -98,7 +104,7 @@ public sealed class LocalDiagnosticsService(
             ConversationsCount: await dbContext.Conversations.CountAsync(cancellationToken),
             PendingIngestionJobsCount: pendingJobs,
             RunningIngestionJobsCount: runningJobs,
-            FailedIngestionJobsCount: failedJobs,
+            FailedIngestionJobsCount: failedJobsCount,
             CancelledIngestionJobsCount: cancelledJobs,
             LastProcessedIngestionJobId: lastProcessedJobId);
     }
@@ -192,12 +198,17 @@ public sealed class LocalDiagnosticsService(
     {
         try
         {
+            // Pull a small amount of failed jobs and sort them in memory to avoid SQLite DateTimeOffset sorting issues.
             Domain.Entities.IngestionJob[] failedJobs = await dbContext.IngestionJobs
                 .AsNoTracking()
                 .Where(job => job.Status == IngestionJobStatus.Failed && job.ErrorMessage != null)
+                .Take(100)
+                .ToArrayAsync(cancellationToken);
+
+            failedJobs = failedJobs
                 .OrderByDescending(job => job.ProcessedAt ?? job.UpdatedAt ?? job.CreatedAt)
                 .Take(5)
-                .ToArrayAsync(cancellationToken);
+                .ToArray();
 
             Guid[] documentIds = failedJobs
                 .Select(job => job.DocumentId)

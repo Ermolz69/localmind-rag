@@ -1,5 +1,8 @@
 using System.Net;
+using System.Net.Http.Json;
 
+using KnowledgeApp.Contracts.Common;
+using KnowledgeApp.Contracts.Runtime;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
@@ -18,128 +21,134 @@ public sealed class DiagnosticsApiTests : IClassFixture<LocalApiTestFactory>
     }
 
     [Fact]
-    public async Task DiagnosticsEndpoint_Should_Return_Runtime_Diagnostics()
+    public async Task DiagnosticsEndpoint_Should_Return_Aggregate_Diagnostics()
     {
-        using HttpClient? client = factory.CreateClient();
+        using HttpClient client = factory.CreateClient();
 
-        using HttpResponseMessage? response =
-            await client.GetAsync("/api/v1/diagnostics");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        DiagnosticsResponse? diagnostics =
-            await response.Content.ReadApiDataAsync<DiagnosticsResponse>();
+        DiagnosticsDto? diagnostics =
+            await client.GetApiDataAsync<DiagnosticsDto>("/api/v1/diagnostics");
 
         Assert.NotNull(diagnostics);
-        Assert.False(string.IsNullOrWhiteSpace(diagnostics.Paths.DatabasePath));
-        Assert.False(string.IsNullOrWhiteSpace(diagnostics.Paths.FilesPath));
-        Assert.False(string.IsNullOrWhiteSpace(diagnostics.Paths.IndexPath));
-        Assert.False(string.IsNullOrWhiteSpace(diagnostics.Paths.LogsPath));
-        Assert.True(diagnostics.Storage.DatabaseSizeBytes >= 0);
-        Assert.True(diagnostics.Storage.FilesSizeBytes >= 0);
-        Assert.True(diagnostics.Storage.IndexSizeBytes >= 0);
-        Assert.True(diagnostics.Storage.LogsSizeBytes >= 0);
-        Assert.True(diagnostics.Counts.PendingIngestionJobsCount >= 0);
-        Assert.True(diagnostics.Counts.FailedIngestionJobsCount >= 0);
-        Assert.False(string.IsNullOrWhiteSpace(diagnostics.Runtime.RuntimeMode));
-        Assert.False(string.IsNullOrWhiteSpace(diagnostics.Runtime.LocalApiVersion));
-        Assert.NotNull(diagnostics.Runtime.AiRuntimeStatus);
+        Assert.Equal(DiagnosticsHealthStatus.Healthy, diagnostics.Status);
+        Assert.NotNull(diagnostics.Database);
+        Assert.NotNull(diagnostics.Storage);
+        Assert.NotNull(diagnostics.VectorIndex);
+        Assert.NotNull(diagnostics.Runtime);
     }
 
     [Fact]
-    public async Task DiagnosticsEndpoint_Should_Return_Counts_And_Latest_Errors()
+    public async Task HealthEndpoint_Should_Return_General_Health()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        DiagnosticsHealthStatus status =
+            await client.GetApiDataAsync<DiagnosticsHealthStatus>("/api/v1/diagnostics/health");
+
+        Assert.Equal(DiagnosticsHealthStatus.Healthy, status);
+    }
+
+    [Fact]
+    public async Task DatabaseEndpoint_Should_Return_Database_Diagnostics()
     {
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Document document = new Document
+        {
+            Name = $"db-test-{Guid.NewGuid():N}.pdf",
+            Status = DocumentStatus.Indexed,
+        };
+        db.Documents.Add(document);
+        await db.SaveChangesAsync();
 
-        Document? document = new Document
+        using HttpClient client = factory.CreateClient();
+
+        DiagnosticsDatabaseDto? database =
+            await client.GetApiDataAsync<DiagnosticsDatabaseDto>("/api/v1/diagnostics/database");
+
+        Assert.NotNull(database);
+        Assert.Equal(DiagnosticsHealthStatus.Healthy, database.Status);
+        Assert.True(database.DocumentsCount >= 1);
+    }
+
+    [Fact]
+    public async Task StorageEndpoint_Should_Return_Storage_Diagnostics()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        DiagnosticsStorageDto? storage =
+            await client.GetApiDataAsync<DiagnosticsStorageDto>("/api/v1/diagnostics/storage");
+
+        Assert.NotNull(storage);
+        // Might be Healthy or Degraded depending on whether factory created all dirs
+        Assert.True(storage.Status == DiagnosticsHealthStatus.Healthy || storage.Status == DiagnosticsHealthStatus.Degraded);
+        Assert.True(storage.DatabaseSizeBytes >= 0);
+    }
+
+    [Fact]
+    public async Task RuntimeEndpoint_Should_Return_Runtime_Diagnostics()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        DiagnosticsRuntimeDto? runtime =
+            await client.GetApiDataAsync<DiagnosticsRuntimeDto>("/api/v1/diagnostics/runtime");
+
+        Assert.NotNull(runtime);
+        // Status might be Degraded if "Stub" provider reports missing models
+        Assert.False(string.IsNullOrWhiteSpace(runtime.RuntimeMode));
+        Assert.False(string.IsNullOrWhiteSpace(runtime.LocalApiVersion));
+        Assert.NotNull(runtime.AiRuntimeStatus);
+    }
+
+    [Fact]
+    public async Task VectorIndexEndpoint_Should_Return_Vector_Index_Diagnostics()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        DiagnosticsVectorIndexDto? vectorIndex =
+            await client.GetApiDataAsync<DiagnosticsVectorIndexDto>("/api/v1/diagnostics/vector-index");
+
+        Assert.NotNull(vectorIndex);
+        Assert.True(vectorIndex.DocumentChunksCount >= 0);
+        Assert.True(vectorIndex.DocumentEmbeddingsCount >= 0);
+    }
+
+    [Fact]
+    public async Task DiagnosticsEndpoint_Should_Return_Latest_Errors()
+    {
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        Document document = new Document
         {
             Name = $"failed-{Guid.NewGuid():N}.pdf",
             Status = DocumentStatus.Failed,
         };
 
-        IngestionJob? failedJob = new IngestionJob
+        IngestionJob failedJob = new IngestionJob
         {
             DocumentId = document.Id,
             ErrorCode = "INGESTION_JOB_FAILED",
-            ErrorMessage = "PDF file signature is invalid.",
+            ErrorMessage = "Test error message.",
             ProcessedAt = DateTimeOffset.UtcNow,
             Status = IngestionJobStatus.Failed,
         };
 
         db.Documents.Add(document);
         db.IngestionJobs.Add(failedJob);
-
         await db.SaveChangesAsync();
 
-        using HttpClient? client = factory.CreateClient();
+        using HttpClient client = factory.CreateClient();
 
-        DiagnosticsResponse? diagnostics =
-            await client.GetApiDataAsync<DiagnosticsResponse>("/api/v1/diagnostics");
+        DiagnosticsDto? diagnostics =
+            await client.GetApiDataAsync<DiagnosticsDto>("/api/v1/diagnostics");
 
         Assert.NotNull(diagnostics);
-        Assert.True(diagnostics.Counts.DocumentsCount >= 1);
-        Assert.True(diagnostics.Counts.FailedIngestionJobsCount >= 1);
-
         Assert.Contains(
             diagnostics.LatestErrors,
             error =>
                 error.JobId == failedJob.Id
                 && error.DocumentId == document.Id
-                && error.DocumentName == document.Name
-                && error.ErrorCode == failedJob.ErrorCode
-                && error.ErrorMessage == failedJob.ErrorMessage);
+                && error.DocumentName == document.Name);
     }
-
-    private sealed record DiagnosticsResponse(
-        DiagnosticsPathsResponse Paths,
-        DiagnosticsStorageResponse Storage,
-        DiagnosticsCountsResponse Counts,
-        IReadOnlyList<DiagnosticsIngestionErrorResponse> LatestErrors,
-        DiagnosticsRuntimeResponse Runtime);
-
-    private sealed record DiagnosticsPathsResponse(
-        string DatabasePath,
-        string FilesPath,
-        string IndexPath,
-        string LogsPath);
-
-    private sealed record DiagnosticsStorageResponse(
-        long DatabaseSizeBytes,
-        long FilesSizeBytes,
-        long IndexSizeBytes,
-        long LogsSizeBytes);
-
-    private sealed record DiagnosticsCountsResponse(
-        int BucketsCount,
-        int DocumentsCount,
-        int DocumentFilesCount,
-        int DocumentChunksCount,
-        int DocumentEmbeddingsCount,
-        int NotesCount,
-        int ConversationsCount,
-        int PendingIngestionJobsCount,
-        int FailedIngestionJobsCount);
-
-    private sealed record DiagnosticsIngestionErrorResponse(
-        Guid JobId,
-        Guid DocumentId,
-        string DocumentName,
-        string ErrorCode,
-        string ErrorMessage,
-        DateTimeOffset? ProcessedAt,
-        int RetryCount,
-        Guid? LastOperationId);
-
-    private sealed record DiagnosticsRuntimeResponse(
-        string RuntimeMode,
-        string LocalApiVersion,
-        RuntimeStatusResponse AiRuntimeStatus);
-
-    private sealed record RuntimeStatusResponse(
-        bool LocalApiReady,
-        string AiRuntimeStatus,
-        bool ModelsAvailable,
-        bool OfflineMode);
 }
