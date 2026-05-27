@@ -221,6 +221,85 @@ jobs:
           path: ${{ env.COVERAGE_REPORT_DIR }}/integration
           if-no-files-found: warn
 
+  backend-rag-evaluation-tests:
+    name: Backend RAG evaluation tests
+    runs-on: ubuntu-latest
+    needs:
+      - backend-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore backend
+        run: dotnet restore backend/KnowledgeApp.slnx
+
+      - name: Build backend
+        run: dotnet build backend/KnowledgeApp.slnx --no-restore
+
+      - name: Install coverage report generator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Run RAG evaluation tests with coverage
+        shell: bash
+        run: >
+          dotnet test backend/tests/KnowledgeApp.RagEvaluationTests/KnowledgeApp.RagEvaluationTests.csproj
+          --no-build
+          --logger "trx"
+          --results-directory "${{ env.TEST_RESULTS_DIR }}/rag-evaluation"
+          --collect:"XPlat Code Coverage"
+          --
+          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+      - name: Publish RAG evaluation test report
+        if: always()
+        uses: dorny/test-reporter@v2
+        with:
+          name: RAG evaluation test results
+          path: ${{ env.TEST_RESULTS_DIR }}/rag-evaluation/**/*.trx
+          reporter: dotnet-trx
+          fail-on-error: false
+
+      - name: Upload RAG evaluation test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rag-evaluation-test-results
+          path: ${{ env.TEST_RESULTS_DIR }}/rag-evaluation
+          if-no-files-found: warn
+
+      - name: Generate RAG evaluation coverage report
+        if: always()
+        shell: bash
+        run: >
+          "$HOME/.dotnet/tools/reportgenerator"
+          -reports:"${{ env.TEST_RESULTS_DIR }}/rag-evaluation/**/coverage.cobertura.xml"
+          -targetdir:"${{ env.COVERAGE_REPORT_DIR }}/rag-evaluation"
+          -reporttypes:"Html;Cobertura;MarkdownSummaryGithub"
+          -assemblyfilters:"+KnowledgeApp.*;-*.Tests"
+          -classfilters:"-Microsoft.AspNetCore.OpenApi.Generated*;-System.Text.RegularExpressions.Generated*"
+
+      - name: Add RAG evaluation coverage summary
+        if: always()
+        shell: bash
+        run: |
+          summary="${{ env.COVERAGE_REPORT_DIR }}/rag-evaluation/SummaryGithub.md"
+          if [ -f "$summary" ]; then
+            cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload RAG evaluation coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rag-evaluation-coverage-report
+          path: ${{ env.COVERAGE_REPORT_DIR }}/rag-evaluation
+          if-no-files-found: warn
+
   backend-architecture-tests:
     name: Backend architecture tests
     runs-on: windows-latest
@@ -402,6 +481,7 @@ jobs:
       - backend-build
       - backend-unit-tests
       - backend-integration-tests
+      - backend-rag-evaluation-tests
       - backend-architecture-tests
       - frontend-format
       - frontend-lint
@@ -420,6 +500,7 @@ jobs:
           echo "| Backend build | ${{ needs.backend-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Backend unit tests | ${{ needs.backend-unit-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Backend integration tests | ${{ needs.backend-integration-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Backend RAG evaluation tests | ${{ needs.backend-rag-evaluation-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Backend architecture tests | ${{ needs.backend-architecture-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend format | ${{ needs.frontend-format.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend lint | ${{ needs.frontend-lint.result }} |" >> "$GITHUB_STEP_SUMMARY"

@@ -13,6 +13,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/KnowledgeApp.ArchitectureTests/KnowledgeApp.ArchitectureTests.csproj" />
     <Project Path="tests/KnowledgeApp.IntegrationTests/KnowledgeApp.IntegrationTests.csproj" />
+    <Project Path="tests/KnowledgeApp.RagEvaluationTests/KnowledgeApp.RagEvaluationTests.csproj" />
     <Project Path="tests/KnowledgeApp.UnitTests/KnowledgeApp.UnitTests.csproj" />
   </Folder>
 </Solution>

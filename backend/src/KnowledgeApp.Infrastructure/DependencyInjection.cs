@@ -18,6 +18,7 @@ public static partial class DependencyInjection
         services.AddSingleton<IValidateOptions<StorageOptions>, StorageOptionsValidator>();
         services.AddSingleton<IValidateOptions<DatabaseOptions>, DatabaseOptionsValidator>();
         services.AddSingleton<IValidateOptions<VectorIndexOptions>, VectorIndexOptionsValidator>();
+        services.AddSingleton<IValidateOptions<RagOptions>, RagOptionsValidator>();
 
         services.AddOptions<RuntimeOptions>()
             .Bind(configuration.GetSection(RuntimeOptions.SectionName))
@@ -41,6 +42,10 @@ public static partial class DependencyInjection
 
         services.AddOptions<RuntimeModeOptions>()
             .Bind(configuration.GetSection(RuntimeModeOptions.SectionName));
+
+        services.AddOptions<RagOptions>()
+            .Bind(configuration.GetSection(RagOptions.SectionName))
+            .ValidateOnStart();
 
         services.Configure<IngestionWorkerOptions>(
             configuration.GetSection(IngestionWorkerOptions.SectionName));

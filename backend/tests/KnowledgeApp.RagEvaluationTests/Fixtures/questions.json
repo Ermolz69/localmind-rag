@@ -1,0 +1,69 @@
+[
+  {
+    "id": "vpn-access-required",
+    "question": "What is required for an employee to connect through the company VPN?",
+    "expectedDocument": "vpn-access.txt",
+    "requiredContextTerms": [
+      "NorthGate",
+      "hardware security key"
+    ],
+    "requiredAnswerTerms": [
+      "NorthGate",
+      "hardware security key"
+    ],
+    "forbiddenTerms": [
+      "OrbitHR",
+      "LedgerBox"
+    ],
+    "expectsNoContext": false
+  },
+  {
+    "id": "annual-leave-submission",
+    "question": "When and where should an employee submit an annual leave request?",
+    "expectedDocument": "leave-policy.txt",
+    "requiredContextTerms": [
+      "OrbitHR",
+      "10 calendar days"
+    ],
+    "requiredAnswerTerms": [
+      "OrbitHR",
+      "10 calendar days"
+    ],
+    "forbiddenTerms": [
+      "NorthGate",
+      "LedgerBox"
+    ],
+    "expectsNoContext": false
+  },
+  {
+    "id": "meal-expense-limit",
+    "question": "What is the daily meal reimbursement limit and where should receipts be uploaded?",
+    "expectedDocument": "expense-policy.txt",
+    "requiredContextTerms": [
+      "35 EUR",
+      "LedgerBox"
+    ],
+    "requiredAnswerTerms": [
+      "35 EUR",
+      "LedgerBox"
+    ],
+    "forbiddenTerms": [
+      "NorthGate",
+      "OrbitHR"
+    ],
+    "expectsNoContext": false
+  },
+  {
+    "id": "unknown-pet-insurance",
+    "question": "What health insurance coverage is available for employees' pets?",
+    "expectedDocument": null,
+    "requiredContextTerms": [],
+    "requiredAnswerTerms": [],
+    "forbiddenTerms": [
+      "NorthGate",
+      "OrbitHR",
+      "LedgerBox"
+    ],
+    "expectsNoContext": true
+  }
+]

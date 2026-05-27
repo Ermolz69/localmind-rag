@@ -1,6 +1,9 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Contracts.Rag;
+using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Services;
+
+using Microsoft.Extensions.Options;
 
 namespace KnowledgeApp.UnitTests.Rag;
 
@@ -16,20 +19,36 @@ public sealed class RagPipelineTests
             PageNumber: 3,
             Score: 0.92,
             "Localmind stores documents locally.");
+
         FakeEmbeddingGenerator embeddings = new();
         FakeVectorSearchService search = new([source]);
-        RagContextBuilder builder = new(search, embeddings);
+
+        RagContextBuilder builder = CreateContextBuilder(search, embeddings);
+
         Guid conversationId = Guid.NewGuid();
 
-        RagContext context = await builder.BuildAsync(new RagContextRequest(conversationId, "local documents", Limit: 4));
+        RagContext context = await builder.BuildAsync(
+            new RagContextRequest(
+                conversationId,
+                "local documents",
+                Limit: 4));
 
         Assert.True(embeddings.WasCalled);
         Assert.True(search.WasCalled);
         Assert.Equal(4, search.Options?.Limit);
         Assert.Single(context.Sources);
-        Assert.Contains("Architecture.md", context.ContextText, StringComparison.Ordinal);
-        Assert.Contains(source.ChunkId.ToString(), context.ContextText, StringComparison.Ordinal);
-        Assert.Contains("Localmind stores documents locally.", context.ContextText, StringComparison.Ordinal);
+        Assert.Contains(
+            "Architecture.md",
+            context.ContextText,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            source.ChunkId.ToString(),
+            context.ContextText,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Localmind stores documents locally.",
+            context.ContextText,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -37,13 +56,84 @@ public sealed class RagPipelineTests
     {
         FakeEmbeddingGenerator embeddings = new();
         FakeVectorSearchService search = new([]);
-        RagContextBuilder builder = new(search, embeddings);
 
-        RagContext context = await builder.BuildAsync(new RagContextRequest(Guid.NewGuid(), "missing topic"));
+        RagContextBuilder builder = CreateContextBuilder(search, embeddings);
+
+        RagContext context = await builder.BuildAsync(
+            new RagContextRequest(Guid.NewGuid(), "missing topic"));
 
         Assert.True(embeddings.WasCalled);
         Assert.True(search.WasCalled);
         Assert.Equal(6, search.Options?.Limit);
+        Assert.Empty(context.Sources);
+        Assert.Equal(string.Empty, context.ContextText);
+    }
+
+    [Fact]
+    public async Task RagContextBuilder_Should_Exclude_Sources_Below_Minimum_Score()
+    {
+        RagSourceDto relevant = new(
+            Guid.NewGuid(),
+            "VpnGuide.txt",
+            Guid.NewGuid(),
+            PageNumber: 1,
+            Score: 0.94,
+            "Remote VPN access requires the NorthGate client.");
+
+        RagSourceDto weakMatch = new(
+            Guid.NewGuid(),
+            "MealPolicy.txt",
+            Guid.NewGuid(),
+            PageNumber: 1,
+            Score: 0.24,
+            "Meal reimbursement is limited to 35 EUR per day.");
+
+        RagContextBuilder builder = CreateContextBuilder(
+            new FakeVectorSearchService([relevant, weakMatch]),
+            new FakeEmbeddingGenerator(),
+            minimumSourceScore: 0.65);
+
+        RagContext context = await builder.BuildAsync(
+            new RagContextRequest(Guid.NewGuid(), "How do I access the VPN?"));
+
+        RagSourceDto source = Assert.Single(context.Sources);
+
+        Assert.Equal(relevant.ChunkId, source.ChunkId);
+        Assert.Contains(
+            "NorthGate",
+            context.ContextText,
+            StringComparison.Ordinal);
+
+        Assert.DoesNotContain(
+            "Meal reimbursement",
+            context.ContextText,
+            StringComparison.Ordinal);
+
+        Assert.DoesNotContain(
+            weakMatch.ChunkId.ToString(),
+            context.ContextText,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RagContextBuilder_Should_Return_Empty_Context_When_All_Sources_Are_Below_Minimum_Score()
+    {
+        RagSourceDto weakMatch = new(
+            Guid.NewGuid(),
+            "Unrelated.txt",
+            Guid.NewGuid(),
+            PageNumber: null,
+            Score: 0.12,
+            "This document is unrelated to the question.");
+
+        RagContextBuilder builder = CreateContextBuilder(
+            new FakeVectorSearchService([weakMatch]),
+            new FakeEmbeddingGenerator(),
+            minimumSourceScore: 0.65);
+
+        RagContext context = await builder.BuildAsync(
+            new RagContextRequest(Guid.NewGuid(), "Unknown topic"));
+
         Assert.Empty(context.Sources);
         Assert.Equal(string.Empty, context.ContextText);
     }
@@ -58,6 +148,7 @@ public sealed class RagPipelineTests
             PageNumber: null,
             Score: 0.98,
             "First   snippet\r\nwith\tspaces.");
+
         RagSourceDto second = new(
             Guid.NewGuid(),
             "Second.txt",
@@ -65,22 +156,46 @@ public sealed class RagPipelineTests
             PageNumber: 2,
             Score: 0.82,
             "Second snippet.");
-        RagContextBuilder builder = new(new FakeVectorSearchService([first, second]), new FakeEmbeddingGenerator());
 
-        RagContext context = await builder.BuildAsync(new RagContextRequest(Guid.NewGuid(), "ordered sources"));
+        RagContextBuilder builder = CreateContextBuilder(
+            new FakeVectorSearchService([first, second]),
+            new FakeEmbeddingGenerator());
+
+        RagContext context = await builder.BuildAsync(
+            new RagContextRequest(Guid.NewGuid(), "ordered sources"));
 
         Guid[] expectedChunkIds = [first.ChunkId, second.ChunkId];
-        Assert.Equal(expectedChunkIds, context.Sources.Select(source => source.ChunkId).ToArray());
-        Assert.Contains("First snippet with spaces.", context.ContextText, StringComparison.Ordinal);
-        Assert.Contains("Page: n/a", context.ContextText, StringComparison.Ordinal);
-        Assert.Contains("Page: 2", context.ContextText, StringComparison.Ordinal);
-        Assert.Contains("Score: 0.9800", context.ContextText, StringComparison.Ordinal);
+
+        Assert.Equal(
+            expectedChunkIds,
+            context.Sources.Select(source => source.ChunkId).ToArray());
+
+        Assert.Contains(
+            "First snippet with spaces.",
+            context.ContextText,
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            "Page: n/a",
+            context.ContextText,
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            "Page: 2",
+            context.ContextText,
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            "Score: 0.9800",
+            context.ContextText,
+            StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task RagContextBuilder_Should_Bound_Very_Long_Context()
     {
         string longSnippet = new('a', 10_000);
+
         RagSourceDto source = new(
             Guid.NewGuid(),
             "Long.txt",
@@ -88,12 +203,20 @@ public sealed class RagPipelineTests
             PageNumber: null,
             Score: 0.71,
             longSnippet);
-        RagContextBuilder builder = new(new FakeVectorSearchService([source]), new FakeEmbeddingGenerator());
 
-        RagContext context = await builder.BuildAsync(new RagContextRequest(Guid.NewGuid(), "long"));
+        RagContextBuilder builder = CreateContextBuilder(
+            new FakeVectorSearchService([source]),
+            new FakeEmbeddingGenerator());
+
+        RagContext context = await builder.BuildAsync(
+            new RagContextRequest(Guid.NewGuid(), "long"));
 
         Assert.True(context.ContextText.Length < longSnippet.Length);
-        Assert.Contains(new string('a', 700), context.ContextText, StringComparison.Ordinal);
+
+        Assert.Contains(
+            new string('a', 700),
+            context.ContextText,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -106,18 +229,31 @@ public sealed class RagPipelineTests
             PageNumber: null,
             Score: 0.87,
             "Notes can be linked to documents.");
+
         FakeRagContextBuilder contextBuilder = new(source);
         CapturingChatModelClient chatClient = new();
+
         RagAnswerGenerator generator = new(contextBuilder, chatClient);
+
         Guid conversationId = Guid.NewGuid();
 
-        RagAnswerDto answer = await generator.AnswerAsync(conversationId, "How do notes work?");
+        RagAnswerDto answer = await generator.AnswerAsync(
+            conversationId,
+            "How do notes work?");
 
         Assert.True(contextBuilder.WasCalled);
         Assert.NotNull(chatClient.Request);
         Assert.Equal("How do notes work?", chatClient.Request.Question);
-        Assert.Contains("Notes can be linked", chatClient.Request.ContextText, StringComparison.Ordinal);
-        Assert.Same(contextBuilder.Context.Sources, chatClient.Request.Sources);
+
+        Assert.Contains(
+            "Notes can be linked",
+            chatClient.Request.ContextText,
+            StringComparison.Ordinal);
+
+        Assert.Same(
+            contextBuilder.Context.Sources,
+            chatClient.Request.Sources);
+
         Assert.Equal("Generated from context", answer.Answer);
         Assert.Single(answer.Sources);
         Assert.Equal(source.ChunkId, answer.Sources[0].ChunkId);
@@ -128,9 +264,12 @@ public sealed class RagPipelineTests
     {
         EmptyRagContextBuilder contextBuilder = new();
         CapturingChatModelClient chatClient = new();
+
         RagAnswerGenerator generator = new(contextBuilder, chatClient);
 
-        RagAnswerDto answer = await generator.AnswerAsync(Guid.NewGuid(), "Unknown question");
+        RagAnswerDto answer = await generator.AnswerAsync(
+            Guid.NewGuid(),
+            "Unknown question");
 
         Assert.Empty(answer.Sources);
         Assert.NotNull(chatClient.Request);
@@ -148,13 +287,29 @@ public sealed class RagPipelineTests
             PageNumber: null,
             Score: 0.91,
             "Local RAG answers use indexed chunks.");
+
         StubChatModelClient client = new();
 
-        string answer = await client.GenerateAsync(new ChatModelRequest("What is RAG?", "Context", [source]));
+        string answer = await client.GenerateAsync(
+            new ChatModelRequest(
+                "What is RAG?",
+                "Context",
+                [source]));
 
-        Assert.Contains("Local RAG answers use indexed chunks.", answer, StringComparison.Ordinal);
-        Assert.Contains("Guide.txt", answer, StringComparison.Ordinal);
-        Assert.Contains(source.ChunkId.ToString(), answer, StringComparison.Ordinal);
+        Assert.Contains(
+            "Local RAG answers use indexed chunks.",
+            answer,
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            "Guide.txt",
+            answer,
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            source.ChunkId.ToString(),
+            answer,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -162,9 +317,29 @@ public sealed class RagPipelineTests
     {
         StubChatModelClient client = new();
 
-        string answer = await client.GenerateAsync(new ChatModelRequest("What is RAG?", string.Empty, []));
+        string answer = await client.GenerateAsync(
+            new ChatModelRequest(
+                "What is RAG?",
+                string.Empty,
+                []));
 
-        Assert.Equal("No relevant local sources were found for this question.", answer);
+        Assert.Equal(
+            "No relevant local sources were found for this question.",
+            answer);
+    }
+
+    private static RagContextBuilder CreateContextBuilder(
+        IVectorSearchService search,
+        IEmbeddingGenerator embeddings,
+        double minimumSourceScore = 0.65)
+    {
+        return new RagContextBuilder(
+            search,
+            embeddings,
+            Options.Create(new RagOptions
+            {
+                MinimumSourceScore = minimumSourceScore,
+            }));
     }
 
     private sealed class FakeEmbeddingGenerator : IEmbeddingGenerator
@@ -173,14 +348,18 @@ public sealed class RagPipelineTests
 
         public string ModelName => "fake";
 
-        public Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default)
+        public Task<float[]> GenerateAsync(
+            string text,
+            CancellationToken cancellationToken = default)
         {
             WasCalled = true;
+
             return Task.FromResult(new[] { 1.0f, 0.0f });
         }
     }
 
-    private sealed class FakeVectorSearchService(IReadOnlyList<RagSourceDto> sources) : IVectorSearchService
+    private sealed class FakeVectorSearchService(
+        IReadOnlyList<RagSourceDto> sources) : IVectorSearchService
     {
         public bool WasCalled { get; private set; }
 
@@ -193,28 +372,37 @@ public sealed class RagPipelineTests
         {
             WasCalled = true;
             Options = options;
+
             return Task.FromResult(sources);
         }
     }
 
-    private sealed class FakeRagContextBuilder(RagSourceDto source) : IRagContextBuilder
+    private sealed class FakeRagContextBuilder(
+        RagSourceDto source) : IRagContextBuilder
     {
-        public RagContext Context { get; } = new([source], source.Snippet);
+        public RagContext Context { get; } =
+            new([source], source.Snippet);
 
         public bool WasCalled { get; private set; }
 
-        public Task<RagContext> BuildAsync(RagContextRequest request, CancellationToken cancellationToken = default)
+        public Task<RagContext> BuildAsync(
+            RagContextRequest request,
+            CancellationToken cancellationToken = default)
         {
             WasCalled = true;
+
             return Task.FromResult(Context);
         }
     }
 
     private sealed class EmptyRagContextBuilder : IRagContextBuilder
     {
-        public Task<RagContext> BuildAsync(RagContextRequest request, CancellationToken cancellationToken = default)
+        public Task<RagContext> BuildAsync(
+            RagContextRequest request,
+            CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new RagContext([], string.Empty));
+            return Task.FromResult(
+                new RagContext([], string.Empty));
         }
     }
 
@@ -222,9 +410,12 @@ public sealed class RagPipelineTests
     {
         public ChatModelRequest? Request { get; private set; }
 
-        public Task<string> GenerateAsync(ChatModelRequest request, CancellationToken cancellationToken = default)
+        public Task<string> GenerateAsync(
+            ChatModelRequest request,
+            CancellationToken cancellationToken = default)
         {
             Request = request;
+
             return Task.FromResult("Generated from context");
         }
     }

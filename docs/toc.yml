@@ -1,5 +1,6 @@
 - name: Home
   href: index.md
+
 - name: Product
   items:
     - name: Requirements
@@ -85,6 +86,8 @@
       href: development/setup.md
     - name: Testing
       href: development/testing.md
+    - name: RAG evaluation tests
+      href: development/rag-evaluation-tests.md
     - name: Documentation workflow
       href: development/docs-workflow.md
     - name: Coding standards
