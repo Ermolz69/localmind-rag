@@ -1,0 +1,2 @@
+Remote VPN access requires the NorthGate client and a hardware security key.
+Employees must contact the IT Service Desk if the NorthGate client cannot connect.
