@@ -43,15 +43,11 @@ public static class ObservabilityDependencyInjection
     private static ObservabilityOptions ResolveOptions(IConfiguration configuration, IHostEnvironment environment)
     {
         ObservabilityOptions options = new();
+
         configuration.GetSection("Observability").Bind(options);
 
-        string? runtimeLogsPath = configuration["LocalRuntime:LogsPath"];
-        if (string.IsNullOrWhiteSpace(configuration["Observability:LogsPath"]) && !string.IsNullOrWhiteSpace(runtimeLogsPath))
-        {
-            options.LogsPath = runtimeLogsPath;
-        }
-
-        if (environment.IsDevelopment() && string.IsNullOrWhiteSpace(configuration["Observability:EnableDebugTrace"]))
+        if (environment.IsDevelopment()
+            && string.IsNullOrWhiteSpace(configuration["Observability:EnableDebugTrace"]))
         {
             options.EnableDebugTrace = true;
         }

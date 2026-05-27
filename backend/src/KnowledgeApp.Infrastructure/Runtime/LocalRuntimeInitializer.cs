@@ -1,6 +1,7 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Persistence;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -12,29 +13,46 @@ public sealed class LocalRuntimeInitializer(IServiceProvider services) : IHosted
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        using IServiceScope? scope = services.CreateScope();
-        IAppPathProvider? paths = scope.ServiceProvider.GetRequiredService<IAppPathProvider>();
+        using IServiceScope scope = services.CreateScope();
+
+        IAppPathProvider paths =
+            scope.ServiceProvider.GetRequiredService<IAppPathProvider>();
+
         Directory.CreateDirectory(paths.DataDirectory);
         Directory.CreateDirectory(paths.FilesDirectory);
         Directory.CreateDirectory(paths.IndexDirectory);
         Directory.CreateDirectory(paths.LogsDirectory);
 
-        AiOptions? aiOptions = scope.ServiceProvider.GetRequiredService<IOptions<AiOptions>>().Value;
-        Directory.CreateDirectory(Path.GetFullPath(aiOptions.ModelsPath, paths.AppRootDirectory));
+        EmbeddingOptions embeddingOptions =
+            scope.ServiceProvider.GetRequiredService<IOptions<EmbeddingOptions>>().Value;
 
-        AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Directory.CreateDirectory(
+            Path.GetFullPath(
+                embeddingOptions.ModelsPath,
+                paths.AppRootDirectory));
+
+        AppDbContext db =
+            scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
         await db.Database.MigrateAsync(cancellationToken);
 
-        IAiRuntimeProviderRegistry? aiRuntimeProviders = scope.ServiceProvider.GetRequiredService<IAiRuntimeProviderRegistry>();
+        IAiRuntimeProviderRegistry aiRuntimeProviders =
+            scope.ServiceProvider.GetRequiredService<IAiRuntimeProviderRegistry>();
+
         try
         {
-            await aiRuntimeProviders.GetSelectedProvider().StartAsync(cancellationToken);
+            await aiRuntimeProviders
+                .GetSelectedProvider()
+                .StartAsync(cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            // LocalApi must still boot so the runtime endpoints can report provider errors as envelopes.
+            // LocalApi must still boot so runtime endpoints can report provider errors as envelopes.
         }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
 }

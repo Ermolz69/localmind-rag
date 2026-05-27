@@ -4,7 +4,7 @@ using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Runtime;
 using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Services;
-using KnowledgeApp.UnitTests;
+
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -16,20 +16,28 @@ public sealed class RuntimeProviderContractTests
     public async Task AiRuntimeManager_Should_Advertise_LlamaCpp_Provider_Capabilities()
     {
         using TemporaryRuntimePaths paths = new();
-        IOptions<AiOptions> options = Options.Create(new AiOptions
+
+        IOptions<RuntimeOptions> runtimeOptions = Options.Create(new RuntimeOptions
         {
             RuntimePath = "missing.exe",
-            ModelsPath = paths.ModelsPath,
             BaseUrl = "http://127.0.0.1:65531",
         });
-        EmbeddingModelCatalog catalog = new(options);
+
+        IOptions<EmbeddingOptions> embeddingOptions = Options.Create(new EmbeddingOptions
+        {
+            ModelsPath = paths.ModelsPath,
+        });
+
+        EmbeddingModelCatalog catalog = new(embeddingOptions);
+
         AiRuntimeManager manager = new(
             paths,
-            options,
+            runtimeOptions,
+            embeddingOptions,
             catalog,
             new EmbeddingModelStore(
                 paths,
-                options,
+                embeddingOptions,
                 catalog,
                 new HttpClient()),
             NullLogger<AiRuntimeManager>.Instance);
@@ -49,9 +57,13 @@ public sealed class RuntimeProviderContractTests
     {
         FakeRuntimeProvider selected = new("stub", "Stub");
         FakeRuntimeProvider other = new("llama-cpp", "llama.cpp");
+
         AiRuntimeProviderRegistry registry = new(
             [other, selected],
-            Options.Create(new AiOptions { Provider = "stub" }));
+            Options.Create(new RuntimeOptions
+            {
+                Provider = "stub",
+            }));
 
         IAiRuntimeProvider provider = registry.GetSelectedProvider();
 
@@ -63,16 +75,23 @@ public sealed class RuntimeProviderContractTests
     {
         AiRuntimeProviderRegistry registry = new(
             [new FakeRuntimeProvider("stub", "Stub")],
-            Options.Create(new AiOptions { Provider = "missing" }));
+            Options.Create(new RuntimeOptions
+            {
+                Provider = "missing",
+            }));
 
-        ExternalDependencyAppException exception = Assert.Throws<ExternalDependencyAppException>(registry.GetSelectedProvider);
+        ExternalDependencyAppException exception =
+            Assert.Throws<ExternalDependencyAppException>(
+                registry.GetSelectedProvider);
 
         Assert.Equal(ErrorCodes.Runtime.AiProviderNotFound, exception.Code);
     }
 
     private sealed class TemporaryRuntimePaths : IAppPathProvider, IDisposable
     {
-        private readonly string root = Path.Combine(Path.GetTempPath(), $"localmind-runtime-test-{Guid.NewGuid():N}");
+        private readonly string root = Path.Combine(
+            Path.GetTempPath(),
+            $"localmind-runtime-test-{Guid.NewGuid():N}");
 
         public TemporaryRuntimePaths()
         {
@@ -119,7 +138,8 @@ public sealed class RuntimeProviderContractTests
             SupportsStart: false,
             SupportsStop: false);
 
-        public Task<RuntimeStatusDto> GetStatusAsync(CancellationToken cancellationToken = default)
+        public Task<RuntimeStatusDto> GetStatusAsync(
+            CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new RuntimeStatusDto(
                 LocalApiReady: true,
@@ -137,17 +157,24 @@ public sealed class RuntimeProviderContractTests
             return Task.CompletedTask;
         }
 
-        public Task<IReadOnlyCollection<string>> ListModelsAsync(CancellationToken cancellationToken = default)
+        public Task<IReadOnlyCollection<string>> ListModelsAsync(
+            CancellationToken cancellationToken = default)
         {
-            return Task.FromResult<IReadOnlyCollection<string>>(["test-model"]);
+            IReadOnlyCollection<string> models = ["test-model"];
+
+            return Task.FromResult(models);
         }
 
-        public Task<string> GenerateChatCompletionAsync(ChatModelRequest request, CancellationToken cancellationToken = default)
+        public Task<string> GenerateChatCompletionAsync(
+            ChatModelRequest request,
+            CancellationToken cancellationToken = default)
         {
             return Task.FromResult("answer");
         }
 
-        public Task<float[]> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default)
+        public Task<float[]> GenerateEmbeddingAsync(
+            string text,
+            CancellationToken cancellationToken = default)
         {
             return Task.FromResult<float[]>([1, 0, 0]);
         }

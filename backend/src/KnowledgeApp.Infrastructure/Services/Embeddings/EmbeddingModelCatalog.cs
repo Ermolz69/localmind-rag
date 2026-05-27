@@ -7,18 +7,26 @@ namespace KnowledgeApp.Infrastructure.Services;
 
 public sealed class EmbeddingModelCatalog
 {
-    private const string ResourcePrefix = "KnowledgeApp.Infrastructure.Resources.AiModels.";
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
-    private readonly Lazy<IReadOnlyDictionary<string, EmbeddingModelManifest>> manifests;
-    private readonly AiOptions options;
+    private const string ResourcePrefix =
+        "KnowledgeApp.Infrastructure.Resources.AiModels.";
 
-    public EmbeddingModelCatalog(IOptions<AiOptions> options)
+    private static readonly JsonSerializerOptions SerializerOptions =
+        new(JsonSerializerDefaults.Web);
+
+    private readonly Lazy<IReadOnlyDictionary<string, EmbeddingModelManifest>> manifests;
+    private readonly EmbeddingOptions options;
+
+    public EmbeddingModelCatalog(IOptions<EmbeddingOptions> options)
     {
         this.options = options.Value;
-        manifests = new Lazy<IReadOnlyDictionary<string, EmbeddingModelManifest>>(LoadManifests);
+        manifests = new Lazy<IReadOnlyDictionary<string, EmbeddingModelManifest>>(
+            LoadManifests);
     }
 
-    public IReadOnlyCollection<EmbeddingModelManifest> List() => manifests.Value.Values.ToArray();
+    public IReadOnlyCollection<EmbeddingModelManifest> List()
+    {
+        return manifests.Value.Values.ToArray();
+    }
 
     public EmbeddingModelManifest GetDefault()
     {
@@ -36,23 +44,33 @@ public sealed class EmbeddingModelCatalog
             return manifest;
         }
 
-        throw new InvalidOperationException($"Embedding model manifest '{id}' was not found.");
+        throw new InvalidOperationException(
+            $"Embedding model manifest '{id}' was not found.");
     }
 
     private static IReadOnlyDictionary<string, EmbeddingModelManifest> LoadManifests()
     {
         Assembly assembly = typeof(EmbeddingModelCatalog).Assembly;
-        Dictionary<string, EmbeddingModelManifest> loaded = new(StringComparer.OrdinalIgnoreCase);
 
-        foreach (string resourceName in assembly.GetManifestResourceNames().Where(x => x.StartsWith(ResourcePrefix, StringComparison.Ordinal)))
+        Dictionary<string, EmbeddingModelManifest> loaded =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string resourceName in assembly.GetManifestResourceNames()
+            .Where(resourceName =>
+                resourceName.StartsWith(ResourcePrefix, StringComparison.Ordinal)))
         {
             using Stream? stream = assembly.GetManifestResourceStream(resourceName);
+
             if (stream is null)
             {
                 continue;
             }
 
-            EmbeddingModelManifest? manifest = JsonSerializer.Deserialize<EmbeddingModelManifest>(stream, SerializerOptions);
+            EmbeddingModelManifest? manifest =
+                JsonSerializer.Deserialize<EmbeddingModelManifest>(
+                    stream,
+                    SerializerOptions);
+
             if (manifest is null || string.IsNullOrWhiteSpace(manifest.Id))
             {
                 continue;
@@ -63,7 +81,8 @@ public sealed class EmbeddingModelCatalog
 
         if (loaded.Count == 0)
         {
-            throw new InvalidOperationException("No embedding model manifests were found.");
+            throw new InvalidOperationException(
+                "No embedding model manifests were found.");
         }
 
         return loaded;

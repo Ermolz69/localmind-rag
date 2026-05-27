@@ -1,9 +1,11 @@
 using System.IO.Compression;
+
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Infrastructure.Options;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -11,27 +13,34 @@ namespace KnowledgeApp.Infrastructure.Services;
 
 public sealed class LlamaCppRuntimeSetupService(
     IAppPathProvider paths,
-    IOptions<AiOptions> options,
+    IOptions<RuntimeOptions> options,
     EmbeddingModelStore embeddingModelStore,
     HttpClient httpClient,
     ILogger<LlamaCppRuntimeSetupService> logger,
     IAppDiagnosticLogger? diagnostics = null) : IAiRuntimeSetupService
 {
-    private readonly AiOptions options = options.Value;
+    private readonly RuntimeOptions options = options.Value;
 
     public async Task SetupAsync(CancellationToken cancellationToken = default)
     {
-        Guid operationId = diagnostics?.BeginOperation(DiagnosticNames.Areas.Runtime, DiagnosticNames.Operations.AiRuntimeSetup) ?? Guid.Empty;
+        Guid operationId = diagnostics?.BeginOperation(
+            DiagnosticNames.Areas.Runtime,
+            DiagnosticNames.Operations.AiRuntimeSetup) ?? Guid.Empty;
+
         try
         {
             await EnsureRuntimeAsync(cancellationToken);
+
             diagnostics?.LogStep(operationId, DiagnosticNames.Steps.RuntimeReady);
+
             await embeddingModelStore.EnsureDownloadedAsync(cancellationToken: cancellationToken);
+
             diagnostics?.LogStep(operationId, DiagnosticNames.Steps.ModelReady);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             diagnostics?.LogFailure(operationId, exception);
+
             throw new ExternalDependencyAppException(
                 ErrorCodes.Runtime.ExternalDependencyUnavailable,
                 ErrorMessages.Runtime.ExternalDependencyUnavailable,
@@ -42,17 +51,27 @@ public sealed class LlamaCppRuntimeSetupService(
     private async Task EnsureRuntimeAsync(CancellationToken cancellationToken)
     {
         string runtimePath = ResolvePath(options.RuntimePath);
+
         if (File.Exists(runtimePath))
         {
-            logger.LogInformation("AI runtime executable is already installed at {RuntimePath}.", runtimePath);
+            logger.LogInformation(
+                "AI runtime executable is already installed at {RuntimePath}.",
+                runtimePath);
+
             return;
         }
 
         string runtimeDirectory = Path.GetDirectoryName(runtimePath)
-            ?? throw new InvalidOperationException("AI runtime path does not contain a directory.");
+            ?? throw new InvalidOperationException(
+                "AI runtime path does not contain a directory.");
+
         Directory.CreateDirectory(runtimeDirectory);
 
-        string tempDirectory = Path.Combine(runtimeDirectory, ".setup", Guid.NewGuid().ToString("N"));
+        string tempDirectory = Path.Combine(
+            runtimeDirectory,
+            ".setup",
+            Guid.NewGuid().ToString("N"));
+
         string archivePath = Path.Combine(tempDirectory, "llama.cpp.zip");
         string extractDirectory = Path.Combine(tempDirectory, "extract");
 
@@ -60,20 +79,32 @@ public sealed class LlamaCppRuntimeSetupService(
 
         try
         {
-            logger.LogInformation("Downloading llama.cpp runtime from {RuntimeDownloadUrl}.", options.RuntimeDownloadUrl);
+            logger.LogInformation(
+                "Downloading llama.cpp runtime from {RuntimeDownloadUrl}.",
+                options.RuntimeDownloadUrl);
+
             using HttpResponseMessage response = await httpClient.GetAsync(
                 options.RuntimeDownloadUrl,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
+
             response.EnsureSuccessStatusCode();
 
-            await using (Stream remote = await response.Content.ReadAsStreamAsync(cancellationToken))
-            await using (FileStream local = new(archivePath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            await using (Stream remote =
+                await response.Content.ReadAsStreamAsync(cancellationToken))
+            await using (FileStream local = new(
+                archivePath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None))
             {
                 await remote.CopyToAsync(local, cancellationToken);
             }
 
-            ZipFile.ExtractToDirectory(archivePath, extractDirectory, overwriteFiles: true);
+            ZipFile.ExtractToDirectory(
+                archivePath,
+                extractDirectory,
+                overwriteFiles: true);
 
             FileInfo? extractedServer = new DirectoryInfo(extractDirectory)
                 .EnumerateFiles("llama-server.exe", SearchOption.AllDirectories)
@@ -81,24 +112,30 @@ public sealed class LlamaCppRuntimeSetupService(
 
             if (extractedServer is null)
             {
-                throw new InvalidOperationException("Downloaded llama.cpp archive does not contain llama-server.exe.");
+                throw new InvalidOperationException(
+                    "Downloaded llama.cpp archive does not contain llama-server.exe.");
             }
 
             DirectoryInfo sourceDirectory = extractedServer.Directory
-                ?? throw new InvalidOperationException("Downloaded llama.cpp runtime directory was not found.");
+                ?? throw new InvalidOperationException(
+                    "Downloaded llama.cpp runtime directory was not found.");
 
             foreach (FileInfo file in sourceDirectory.EnumerateFiles())
             {
                 string destination = Path.Combine(runtimeDirectory, file.Name);
+
                 file.CopyTo(destination, overwrite: true);
             }
 
             if (!File.Exists(runtimePath))
             {
-                throw new InvalidOperationException($"Installed llama.cpp runtime was not found at {runtimePath}.");
+                throw new InvalidOperationException(
+                    $"Installed llama.cpp runtime was not found at {runtimePath}.");
             }
 
-            logger.LogInformation("AI runtime executable installed at {RuntimePath}.", runtimePath);
+            logger.LogInformation(
+                "AI runtime executable installed at {RuntimePath}.",
+                runtimePath);
         }
         finally
         {
@@ -109,5 +146,8 @@ public sealed class LlamaCppRuntimeSetupService(
         }
     }
 
-    private string ResolvePath(string path) => Path.GetFullPath(path, paths.AppRootDirectory);
+    private string ResolvePath(string path)
+    {
+        return Path.GetFullPath(path, paths.AppRootDirectory);
+    }
 }

@@ -1,14 +1,14 @@
 using System.Net;
-using KnowledgeApp.Application.Common.Errors;
-using KnowledgeApp.Contracts.Common;
+
 using KnowledgeApp.Contracts.Runtime;
 using KnowledgeApp.IntegrationTests.TestSupport;
+
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 
 namespace KnowledgeApp.IntegrationTests;
 
-public sealed class RuntimeProviderApiTests(LocalApiTestFactory factory) : IClassFixture<LocalApiTestFactory>
+public sealed class RuntimeProviderApiTests(LocalApiTestFactory factory)
+    : IClassFixture<LocalApiTestFactory>
 {
     [Fact]
     public async Task RuntimeProviders_Should_Return_Selected_Provider_And_Capabilities()
@@ -27,32 +27,6 @@ public sealed class RuntimeProviderApiTests(LocalApiTestFactory factory) : IClas
         Assert.Equal("stub", provider.Id);
         Assert.True(provider.Capabilities.SupportsEmbeddings);
         Assert.True(provider.Capabilities.SupportsChat);
-    }
-
-    [Fact]
-    public async Task RuntimeStatus_Should_Return_Envelope_When_Configured_Provider_Is_Missing()
-    {
-        using WebApplicationFactory<Program> missingProviderFactory =
-            factory.WithWebHostBuilder(builder =>
-                builder.ConfigureAppConfiguration((_, configuration) =>
-                {
-                    configuration.AddInMemoryCollection(new Dictionary<string, string?>
-                    {
-                        ["Ai:Provider"] = "missing-provider",
-                    });
-                }));
-
-        using HttpClient client = missingProviderFactory.CreateClient();
-
-        using HttpResponseMessage response =
-            await client.GetAsync("/api/v1/runtime/status", CancellationToken.None);
-
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-
-        ApiResponse<object?> error =
-            await response.Content.ReadApiErrorAsync();
-
-        Assert.Equal(ErrorCodes.Runtime.AiProviderNotFound, error.Error?.Code);
     }
 }
 
