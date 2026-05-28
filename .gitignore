@@ -44,6 +44,7 @@ storybook-static/
 .vite/
 .turbo/
 .eslintcache
+*.tsbuildinfo
 coverage/
 npm-debug.log*
 yarn-debug.log*
