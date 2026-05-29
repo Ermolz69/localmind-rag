@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <OpenApiGenerateDocuments Condition="'$(OpenApiGenerateDocuments)' == ''">false</OpenApiGenerateDocuments>
+    <OpenApiDocumentsDirectory Condition="'$(OpenApiOutputFolder)' != ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)/../../../$(OpenApiOutputFolder)'))</OpenApiDocumentsDirectory>
   </PropertyGroup>
 
   <ItemGroup>

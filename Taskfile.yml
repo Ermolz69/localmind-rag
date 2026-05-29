@@ -213,7 +213,7 @@ tasks:
       IngestionWorker__Enabled: 'false'
     cmds:
       - cmd: rm -rf {{dir .OUTPUT_FILE}} && mkdir -p {{dir .OUTPUT_FILE}} {{.RUNTIME_ROOT}}
-      - cmd: dotnet build {{.REPO_ROOT}}/backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj -c Release --no-incremental /p:OpenApiGenerateDocuments=true /p:OpenApiDocumentsDirectory="$([System.IO.Path]::GetFullPath('{{dir .OUTPUT_FILE}}'))"
+      - cmd: dotnet build {{.REPO_ROOT}}/backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj -c Release --no-incremental /p:OpenApiGenerateDocuments=true /p:OpenApiOutputFolder="{{dir .OUTPUT_FILE}}"
       # Find generated JSON and move to final target path
       - cmd: mv {{dir .OUTPUT_FILE}}/KnowledgeApp.LocalApi.json {{.OUTPUT_FILE}}
 
