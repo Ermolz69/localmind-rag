@@ -39,24 +39,27 @@ jobs:
         with:
           global-json-file: revision/global.json
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Generate revision OpenAPI
-        shell: pwsh
         run: >
-          & "./revision/scripts/openapi/generate-local-api-spec.ps1"
-          -RepositoryRoot "./revision"
-          -OutputFile "${{ github.workspace }}/artifacts/openapi/revision/local-api-v1.json"
-          -RuntimeRoot "${{ github.workspace }}/artifacts/openapi/runtime/revision"
-          -RuntimeDatabaseFileName "knowledge-app-openapi-revision.db"
+          task -t revision/Taskfile.yml openapi:generate
+          REPO_ROOT="../revision"
+          OUTPUT_FILE="${{ github.workspace }}/artifacts/openapi/revision/local-api-v1.json"
+          RUNTIME_ROOT="${{ github.workspace }}/artifacts/openapi/runtime/revision"
+          DBNAME="knowledge-app-openapi-revision.db"
 
       - name: Generate base OpenAPI
         if: github.event_name == 'pull_request'
-        shell: pwsh
         run: >
-          & "./revision/scripts/openapi/generate-local-api-spec.ps1"
-          -RepositoryRoot "./base"
-          -OutputFile "${{ github.workspace }}/artifacts/openapi/base/local-api-v1.json"
-          -RuntimeRoot "${{ github.workspace }}/artifacts/openapi/runtime/base"
-          -RuntimeDatabaseFileName "knowledge-app-openapi-base.db"
+          task -t revision/Taskfile.yml openapi:generate
+          REPO_ROOT="../base"
+          OUTPUT_FILE="${{ github.workspace }}/artifacts/openapi/base/local-api-v1.json"
+          RUNTIME_ROOT="${{ github.workspace }}/artifacts/openapi/runtime/base"
+          DBNAME="knowledge-app-openapi-base.db"
 
       - name: Determine whether versioned baseline exists
         if: github.event_name == 'pull_request'

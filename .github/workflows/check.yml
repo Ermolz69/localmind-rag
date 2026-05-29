@@ -36,11 +36,16 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Restore backend
-        run: dotnet restore backend/KnowledgeApp.slnx
+        run: task setup:backend
 
       - name: Verify dotnet format
-        run: dotnet format backend/KnowledgeApp.slnx --verify-no-changes --no-restore
+        run: task check:backend:format
 
   backend-build:
     name: Backend build
@@ -55,11 +60,16 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Restore backend
-        run: dotnet restore backend/KnowledgeApp.slnx
+        run: task setup:backend
 
       - name: Build backend
-        run: dotnet build backend/KnowledgeApp.slnx --no-restore
+        run: task build:backend
 
   backend-unit-tests:
     name: Backend unit tests
@@ -76,25 +86,19 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Restore backend
-        run: dotnet restore backend/KnowledgeApp.slnx
+        run: task setup:backend
 
       - name: Build backend
-        run: dotnet build backend/KnowledgeApp.slnx --no-restore
-
-      - name: Install coverage report generator
-        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+        run: task build:backend
 
       - name: Run unit tests with coverage
-        shell: powershell
-        run: >
-          dotnet test backend/tests/KnowledgeApp.UnitTests/KnowledgeApp.UnitTests.csproj
-          --no-build
-          --logger "trx"
-          --results-directory "${{ env.TEST_RESULTS_DIR }}/unit"
-          --collect:"XPlat Code Coverage"
-          --
-          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        run: task test:ci:unit TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/unit"
 
       - name: Publish unit test report
         if: always()
@@ -115,14 +119,7 @@ jobs:
 
       - name: Generate unit coverage report
         if: always()
-        shell: powershell
-        run: >
-          & "$env:USERPROFILE\.dotnet\tools\reportgenerator.exe"
-          -reports:"${{ env.TEST_RESULTS_DIR }}/unit/**/coverage.cobertura.xml"
-          -targetdir:"${{ env.COVERAGE_REPORT_DIR }}/unit"
-          -reporttypes:"Html;Cobertura;MarkdownSummaryGithub"
-          -assemblyfilters:"+KnowledgeApp.*;-*.Tests"
-          -classfilters:"-Microsoft.AspNetCore.OpenApi.Generated*;-System.Text.RegularExpressions.Generated*"
+        run: task test:ci:report TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/unit" COVERAGE_REPORT_DIR="${{ env.COVERAGE_REPORT_DIR }}/unit"
 
       - name: Add unit coverage summary
         if: always()
@@ -156,25 +153,19 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Restore backend
-        run: dotnet restore backend/KnowledgeApp.slnx
+        run: task setup:backend
 
       - name: Build backend
-        run: dotnet build backend/KnowledgeApp.slnx --no-restore
-
-      - name: Install coverage report generator
-        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+        run: task build:backend
 
       - name: Run integration tests with coverage
-        shell: bash
-        run: >
-          dotnet test backend/tests/KnowledgeApp.IntegrationTests/KnowledgeApp.IntegrationTests.csproj
-          --no-build
-          --logger "trx"
-          --results-directory "${{ env.TEST_RESULTS_DIR }}/integration"
-          --collect:"XPlat Code Coverage"
-          --
-          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        run: task test:ci:integration TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/integration"
 
       - name: Publish integration test report
         if: always()
@@ -195,14 +186,7 @@ jobs:
 
       - name: Generate integration coverage report
         if: always()
-        shell: bash
-        run: >
-          "$HOME/.dotnet/tools/reportgenerator"
-          -reports:"${{ env.TEST_RESULTS_DIR }}/integration/**/coverage.cobertura.xml"
-          -targetdir:"${{ env.COVERAGE_REPORT_DIR }}/integration"
-          -reporttypes:"Html;Cobertura;MarkdownSummaryGithub"
-          -assemblyfilters:"+KnowledgeApp.*;-*.Tests"
-          -classfilters:"-Microsoft.AspNetCore.OpenApi.Generated*;-System.Text.RegularExpressions.Generated*"
+        run: task test:ci:report TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/integration" COVERAGE_REPORT_DIR="${{ env.COVERAGE_REPORT_DIR }}/integration"
 
       - name: Add integration coverage summary
         if: always()
@@ -235,25 +219,19 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Restore backend
-        run: dotnet restore backend/KnowledgeApp.slnx
+        run: task setup:backend
 
       - name: Build backend
-        run: dotnet build backend/KnowledgeApp.slnx --no-restore
-
-      - name: Install coverage report generator
-        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+        run: task build:backend
 
       - name: Run RAG evaluation tests with coverage
-        shell: bash
-        run: >
-          dotnet test backend/tests/KnowledgeApp.RagEvaluationTests/KnowledgeApp.RagEvaluationTests.csproj
-          --no-build
-          --logger "trx"
-          --results-directory "${{ env.TEST_RESULTS_DIR }}/rag-evaluation"
-          --collect:"XPlat Code Coverage"
-          --
-          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        run: task test:ci:rag TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/rag-evaluation"
 
       - name: Publish RAG evaluation test report
         if: always()
@@ -274,14 +252,7 @@ jobs:
 
       - name: Generate RAG evaluation coverage report
         if: always()
-        shell: bash
-        run: >
-          "$HOME/.dotnet/tools/reportgenerator"
-          -reports:"${{ env.TEST_RESULTS_DIR }}/rag-evaluation/**/coverage.cobertura.xml"
-          -targetdir:"${{ env.COVERAGE_REPORT_DIR }}/rag-evaluation"
-          -reporttypes:"Html;Cobertura;MarkdownSummaryGithub"
-          -assemblyfilters:"+KnowledgeApp.*;-*.Tests"
-          -classfilters:"-Microsoft.AspNetCore.OpenApi.Generated*;-System.Text.RegularExpressions.Generated*"
+        run: task test:ci:report TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/rag-evaluation" COVERAGE_REPORT_DIR="${{ env.COVERAGE_REPORT_DIR }}/rag-evaluation"
 
       - name: Add RAG evaluation coverage summary
         if: always()
@@ -315,19 +286,19 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Restore backend
-        run: dotnet restore backend/KnowledgeApp.slnx
+        run: task setup:backend
 
       - name: Build backend
-        run: dotnet build backend/KnowledgeApp.slnx --no-restore
+        run: task build:backend
 
       - name: Run architecture tests
-        shell: powershell
-        run: >
-          dotnet test backend/tests/KnowledgeApp.ArchitectureTests/KnowledgeApp.ArchitectureTests.csproj
-          --no-build
-          --logger "trx"
-          --results-directory "${{ env.TEST_RESULTS_DIR }}/architecture"
+        run: task test:ci:architecture TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/architecture"
 
       - name: Publish architecture test report
         if: always()
@@ -365,11 +336,16 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Install dependencies
-        run: pnpm.cmd install --frozen-lockfile
+        run: task setup:frontend
 
       - name: Check Prettier formatting
-        run: pnpm.cmd --filter desktop format:check
+        run: task check:frontend:format
 
   frontend-lint:
     name: Frontend lint
@@ -390,11 +366,16 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Install dependencies
-        run: pnpm.cmd install --frozen-lockfile
+        run: task setup:frontend
 
       - name: Run ESLint
-        run: pnpm.cmd --filter desktop lint
+        run: task check:frontend:lint
 
   frontend-typecheck:
     name: Frontend typecheck
@@ -415,11 +396,16 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Install dependencies
-        run: pnpm.cmd install --frozen-lockfile
+        run: task setup:frontend
 
       - name: Run TypeScript
-        run: pnpm.cmd --filter desktop typecheck
+        run: task check:frontend:typecheck
 
   frontend-build:
     name: Frontend build
@@ -443,11 +429,16 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Install dependencies
-        run: pnpm.cmd install --frozen-lockfile
+        run: task setup:frontend
 
       - name: Build desktop frontend
-        run: pnpm.cmd --filter desktop build
+        run: task build:frontend
 
   frontend-color-guard:
     name: Frontend color guard
@@ -457,9 +448,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Check hardcoded colors
-        shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check/check-colors.ps1
+        run: task check:colors
 
   docker-compose:
     name: Docker compose config
@@ -469,8 +464,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Validate remote compose file
-        run: docker compose -f infra/docker-compose.remote.yml config
+        run: task check:docker
 
   check-summary:
     name: Check summary
