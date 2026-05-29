@@ -14,6 +14,7 @@ public static partial class DependencyInjection
         services.AddScoped<GetChatsHandler>();
         services.AddScoped<GetConversationByIdHandler>();
         services.AddScoped<SendChatMessageHandler>();
+        services.AddScoped<SendChatStreamMessageHandler>();
         services.AddScoped<UpdateConversationHandler>();
 
         return services;

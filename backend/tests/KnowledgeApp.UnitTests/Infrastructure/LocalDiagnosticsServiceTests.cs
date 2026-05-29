@@ -147,6 +147,12 @@ public sealed class LocalDiagnosticsServiceTests
         public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<IReadOnlyCollection<string>> ListModelsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyCollection<string>>([]);
         public Task<string> GenerateChatCompletionAsync(ChatModelRequest request, CancellationToken cancellationToken = default) => Task.FromResult(string.Empty);
+        public async IAsyncEnumerable<string> GenerateChatCompletionStreamAsync(ChatModelRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            yield return string.Empty;
+            await Task.Yield();
+        }
+
         public Task<float[]> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default) => Task.FromResult(Array.Empty<float>());
     }
 }

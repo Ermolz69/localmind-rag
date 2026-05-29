@@ -20,6 +20,8 @@ public interface IAiRuntimeProvider
 
     Task<string> GenerateChatCompletionAsync(ChatModelRequest request, CancellationToken cancellationToken = default);
 
+    IAsyncEnumerable<string> GenerateChatCompletionStreamAsync(ChatModelRequest request, CancellationToken cancellationToken = default);
+
     Task<float[]> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default);
 }
 

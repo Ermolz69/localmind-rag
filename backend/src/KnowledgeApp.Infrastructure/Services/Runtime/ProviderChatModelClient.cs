@@ -8,4 +8,9 @@ public sealed class ProviderChatModelClient(IAiRuntimeProviderRegistry registry)
     {
         return registry.GetSelectedProvider().GenerateChatCompletionAsync(request, cancellationToken);
     }
+
+    public IAsyncEnumerable<string> GenerateStreamAsync(ChatModelRequest request, CancellationToken cancellationToken = default)
+    {
+        return registry.GetSelectedProvider().GenerateChatCompletionStreamAsync(request, cancellationToken);
+    }
 }

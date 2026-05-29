@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -162,6 +163,78 @@ public sealed class AiRuntimeManager(
         }
 
         return content;
+    }
+
+    public IAsyncEnumerable<string> GenerateChatCompletionStreamAsync(
+        ChatModelRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        return GenerateChatCompletionStreamInternalAsync(request, cancellationToken);
+    }
+
+    private async IAsyncEnumerable<string> GenerateChatCompletionStreamInternalAsync(
+        ChatModelRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        ChatCompletionRequest payload = new(
+            Model: runtime.ChatModel,
+            Messages:
+            [
+                new ChatCompletionMessage(
+                    "system",
+                    "Answer using only the provided local context. If no relevant local context is available, say that no relevant local sources were found."),
+                new ChatCompletionMessage(
+                    "user",
+                    $"Context:\n{request.ContextText}\n\nQuestion:\n{request.Question}"),
+            ],
+            Temperature: runtime.Temperature,
+            Stream: true);
+
+        using HttpClient client = new()
+        {
+            Timeout = TimeSpan.FromMinutes(5),
+        };
+
+        using HttpResponseMessage response = await client.PostAsJsonAsync(
+            BuildUri("/v1/chat/completions"),
+            payload,
+            SerializerOptions,
+            cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw await CreateRuntimeUnavailableExceptionAsync(
+                "chat completion stream",
+                response,
+                cancellationToken);
+        }
+
+        using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using StreamReader reader = new(stream);
+
+        while (await reader.ReadLineAsync(cancellationToken) is { } line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            if (line.StartsWith("data: ", StringComparison.Ordinal))
+            {
+                string data = line["data: ".Length..].Trim();
+                if (data == "[DONE]")
+                {
+                    break;
+                }
+
+                ChatCompletionStreamResponse? chunk = JsonSerializer.Deserialize<ChatCompletionStreamResponse>(data, SerializerOptions);
+                string? content = chunk?.Choices.FirstOrDefault()?.Delta?.Content;
+                if (!string.IsNullOrEmpty(content))
+                {
+                    yield return content;
+                }
+            }
+        }
     }
 
     public async Task<float[]> GenerateEmbeddingAsync(
@@ -550,7 +623,8 @@ public sealed class AiRuntimeManager(
     private sealed record ChatCompletionRequest(
         [property: JsonPropertyName("model")] string Model,
         [property: JsonPropertyName("messages")] IReadOnlyList<ChatCompletionMessage> Messages,
-        [property: JsonPropertyName("temperature")] double Temperature);
+        [property: JsonPropertyName("temperature")] double Temperature,
+        [property: JsonPropertyName("stream")] bool Stream = false);
 
     private sealed record ChatCompletionMessage(
         [property: JsonPropertyName("role")] string Role,
@@ -561,4 +635,13 @@ public sealed class AiRuntimeManager(
 
     private sealed record ChatCompletionChoice(
         [property: JsonPropertyName("message")] ChatCompletionMessage Message);
+
+    private sealed record ChatCompletionStreamResponse(
+        [property: JsonPropertyName("choices")] IReadOnlyList<ChatCompletionStreamChoice> Choices);
+
+    private sealed record ChatCompletionStreamChoice(
+        [property: JsonPropertyName("delta")] ChatCompletionStreamDelta Delta);
+
+    private sealed record ChatCompletionStreamDelta(
+        [property: JsonPropertyName("content")] string? Content);
 }

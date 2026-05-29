@@ -62,6 +62,13 @@ public sealed class StubAiRuntimeProvider(
         return chat.GenerateAsync(request, cancellationToken);
     }
 
+    public IAsyncEnumerable<string> GenerateChatCompletionStreamAsync(
+        ChatModelRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        return chat.GenerateStreamAsync(request, cancellationToken);
+    }
+
     public Task<float[]> GenerateEmbeddingAsync(
         string text,
         CancellationToken cancellationToken = default)

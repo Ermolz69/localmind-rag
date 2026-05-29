@@ -72,5 +72,14 @@ public sealed class ChatHandlersTests
 
             return Task.FromResult(new RagAnswerDto("Stub answer", [source]));
         }
+
+        public async IAsyncEnumerable<RagAnswerChunkDto> AnswerStreamAsync(
+            Guid conversationId,
+            string question,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            yield return new RagAnswerChunkDto("Stub answer");
+            await Task.Yield();
+        }
     }
 }

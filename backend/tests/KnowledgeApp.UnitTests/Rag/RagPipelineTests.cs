@@ -418,5 +418,14 @@ public sealed class RagPipelineTests
 
             return Task.FromResult("Generated from context");
         }
+
+        public async IAsyncEnumerable<string> GenerateStreamAsync(
+            ChatModelRequest request,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            Request = request;
+            yield return "Generated from context";
+            await Task.Yield();
+        }
     }
 }
