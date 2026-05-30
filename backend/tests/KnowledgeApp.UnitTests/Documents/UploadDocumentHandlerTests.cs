@@ -36,7 +36,7 @@ public sealed class UploadDocumentHandlerTests
         Assert.Equal(document.Id, documentFile.DocumentId);
         Assert.Equal(FileType.PlainText, documentFile.FileType);
         Assert.Contains($"runtime/app/files/{document.Id}/notes.txt", documentFile.LocalPath, StringComparison.Ordinal);
-        
+
         Assert.Single(publisher.PublishedEvents);
         Assert.IsType<DocumentUploadedEvent>(publisher.PublishedEvents.Single());
         Assert.Equal(document.Id, ((DocumentUploadedEvent)publisher.PublishedEvents.Single()).DocumentId);

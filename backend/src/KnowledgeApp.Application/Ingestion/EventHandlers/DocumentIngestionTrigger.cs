@@ -7,7 +7,7 @@ namespace KnowledgeApp.Application.Ingestion.EventHandlers;
 
 public sealed class DocumentIngestionTrigger(
     IIngestionJobRepository ingestionJobs,
-    IUnitOfWork unitOfWork) : 
+    IUnitOfWork unitOfWork) :
     INotificationHandler<DocumentUploadedEvent>,
     INotificationHandler<DocumentReindexRequestedEvent>
 {

@@ -32,7 +32,7 @@ public class SidecarPortWriter : IHostedService
                 {
                     var port = uri.Port;
                     var portFilePath = Path.Combine(_appPathProvider.DataDirectory, "sidecar-port.txt");
-                    
+
                     try
                     {
                         File.WriteAllText(portFilePath, port.ToString());

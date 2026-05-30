@@ -672,7 +672,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
             await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
 
         Assert.NotNull(upload);
-        
+
         using IServiceScope scope = factory.Services.CreateScope();
         AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var job = await db.IngestionJobs.FirstOrDefaultAsync(j => j.DocumentId == upload.DocumentId);
@@ -709,7 +709,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
             await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
 
         Assert.NotNull(upload);
-        
+
         using IServiceScope scope = factory.Services.CreateScope();
         AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var job = await db.IngestionJobs.FirstOrDefaultAsync(j => j.DocumentId == upload.DocumentId);

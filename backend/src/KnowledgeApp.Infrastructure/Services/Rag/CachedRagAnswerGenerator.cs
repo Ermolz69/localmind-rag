@@ -29,7 +29,7 @@ public sealed class CachedRagAnswerGenerator(
         if (cachedEntry != null)
         {
             var sources = JsonSerializer.Deserialize<IReadOnlyList<RagSourceDto>>(cachedEntry.SourcesJson) ?? [];
-            
+
             diagnostics?.LogStep(
                 operationId,
                 DiagnosticNames.Steps.CacheHit,
@@ -74,7 +74,7 @@ public sealed class CachedRagAnswerGenerator(
         if (cachedEntry != null)
         {
             var sources = JsonSerializer.Deserialize<IReadOnlyList<RagSourceDto>>(cachedEntry.SourcesJson) ?? [];
-            
+
             diagnostics?.LogStep(
                 operationId,
                 DiagnosticNames.Steps.CacheHit,
