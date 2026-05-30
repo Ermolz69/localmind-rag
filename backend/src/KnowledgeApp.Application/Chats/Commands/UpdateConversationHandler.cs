@@ -8,7 +8,8 @@ using Microsoft.EntityFrameworkCore;
 namespace KnowledgeApp.Application.Chats;
 
 public sealed class UpdateConversationHandler(
-    IAppDbContext dbContext,
+    IConversationRepository conversationRepository,
+    IUnitOfWork unitOfWork,
     IDateTimeProvider dateTimeProvider,
     ChatRequestValidator validator)
 {
@@ -23,8 +24,7 @@ public sealed class UpdateConversationHandler(
             return validation;
         }
 
-        Conversation? conversation = await dbContext.Conversations
-            .FirstOrDefaultAsync(item => item.Id == conversationId && item.DeletedAt == null, cancellationToken);
+        Conversation? conversation = await conversationRepository.GetByIdAsync(conversationId, cancellationToken);
         if (conversation is null)
         {
             return Result.Failure(ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound));
@@ -32,7 +32,8 @@ public sealed class UpdateConversationHandler(
 
         conversation.Title = request.Title.Trim();
         conversation.UpdatedAt = dateTimeProvider.UtcNow;
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await conversationRepository.UpdateAsync(conversation, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
     }

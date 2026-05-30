@@ -6,24 +6,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Documents;
 
-public sealed class GetDocumentByIdHandler(IAppDbContext dbContext)
+public sealed class GetDocumentByIdHandler(
+    IDocumentRepository documentRepository,
+    IIngestionJobRepository ingestionJobs)
 {
     public async Task<Result<DocumentDto>> HandleAsync(GetDocumentByIdQuery query, CancellationToken cancellationToken = default)
     {
-        Domain.Entities.Document? document = await dbContext.Documents
-            .AsNoTracking()
-            .Where(document => document.Id == query.DocumentId && document.DeletedAt == null)
-            .SingleOrDefaultAsync(cancellationToken);
+        Domain.Entities.Document? document = await documentRepository.GetByIdAsync(query.DocumentId, cancellationToken);
 
         if (document is null)
         {
             return Result<DocumentDto>.Failure(ApplicationErrors.NotFound(ErrorCodes.Documents.NotFound, "Document was not found."));
         }
 
-        Domain.Entities.IngestionJob[]? failedJobs = await dbContext.IngestionJobs
-            .AsNoTracking()
-            .Where(job => job.DocumentId == document.Id && job.ErrorMessage != null)
-            .ToArrayAsync(cancellationToken);
+        IReadOnlyList<Domain.Entities.IngestionJob> failedJobs = await ingestionJobs.GetFailedJobsForDocumentsAsync([document.Id], cancellationToken);
 
         return Result<DocumentDto>.Success(new DocumentDto(
             document.Id,

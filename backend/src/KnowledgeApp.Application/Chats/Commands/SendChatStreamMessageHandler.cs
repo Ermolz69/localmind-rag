@@ -14,7 +14,8 @@ using Microsoft.EntityFrameworkCore;
 namespace KnowledgeApp.Application.Chats;
 
 public sealed class SendChatStreamMessageHandler(
-    IAppDbContext dbContext,
+    IConversationRepository conversationRepository,
+    IUnitOfWork unitOfWork,
     IRagAnswerGenerator ragAnswerGenerator,
     ChatRequestValidator validator,
     IDateTimeProvider dateTimeProvider,
@@ -38,9 +39,7 @@ public sealed class SendChatStreamMessageHandler(
             throw new ValidationAppException(validation.Error.Code, validation.Error.Message, errorsDict);
         }
 
-        bool conversationExists = await dbContext.Conversations
-            .AsNoTracking()
-            .AnyAsync(conversation => conversation.Id == conversationId && conversation.DeletedAt == null, cancellationToken);
+        bool conversationExists = await conversationRepository.ExistsAsync(conversationId, cancellationToken);
         if (!conversationExists)
         {
             var error = ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound);
@@ -56,17 +55,17 @@ public sealed class SendChatStreamMessageHandler(
         DateTimeOffset now = dateTimeProvider.UtcNow;
         Guid localDeviceId = await localDeviceResolver.ResolveCurrentDeviceIdAsync(cancellationToken);
 
-        dbContext.ChatMessages.Add(new ChatMessage
+        await conversationRepository.AddMessageAsync(new ChatMessage
         {
             ConversationId = conversationId,
             CreatedAt = now,
             LocalDeviceId = localDeviceId,
             Role = ChatRole.User,
             Content = request.Content.Trim(),
-        });
+        }, cancellationToken);
 
         // Save the user message first so it appears in the conversation history
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         StringBuilder fullAnswer = new();
 
@@ -83,17 +82,17 @@ public sealed class SendChatStreamMessageHandler(
             // Even if the client cancels, we try to save the partial answer to the database
             if (fullAnswer.Length > 0)
             {
-                dbContext.ChatMessages.Add(new ChatMessage
+                await conversationRepository.AddMessageAsync(new ChatMessage
                 {
                     ConversationId = conversationId,
                     CreatedAt = dateTimeProvider.UtcNow,
                     LocalDeviceId = localDeviceId,
                     Role = ChatRole.Assistant,
                     Content = fullAnswer.ToString(),
-                });
+                }, CancellationToken.None);
 
                 // Use CancellationToken.None to ensure the assistant message is saved even if the request is cancelled
-                await dbContext.SaveChangesAsync(CancellationToken.None);
+                await unitOfWork.SaveChangesAsync(CancellationToken.None);
             }
         }
     }

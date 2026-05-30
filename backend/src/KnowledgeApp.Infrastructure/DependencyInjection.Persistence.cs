@@ -19,6 +19,12 @@ public static partial class DependencyInjection
         services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
+        services.AddScoped<IDocumentRepository, Services.Persistence.DocumentRepository>();
+        services.AddScoped<IConversationRepository, Services.Persistence.ConversationRepository>();
+        services.AddScoped<IBucketRepository, Services.Persistence.BucketRepository>();
+        services.AddScoped<INoteRepository, Services.Persistence.NoteRepository>();
+        services.AddScoped<IEmbeddingStore, Services.Persistence.EmbeddingStore>();
+
         return services;
     }
 }

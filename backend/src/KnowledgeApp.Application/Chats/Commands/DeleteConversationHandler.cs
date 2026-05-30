@@ -6,14 +6,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Chats;
 
-public sealed class DeleteConversationHandler(IAppDbContext dbContext, IDateTimeProvider dateTimeProvider)
+public sealed class DeleteConversationHandler(
+    IConversationRepository conversationRepository,
+    IUnitOfWork unitOfWork,
+    IDateTimeProvider dateTimeProvider)
 {
     public async Task<Result> HandleAsync(
         Guid conversationId,
         CancellationToken cancellationToken = default)
     {
-        Conversation? conversation = await dbContext.Conversations
-            .FirstOrDefaultAsync(item => item.Id == conversationId && item.DeletedAt == null, cancellationToken);
+        Conversation? conversation = await conversationRepository.GetByIdAsync(conversationId, cancellationToken);
         if (conversation is null)
         {
             return Result.Failure(ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound));
@@ -23,16 +25,16 @@ public sealed class DeleteConversationHandler(IAppDbContext dbContext, IDateTime
         conversation.DeletedAt = now;
         conversation.UpdatedAt = now;
 
-        ChatMessage[] messages = await dbContext.ChatMessages
-            .Where(message => message.ConversationId == conversationId && message.DeletedAt == null)
-            .ToArrayAsync(cancellationToken);
+        IReadOnlyList<ChatMessage> messages = await conversationRepository.GetMessagesAsync(conversationId, cancellationToken);
         foreach (ChatMessage message in messages)
         {
             message.DeletedAt = now;
             message.UpdatedAt = now;
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await conversationRepository.UpdateAsync(conversation, cancellationToken);
+        // ChatMessage updates will be tracked and saved by EF Core when SaveChangesAsync is called on unit of work.
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
 }

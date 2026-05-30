@@ -16,10 +16,13 @@ public sealed class ChatHandlersTests
     {
         await using ApplicationTestDatabase? database = await ApplicationTestDatabase.CreateAsync();
         ChatRequestValidator validator = new();
-        CreateChatHandler create = new(database.Context, validator, new FakeLocalDeviceResolver());
-        GetChatsHandler list = new(database.Context);
+        var conversationRepository = new KnowledgeApp.Infrastructure.Services.Persistence.ConversationRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        CreateChatHandler create = new(conversationRepository, unitOfWork, validator, new FakeLocalDeviceResolver());
+        GetChatsHandler list = new(conversationRepository);
         SendChatMessageHandler send = new(
-            database.Context,
+            conversationRepository,
+            unitOfWork,
             new FakeRagAnswerGenerator(),
             validator,
             new FixedDateTimeProvider(),
@@ -43,8 +46,11 @@ public sealed class ChatHandlersTests
     public async Task SendChatMessageHandler_Should_Reject_Missing_Conversation()
     {
         await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        var conversationRepository = new KnowledgeApp.Infrastructure.Services.Persistence.ConversationRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
         SendChatMessageHandler send = new(
-            database.Context,
+            conversationRepository,
+            unitOfWork,
             new FakeRagAnswerGenerator(),
             new ChatRequestValidator(),
             new FixedDateTimeProvider(),

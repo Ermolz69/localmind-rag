@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Buckets;
 
-public sealed class GetBucketsPageHandler(IAppDbContext dbContext)
+public sealed class GetBucketsPageHandler(IBucketRepository bucketRepository)
 {
     private const string CursorKind = "buckets";
 
@@ -34,18 +34,15 @@ public sealed class GetBucketsPageHandler(IAppDbContext dbContext)
 
         CursorPayload? cursor = cursorResult.Value;
 
-        IQueryable<Bucket> bucketsQuery = dbContext.Buckets
-            .AsNoTracking()
-            .Where(bucket => bucket.DeletedAt == null)
-            .AsQueryable();
+        IReadOnlyList<Bucket> allBuckets = await bucketRepository.ListAsync(cancellationToken);
 
+        IEnumerable<Bucket> filteredBuckets = allBuckets;
         if (!string.IsNullOrWhiteSpace(normalizedQuery))
         {
-            bucketsQuery = bucketsQuery.Where(bucket => bucket.Name.Contains(normalizedQuery));
+            filteredBuckets = filteredBuckets.Where(bucket => bucket.Name.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase));
         }
 
-        Bucket[] buckets = await bucketsQuery.ToArrayAsync(cancellationToken);
-        Bucket[] sortedBuckets = buckets
+        Bucket[] sortedBuckets = filteredBuckets
             .OrderByDescending(bucket => bucket.CreatedAt)
             .ThenByDescending(bucket => bucket.Id.ToString("N", CultureInfo.InvariantCulture))
             .ToArray();

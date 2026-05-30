@@ -6,7 +6,8 @@ using KnowledgeApp.Domain.Entities;
 namespace KnowledgeApp.Application.Notes;
 
 public sealed class CreateNoteHandler(
-    IAppDbContext dbContext,
+    INoteRepository noteRepository,
+    IUnitOfWork unitOfWork,
     NoteRequestValidator validator,
     ILocalDeviceResolver localDeviceResolver)
 {
@@ -27,8 +28,8 @@ public sealed class CreateNoteHandler(
             LocalDeviceId = localDeviceId,
         };
 
-        dbContext.Notes.Add(note);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await noteRepository.AddAsync(note, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result<NoteDto>.Success(NoteMapper.ToDto(note));
     }
 }

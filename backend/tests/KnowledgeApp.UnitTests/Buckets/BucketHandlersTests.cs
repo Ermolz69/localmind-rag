@@ -14,10 +14,12 @@ public sealed class BucketHandlersTests
     {
         await using ApplicationTestDatabase? database = await ApplicationTestDatabase.CreateAsync();
         BucketRequestValidator validator = new();
-        CreateBucketHandler create = new(database.Context, validator, new FakeLocalDeviceResolver());
-        GetBucketsHandler list = new(database.Context);
-        UpdateBucketHandler update = new(database.Context, new FixedDateTimeProvider(), validator);
-        DeleteBucketHandler delete = new(database.Context, new FixedDateTimeProvider());
+        var bucketRepository = new KnowledgeApp.Infrastructure.Services.Persistence.BucketRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        CreateBucketHandler create = new(bucketRepository, unitOfWork, validator, new FakeLocalDeviceResolver());
+        GetBucketsHandler list = new(bucketRepository);
+        UpdateBucketHandler update = new(bucketRepository, unitOfWork, new FixedDateTimeProvider(), validator);
+        DeleteBucketHandler delete = new(bucketRepository, unitOfWork, new FixedDateTimeProvider());
 
         BucketDto? bucket = (await create.HandleAsync(new CreateBucketRequest("Work", "Initial"))).AssertSuccess();
         IReadOnlyList<BucketDto>? buckets = await list.HandleAsync();

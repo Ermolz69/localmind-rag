@@ -153,11 +153,15 @@ public sealed class UploadDocumentHandlerTests
     private static UploadDocumentHandler CreateHandler(TestDatabase database, FakeFileStorageService? storage = null)
     {
         FixedDateTimeProvider? clock = new FixedDateTimeProvider();
+        var documentRepository = new KnowledgeApp.Infrastructure.Services.Persistence.DocumentRepository(database.Context);
+        var bucketRepository = new KnowledgeApp.Infrastructure.Services.Persistence.BucketRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
         return new UploadDocumentHandler(
-            database.Context,
+            documentRepository,
+            unitOfWork,
             storage ?? new FakeFileStorageService(),
             clock,
-            new BucketResolver(database.Context, clock),
+            new BucketResolver(bucketRepository, database.Context, clock),
             new FakeLocalDeviceResolver(),
             new IngestionJobRepository(database.Context),
             new UploadDocumentCommandValidator());

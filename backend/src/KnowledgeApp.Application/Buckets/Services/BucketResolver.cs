@@ -7,14 +7,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Buckets;
 
-public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider dateTimeProvider) : IBucketResolver
+public sealed class BucketResolver(
+    IBucketRepository bucketRepository,
+    IAppDbContext dbContext,
+    IDateTimeProvider dateTimeProvider) : IBucketResolver
 {
     public async Task<Result<Bucket>> ResolveForUploadAsync(Guid? requestedBucketId, CancellationToken cancellationToken = default)
     {
         if (requestedBucketId.HasValue)
         {
-            Bucket? requestedBucket = await dbContext.Buckets
-                .FirstOrDefaultAsync(x => x.Id == requestedBucketId.Value && x.DeletedAt == null, cancellationToken);
+            Bucket? requestedBucket = await bucketRepository.GetByIdAsync(requestedBucketId.Value, cancellationToken);
             if (requestedBucket is null)
             {
                 return Result<Bucket>.Failure(ApplicationErrors.NotFound(ErrorCodes.Buckets.NotFound, ErrorMessages.Buckets.NotFound));
@@ -30,8 +32,7 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
             return Result<Bucket>.Success(lastSelectedBucket);
         }
 
-        Bucket? defaultBucket = await dbContext.Buckets
-            .FirstOrDefaultAsync(x => x.Name == BucketConstants.DefaultBucketName && x.DeletedAt == null, cancellationToken);
+        Bucket? defaultBucket = await bucketRepository.GetByNameAsync(BucketConstants.DefaultBucketName, cancellationToken);
 
         if (defaultBucket is null)
         {
@@ -41,7 +42,7 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
                 Name = BucketConstants.DefaultBucketName,
                 SyncStatus = SyncStatus.LocalOnly,
             };
-            dbContext.Buckets.Add(defaultBucket);
+            await bucketRepository.AddAsync(defaultBucket, cancellationToken);
         }
 
         await SetLastSelectedBucketAsync(defaultBucket.Id, cancellationToken);
@@ -58,9 +59,7 @@ public sealed class BucketResolver(IAppDbContext dbContext, IDateTimeProvider da
             return null;
         }
 
-        return await dbContext.Buckets.FirstOrDefaultAsync(
-            x => x.Id == bucketId && x.DeletedAt == null,
-            cancellationToken);
+        return await bucketRepository.GetByIdAsync(bucketId, cancellationToken);
     }
 
     private async Task SetLastSelectedBucketAsync(Guid bucketId, CancellationToken cancellationToken)

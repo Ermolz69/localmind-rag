@@ -20,7 +20,9 @@ public sealed class GetDocumentsHandlerTests
             new Document { CreatedAt = new DateTimeOffset(2026, 5, 10, 12, 0, 0, TimeSpan.Zero), Name = "older.md", Status = DocumentStatus.Indexed },
             new Document { CreatedAt = new DateTimeOffset(2026, 5, 12, 12, 0, 0, TimeSpan.Zero), Name = "newer.md", Status = DocumentStatus.Queued });
         await database.Context.SaveChangesAsync();
-        GetDocumentsHandler? handler = new GetDocumentsHandler(database.Context);
+        GetDocumentsHandler handler = new GetDocumentsHandler(
+            new KnowledgeApp.Infrastructure.Services.Persistence.DocumentRepository(database.Context),
+            new KnowledgeApp.Infrastructure.Services.IngestionJobRepository(database.Context));
 
         CursorPage<DocumentDto> documents = (await handler.HandleAsync(new GetDocumentsQuery())).AssertSuccess();
 
@@ -39,7 +41,9 @@ public sealed class GetDocumentsHandlerTests
         Document oldest = new() { CreatedAt = new DateTimeOffset(2026, 5, 11, 12, 0, 0, TimeSpan.Zero), Name = "oldest.md" };
         database.Context.Documents.AddRange(newest, middle, oldest);
         await database.Context.SaveChangesAsync();
-        GetDocumentsHandler handler = new(database.Context);
+        GetDocumentsHandler handler = new(
+            new KnowledgeApp.Infrastructure.Services.Persistence.DocumentRepository(database.Context),
+            new KnowledgeApp.Infrastructure.Services.IngestionJobRepository(database.Context));
 
         CursorPage<DocumentDto> firstPage = (await handler.HandleAsync(new GetDocumentsQuery(Limit: 2))).AssertSuccess();
         CursorPage<DocumentDto> secondPage = (await handler.HandleAsync(new GetDocumentsQuery(Cursor: firstPage.NextCursor, Limit: 2))).AssertSuccess();
@@ -55,7 +59,9 @@ public sealed class GetDocumentsHandlerTests
     public async Task HandleAsync_Should_Return_NotFound_When_Document_Is_Missing()
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
-        GetDocumentByIdHandler? handler = new GetDocumentByIdHandler(database.Context);
+        GetDocumentByIdHandler handler = new GetDocumentByIdHandler(
+            new KnowledgeApp.Infrastructure.Services.Persistence.DocumentRepository(database.Context),
+            new KnowledgeApp.Infrastructure.Services.IngestionJobRepository(database.Context));
 
         Result<DocumentDto> document = await handler.HandleAsync(new GetDocumentByIdQuery(Guid.NewGuid()));
 

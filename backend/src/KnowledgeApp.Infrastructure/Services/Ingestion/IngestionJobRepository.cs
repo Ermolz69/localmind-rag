@@ -64,6 +64,14 @@ public sealed class IngestionJobRepository(AppDbContext dbContext) : IIngestionJ
             .ToArray();
     }
 
+    public async Task<IReadOnlyList<IngestionJob>> GetFailedJobsForDocumentsAsync(IEnumerable<Guid> documentIds, CancellationToken cancellationToken = default)
+    {
+        return await dbContext.IngestionJobs
+            .AsNoTracking()
+            .Where(job => documentIds.Contains(job.DocumentId) && job.ErrorMessage != null)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IngestionJob?> ClaimForProcessingAsync(Guid jobId, Guid operationId, DateTimeOffset now, CancellationToken cancellationToken = default)
     {
         int claimed = await dbContext.IngestionJobs

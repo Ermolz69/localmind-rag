@@ -23,8 +23,12 @@ public sealed class SendChatStreamMessageHandlerTests
         IRagAnswerGenerator ragGenerator = new StubRagAnswerGenerator(
             [new RagAnswerChunkDto("Hello", sources), new RagAnswerChunkDto(" world")]);
 
+        var conversationRepository = new KnowledgeApp.Infrastructure.Services.Persistence.ConversationRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+
         SendChatStreamMessageHandler handler = new(
-            database.Context,
+            conversationRepository,
+            unitOfWork,
             ragGenerator,
             new ChatRequestValidator(),
             new FixedDateTimeProvider(),

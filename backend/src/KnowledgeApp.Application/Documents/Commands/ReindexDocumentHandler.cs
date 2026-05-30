@@ -8,14 +8,13 @@ using Microsoft.EntityFrameworkCore;
 namespace KnowledgeApp.Application.Documents;
 
 public sealed class ReindexDocumentHandler(
-    IAppDbContext dbContext,
+    IDocumentRepository documentRepository,
     IIngestionJobRepository ingestionJobs,
     IDateTimeProvider dateTimeProvider)
 {
     public async Task<Result<ReindexDocumentResponse>> HandleAsync(Guid documentId, CancellationToken cancellationToken = default)
     {
-        Document? document = await dbContext.Documents
-            .FirstOrDefaultAsync(x => x.Id == documentId && x.DeletedAt == null, cancellationToken);
+        Document? document = await documentRepository.GetByIdAsync(documentId, cancellationToken);
         if (document is null)
         {
             return Result<ReindexDocumentResponse>.Failure(

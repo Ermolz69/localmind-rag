@@ -7,13 +7,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Chats;
 
-public sealed class GetConversationByIdHandler(IAppDbContext dbContext)
+public sealed class GetConversationByIdHandler(IConversationRepository conversationRepository)
 {
     public async Task<Result<ConversationDto>> HandleAsync(Guid conversationId, CancellationToken cancellationToken = default)
     {
-        Conversation? conversation = await dbContext.Conversations
-            .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Id == conversationId && item.DeletedAt == null, cancellationToken);
+        Conversation? conversation = await conversationRepository.GetByIdAsync(conversationId, cancellationToken);
 
         return conversation is null
             ? Result<ConversationDto>.Failure(ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound))

@@ -19,11 +19,17 @@ public sealed class DocumentCommandHandlersTests
         database.Context.Documents.Add(document);
         await database.Context.SaveChangesAsync();
 
-        ReindexDocumentHandler? reindex = new ReindexDocumentHandler(
-            database.Context,
+        var documentRepository = new KnowledgeApp.Infrastructure.Services.Persistence.DocumentRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+
+        ReindexDocumentHandler reindex = new ReindexDocumentHandler(
+            documentRepository,
             new IngestionJobRepository(database.Context),
             new FixedDateTimeProvider());
-        DeleteDocumentHandler? delete = new DeleteDocumentHandler(database.Context, new FixedDateTimeProvider());
+        DeleteDocumentHandler delete = new DeleteDocumentHandler(
+            documentRepository,
+            unitOfWork,
+            new FixedDateTimeProvider());
 
         ReindexDocumentResponse? reindexResult = (await reindex.HandleAsync(document.Id)).AssertSuccess();
         Result<ReindexDocumentResponse> missingReindexResult = await reindex.HandleAsync(Guid.NewGuid());

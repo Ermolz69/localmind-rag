@@ -3,12 +3,11 @@ using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Search;
 using KnowledgeApp.Domain.Enums;
-using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Search;
 
 public sealed class ContentSearchHandler(
-    IAppDbContext dbContext,
+    IChunkSearchIndex chunkSearchIndex,
     ContentSearchRequestValidator validator)
 {
     private const int MaxCandidateCount = 500;
@@ -61,52 +60,12 @@ public sealed class ContentSearchHandler(
         IReadOnlyList<string> terms,
         CancellationToken cancellationToken)
     {
-        var query =
-            from document in dbContext.Documents.AsNoTracking()
-            join chunk in dbContext.DocumentChunks.AsNoTracking()
-                on document.Id equals chunk.DocumentId
-            where document.DeletedAt == null &&
-                  document.Status == DocumentStatus.Indexed
-            select new
-            {
-                Document = document,
-                Chunk = chunk
-            };
-
-        if (request.BucketId.HasValue)
-        {
-            query = query.Where(candidate =>
-                candidate.Document.BucketId == request.BucketId.Value);
-        }
-
-        if (request.DocumentId.HasValue)
-        {
-            query = query.Where(candidate =>
-                candidate.Document.Id == request.DocumentId.Value);
-        }
-
-        foreach (string term in terms)
-        {
-            string searchTerm = term;
-
-            query = query.Where(candidate =>
-                candidate.Document.Name.Contains(searchTerm) ||
-                candidate.Chunk.Text.Contains(searchTerm));
-        }
-
-        DocumentCandidate[] candidates = await query
-            .OrderBy(candidate => candidate.Document.Name)
-            .ThenBy(candidate => candidate.Document.Id)
-            .ThenBy(candidate => candidate.Chunk.Index)
-            .Select(candidate => new DocumentCandidate(
-                candidate.Document.Id,
-                candidate.Document.BucketId,
-                candidate.Chunk.Id,
-                candidate.Document.Name,
-                candidate.Chunk.PageNumber,
-                candidate.Chunk.Text))
-            .Take(MaxCandidateCount)
-            .ToArrayAsync(cancellationToken);
+        IReadOnlyList<DocumentChunkCandidate> candidates = await chunkSearchIndex.SearchDocumentCandidatesAsync(
+            terms.ToArray(),
+            request.BucketId,
+            request.DocumentId,
+            MaxCandidateCount,
+            cancellationToken);
 
         return candidates
             .Select(candidate => new ContentSearchHitDto(
@@ -126,41 +85,12 @@ public sealed class ContentSearchHandler(
         IReadOnlyList<string> terms,
         CancellationToken cancellationToken)
     {
-        var query = dbContext.Notes
-            .AsNoTracking()
-            .Where(note => note.DeletedAt == null);
-
-        if (request.BucketId.HasValue)
-        {
-            query = query.Where(note =>
-                note.BucketId == request.BucketId.Value);
-        }
-
-        if (request.NoteId.HasValue)
-        {
-            query = query.Where(note =>
-                note.Id == request.NoteId.Value);
-        }
-
-        foreach (string term in terms)
-        {
-            string searchTerm = term;
-
-            query = query.Where(note =>
-                note.Title.Contains(searchTerm) ||
-                note.Markdown.Contains(searchTerm));
-        }
-
-        NoteCandidate[] candidates = await query
-            .OrderBy(note => note.Title)
-            .ThenBy(note => note.Id)
-            .Select(note => new NoteCandidate(
-                note.Id,
-                note.BucketId,
-                note.Title,
-                note.Markdown))
-            .Take(MaxCandidateCount)
-            .ToArrayAsync(cancellationToken);
+        IReadOnlyList<NoteCandidate> candidates = await chunkSearchIndex.SearchNoteCandidatesAsync(
+            terms.ToArray(),
+            request.BucketId,
+            request.NoteId,
+            MaxCandidateCount,
+            cancellationToken);
 
         return candidates
             .Select(candidate => new ContentSearchHitDto(
@@ -286,18 +216,4 @@ public sealed class ContentSearchHandler(
 
         return prefix + snippet + suffix;
     }
-
-    private sealed record DocumentCandidate(
-        Guid DocumentId,
-        Guid? BucketId,
-        Guid ChunkId,
-        string Title,
-        int? PageNumber,
-        string Text);
-
-    private sealed record NoteCandidate(
-        Guid NoteId,
-        Guid? BucketId,
-        string Title,
-        string Markdown);
 }
