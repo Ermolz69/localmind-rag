@@ -33,10 +33,12 @@ public sealed class ChatRagApiTests
 
         await using (AsyncServiceScope ingestionScope = factory.Services.CreateAsyncScope())
         {
+            var setupDb = ingestionScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var job = await setupDb.IngestionJobs.FirstAsync(j => j.DocumentId == upload.DocumentId);
             IIngestionJobProcessor processor =
                 ingestionScope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
 
-            await processor.ProcessAsync(upload.IngestionJobId);
+            await processor.ProcessAsync(job.Id);
         }
 
         ConversationDto conversation =
@@ -179,10 +181,12 @@ public sealed class ChatRagApiTests
 
         await using (AsyncServiceScope setupScope = factory.Services.CreateAsyncScope())
         {
+            var db = setupScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var job = await db.IngestionJobs.FirstAsync(j => j.DocumentId == upload.DocumentId);
             IIngestionJobProcessor processor =
                 setupScope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
 
-            await processor.ProcessAsync(upload.IngestionJobId);
+            await processor.ProcessAsync(job.Id);
 
             AppDbContext setupDb =
                 setupScope.ServiceProvider.GetRequiredService<AppDbContext>();

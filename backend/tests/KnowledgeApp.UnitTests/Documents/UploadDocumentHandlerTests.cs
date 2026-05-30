@@ -20,27 +20,26 @@ public sealed class UploadDocumentHandlerTests
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
         FakeFileStorageService? storage = new FakeFileStorageService();
-        UploadDocumentHandler? handler = CreateHandler(database, storage);
+        UploadDocumentHandler? handler = CreateHandler(database, out FakeDomainEventPublisher publisher, storage);
         await using MemoryStream? content = new MemoryStream("hello localmind"u8.ToArray());
 
         UploadDocumentResponse? response = (await handler.HandleAsync(new UploadDocumentCommand(content, "notes.txt", "text/plain", content.Length, null))).AssertSuccess();
 
         Document? document = await database.Context.Documents.SingleAsync();
         DocumentFile? documentFile = await database.Context.DocumentFiles.SingleAsync();
-        IngestionJob? ingestionJob = await database.Context.IngestionJobs.SingleAsync();
 
         Assert.Equal(document.Id, response.DocumentId);
-        Assert.Equal(ingestionJob.Id, response.IngestionJobId);
+        Assert.Null(response.IngestionJobId);
         Assert.Equal(DocumentStatus.Queued.ToString(), response.Status);
         Assert.Equal(DocumentStatus.Queued, document.Status);
         Assert.Equal(SyncStatus.LocalOnly, document.SyncStatus);
         Assert.Equal(document.Id, documentFile.DocumentId);
         Assert.Equal(FileType.PlainText, documentFile.FileType);
         Assert.Contains($"runtime/app/files/{document.Id}/notes.txt", documentFile.LocalPath, StringComparison.Ordinal);
-        Assert.Equal(document.Id, ingestionJob.DocumentId);
-        Assert.Equal(IngestionJobStatus.Pending, ingestionJob.Status);
-        Assert.Equal(0, ingestionJob.ProgressPercent);
-        Assert.Equal("Pending", ingestionJob.CurrentStep);
+        
+        Assert.Single(publisher.PublishedEvents);
+        Assert.IsType<DocumentUploadedEvent>(publisher.PublishedEvents.Single());
+        Assert.Equal(document.Id, ((DocumentUploadedEvent)publisher.PublishedEvents.Single()).DocumentId);
         Assert.Equal(1, storage.SaveCalls);
     }
 
@@ -48,7 +47,7 @@ public sealed class UploadDocumentHandlerTests
     public async Task HandleAsync_Should_Create_Default_Bucket_When_Bucket_Is_Not_Provided()
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
-        UploadDocumentHandler? handler = CreateHandler(database);
+        UploadDocumentHandler? handler = CreateHandler(database, out _);
         await using MemoryStream? content = new MemoryStream("bucket me"u8.ToArray());
 
         await handler.HandleAsync(new UploadDocumentCommand(content, "default.md", "text/markdown", content.Length, null));
@@ -66,7 +65,7 @@ public sealed class UploadDocumentHandlerTests
         Bucket? bucket = new Bucket { Name = "Research" };
         database.Context.Buckets.Add(bucket);
         await database.Context.SaveChangesAsync();
-        UploadDocumentHandler? handler = CreateHandler(database);
+        UploadDocumentHandler? handler = CreateHandler(database, out _);
         await using MemoryStream? content = new MemoryStream("selected bucket"u8.ToArray());
 
         await handler.HandleAsync(new UploadDocumentCommand(content, "paper.pdf", "application/pdf", content.Length, bucket.Id));
@@ -89,7 +88,7 @@ public sealed class UploadDocumentHandlerTests
             Value = lastSelectedBucket.Id.ToString(),
         });
         await database.Context.SaveChangesAsync();
-        UploadDocumentHandler? handler = CreateHandler(database);
+        UploadDocumentHandler? handler = CreateHandler(database, out _);
         await using MemoryStream? content = new MemoryStream("last selected"u8.ToArray());
 
         await handler.HandleAsync(new UploadDocumentCommand(content, "last.txt", "text/plain", content.Length, null));
@@ -103,7 +102,7 @@ public sealed class UploadDocumentHandlerTests
     public async Task HandleAsync_Should_Reject_Missing_Requested_Bucket()
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
-        UploadDocumentHandler? handler = CreateHandler(database);
+        UploadDocumentHandler? handler = CreateHandler(database, out _);
         await using MemoryStream? content = new MemoryStream("missing bucket"u8.ToArray());
 
         Result<UploadDocumentResponse> result = await handler.HandleAsync(
@@ -118,7 +117,7 @@ public sealed class UploadDocumentHandlerTests
     public async Task HandleAsync_Should_Reject_Empty_File()
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
-        UploadDocumentHandler? handler = CreateHandler(database);
+        UploadDocumentHandler? handler = CreateHandler(database, out _);
         await using MemoryStream? content = new MemoryStream();
 
         Result<UploadDocumentResponse> result = await handler.HandleAsync(
@@ -130,7 +129,7 @@ public sealed class UploadDocumentHandlerTests
     public async Task HandleAsync_Should_Reject_Unsupported_Extension()
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
-        UploadDocumentHandler? handler = CreateHandler(database);
+        UploadDocumentHandler? handler = CreateHandler(database, out _);
         await using MemoryStream? content = new MemoryStream("nope"u8.ToArray());
 
         Result<UploadDocumentResponse> result = await handler.HandleAsync(
@@ -142,7 +141,7 @@ public sealed class UploadDocumentHandlerTests
     public async Task HandleAsync_Should_Reject_Too_Large_File()
     {
         await using TestDatabase? database = await TestDatabase.CreateAsync();
-        UploadDocumentHandler? handler = CreateHandler(database);
+        UploadDocumentHandler? handler = CreateHandler(database, out _);
         await using MemoryStream? content = new MemoryStream([1]);
 
         Result<UploadDocumentResponse> result = await handler.HandleAsync(
@@ -150,12 +149,13 @@ public sealed class UploadDocumentHandlerTests
         Assert.Equal(ErrorCodes.Documents.FileTooLarge, result.AssertFailure(ErrorType.Validation).Code);
     }
 
-    private static UploadDocumentHandler CreateHandler(TestDatabase database, FakeFileStorageService? storage = null)
+    private static UploadDocumentHandler CreateHandler(TestDatabase database, out FakeDomainEventPublisher publisher, FakeFileStorageService? storage = null)
     {
         FixedDateTimeProvider? clock = new FixedDateTimeProvider();
         var documentRepository = new KnowledgeApp.Infrastructure.Services.Persistence.DocumentRepository(database.Context);
         var bucketRepository = new KnowledgeApp.Infrastructure.Services.Persistence.BucketRepository(database.Context);
         var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        publisher = new FakeDomainEventPublisher();
         return new UploadDocumentHandler(
             documentRepository,
             unitOfWork,
@@ -163,8 +163,19 @@ public sealed class UploadDocumentHandlerTests
             clock,
             new BucketResolver(bucketRepository, database.Context, clock),
             new FakeLocalDeviceResolver(),
-            new IngestionJobRepository(database.Context),
+            publisher,
             new UploadDocumentCommandValidator());
+    }
+
+    private sealed class FakeDomainEventPublisher : IDomainEventPublisher
+    {
+        public List<IDomainEvent> PublishedEvents { get; } = new();
+
+        public Task PublishAsync<TEvent>(TEvent domainEvent, CancellationToken cancellationToken = default) where TEvent : IDomainEvent
+        {
+            PublishedEvents.Add(domainEvent);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeFileStorageService : IFileStorageService

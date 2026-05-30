@@ -24,6 +24,7 @@ public static partial class DependencyInjection
         services.AddScoped<IBucketRepository, Services.Persistence.BucketRepository>();
         services.AddScoped<INoteRepository, Services.Persistence.NoteRepository>();
         services.AddScoped<IEmbeddingStore, Services.Persistence.EmbeddingStore>();
+        services.AddScoped<KnowledgeApp.Application.Abstractions.Rag.ISemanticCacheRepository, Services.Persistence.SemanticCacheRepository>();
 
         return services;
     }

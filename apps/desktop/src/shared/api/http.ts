@@ -1,8 +1,29 @@
+import { invoke } from "@tauri-apps/api/core";
 import type { ApiResponse } from "./common";
 import { ApiError } from "./problem-details";
 
-const apiBaseUrl =
-  import.meta.env.VITE_LOCAL_API_URL ?? "http://127.0.0.1:49321";
+let cachedBaseUrl: string | null = null;
+
+async function getApiBaseUrl(): Promise<string> {
+  if (cachedBaseUrl !== null) {
+    return cachedBaseUrl;
+  }
+
+  if (import.meta.env.VITE_LOCAL_API_URL) {
+    cachedBaseUrl = import.meta.env.VITE_LOCAL_API_URL as string;
+    return cachedBaseUrl;
+  }
+
+  try {
+    const port = await invoke<number>("get_sidecar_port");
+    cachedBaseUrl = `http://127.0.0.1:${port}`;
+  } catch (error) {
+    console.error("Failed to get sidecar port, falling back to 49321", error);
+    cachedBaseUrl = "http://127.0.0.1:49321";
+  }
+
+  return cachedBaseUrl as string;
+}
 
 const publicApiPrefix = "/api/v1";
 
@@ -33,8 +54,9 @@ async function readJson(response: Response) {
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormData = init?.body instanceof FormData;
+  const baseUrl = await getApiBaseUrl();
 
-  const response = await fetch(`${apiBaseUrl}${publicApiPrefix}${path}`, {
+  const response = await fetch(`${baseUrl}${publicApiPrefix}${path}`, {
     headers: {
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...init?.headers,

@@ -10,7 +10,13 @@ public static partial class DependencyInjection
     {
         services.AddSingleton<IChatModelClient, ProviderChatModelClient>();
         services.AddScoped<IRagContextBuilder, RagContextBuilder>();
-        services.AddScoped<IRagAnswerGenerator, RagAnswerGenerator>();
+        services.AddScoped<RagAnswerGenerator>();
+        services.AddScoped<IRagAnswerGenerator>(provider =>
+            new CachedRagAnswerGenerator(
+                provider.GetRequiredService<RagAnswerGenerator>(),
+                provider.GetRequiredService<KnowledgeApp.Application.Abstractions.Rag.ISemanticCacheRepository>(),
+                provider.GetRequiredService<IEmbeddingGenerator>(),
+                provider.GetService<IAppDiagnosticLogger>()));
 
         return services;
     }

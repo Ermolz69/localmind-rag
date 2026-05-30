@@ -9,7 +9,7 @@ namespace KnowledgeApp.Application.Documents;
 
 public sealed class ReindexDocumentHandler(
     IDocumentRepository documentRepository,
-    IIngestionJobRepository ingestionJobs,
+    IDomainEventPublisher eventPublisher,
     IDateTimeProvider dateTimeProvider)
 {
     public async Task<Result<ReindexDocumentResponse>> HandleAsync(Guid documentId, CancellationToken cancellationToken = default)
@@ -21,7 +21,7 @@ public sealed class ReindexDocumentHandler(
                 ApplicationErrors.NotFound(ErrorCodes.Documents.NotFound, "Document was not found."));
         }
 
-        IngestionJob job = await ingestionJobs.CreatePendingAsync(documentId, dateTimeProvider.UtcNow, cancellationToken);
-        return Result<ReindexDocumentResponse>.Success(new ReindexDocumentResponse(documentId, job.Id, job.Status.ToString()));
+        await eventPublisher.PublishAsync(new DocumentReindexRequestedEvent(documentId, dateTimeProvider.UtcNow), cancellationToken);
+        return Result<ReindexDocumentResponse>.Success(new ReindexDocumentResponse(documentId, null, "Pending"));
     }
 }

@@ -20,10 +20,11 @@ public sealed class IngestionJobManagementApiTests(LocalApiTestFactory factory)
         IngestionJobListResponse? list =
             await client.GetApiDataAsync<IngestionJobListResponse>("/api/v1/ingestion/jobs");
 
-        Assert.Contains(list?.Items ?? [], item => item.Id == upload.IngestionJobId);
+        Guid jobId = list?.Items.FirstOrDefault(i => i.DocumentId == upload.DocumentId)?.Id ?? Guid.Empty;
+        Assert.NotEqual(Guid.Empty, jobId);
 
         IngestionJobDto? job = await client.GetApiDataAsync<IngestionJobDto>(
-            $"/api/v1/ingestion/jobs/{upload.IngestionJobId}");
+            $"/api/v1/ingestion/jobs/{jobId}");
 
         Assert.NotNull(job);
         Assert.True(job.CanCancel);
@@ -34,7 +35,7 @@ public sealed class IngestionJobManagementApiTests(LocalApiTestFactory factory)
         Assert.Null(job.ErrorMessage);
 
         using HttpResponseMessage cancelResponse = await client.PostAsync(
-            $"/api/v1/ingestion/jobs/{upload.IngestionJobId}/cancel",
+            $"/api/v1/ingestion/jobs/{jobId}/cancel",
             null);
 
         Assert.Equal(HttpStatusCode.OK, cancelResponse.StatusCode);
@@ -45,7 +46,7 @@ public sealed class IngestionJobManagementApiTests(LocalApiTestFactory factory)
         Assert.Equal("Cancelled", cancel?.Status);
 
         using HttpResponseMessage retryResponse = await client.PostAsync(
-            $"/api/v1/ingestion/jobs/{upload.IngestionJobId}/retry",
+            $"/api/v1/ingestion/jobs/{jobId}/retry",
             null);
 
         Assert.Equal(HttpStatusCode.Accepted, retryResponse.StatusCode);

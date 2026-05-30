@@ -76,7 +76,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         Assert.Equal(BucketConstants.DefaultBucketName, defaultBucket.Name);
         Assert.False(string.IsNullOrWhiteSpace(localDevice.DeviceKey));
         Assert.Equal(fileName, storedFile.FileName);
-        Assert.Equal(upload.IngestionJobId, ingestionJob.Id);
+        Assert.Equal(upload.IngestionJobId!.Value, ingestionJob.Id);
     }
 
     [Fact]
@@ -270,7 +270,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         IIngestionJobProcessor? processor =
             scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
 
-        await processor.ProcessAsync(upload.IngestionJobId);
+        await processor.ProcessAsync(upload.IngestionJobId!.Value);
 
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
@@ -283,7 +283,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
             await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
 
         IngestionJob? job =
-            await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+            await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId!.Value);
 
         Assert.Single(chunks);
         Assert.Equal("First paragraph.\n\nSecond paragraph.", chunks[0].Text);
@@ -338,7 +338,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 
             IngestionJob job =
                 await db.IngestionJobs.SingleAsync(
-                    x => x.Id == upload.IngestionJobId);
+                    x => x.Id == upload.IngestionJobId!.Value);
 
             return job.Status == IngestionJobStatus.Indexed;
         });
@@ -359,7 +359,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 
         IngestionJob completedJob =
             await verificationDb.IngestionJobs.SingleAsync(
-                x => x.Id == upload.IngestionJobId);
+                x => x.Id == upload.IngestionJobId!.Value);
 
         Assert.Equal("Automatic worker paragraph.", chunk.Text);
         Assert.Equal(DocumentStatus.Indexed, document.Status);
@@ -405,7 +405,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 
             IngestionJob job =
                 await db.IngestionJobs.SingleAsync(
-                    x => x.Id == upload.IngestionJobId);
+                    x => x.Id == upload.IngestionJobId!.Value);
 
             return job.Status == IngestionJobStatus.Failed;
         });
@@ -422,7 +422,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 
         IngestionJob failedJob =
             await verificationDb.IngestionJobs.SingleAsync(
-                x => x.Id == upload.IngestionJobId);
+                x => x.Id == upload.IngestionJobId!.Value);
 
         Assert.Equal(DocumentStatus.Failed, document.Status);
         Assert.Equal(IngestionJobStatus.Failed, failedJob.Status);
@@ -445,21 +445,21 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
 
         using HttpResponseMessage? response =
             await client.PostAsync(
-                $"/api/v1/ingestion/jobs/{upload.IngestionJobId}/process",
+                $"/api/v1/ingestion/jobs/{upload.IngestionJobId!.Value}/process",
                 content: null);
 
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         Assert.NotNull(response.Headers.Location);
 
         Assert.Equal(
-            $"/api/v1/ingestion/jobs/{upload.IngestionJobId}",
+            $"/api/v1/ingestion/jobs/{upload.IngestionJobId!.Value}",
             response.Headers.Location!.OriginalString);
 
         ProcessIngestionJobResponse? body =
             await response.Content.ReadApiDataAsync<ProcessIngestionJobResponse>();
 
         Assert.NotNull(body);
-        Assert.Equal(upload.IngestionJobId, body.JobId);
+        Assert.Equal(upload.IngestionJobId!.Value, body.JobId);
 
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
 
@@ -496,7 +496,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         IIngestionJobProcessor? processor =
             scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
 
-        await processor.ProcessAsync(upload.IngestionJobId);
+        await processor.ProcessAsync(upload.IngestionJobId!.Value);
 
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
@@ -504,7 +504,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
             await db.Documents.SingleAsync(x => x.Id == upload.DocumentId);
 
         IngestionJob? job =
-            await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId);
+            await db.IngestionJobs.SingleAsync(x => x.Id == upload.IngestionJobId!.Value);
 
         Assert.Equal(DocumentStatus.Failed, document.Status);
         Assert.Equal(IngestionJobStatus.Failed, job.Status);
@@ -538,7 +538,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         IIngestionJobProcessor? processor =
             scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
 
-        await processor.ProcessAsync(upload.IngestionJobId);
+        await processor.ProcessAsync(upload.IngestionJobId!.Value);
 
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
@@ -578,7 +578,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         IIngestionJobProcessor? processor =
             scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
 
-        await processor.ProcessAsync(upload.IngestionJobId);
+        await processor.ProcessAsync(upload.IngestionJobId!.Value);
 
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
@@ -609,7 +609,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         IIngestionJobProcessor? processor =
             scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
 
-        await processor.ProcessAsync(upload.IngestionJobId);
+        await processor.ProcessAsync(upload.IngestionJobId!.Value);
 
         AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
@@ -636,7 +636,7 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         await db.SaveChangesAsync();
     }
 
-    private static async Task<UploadDocumentResponse> UploadDocumentAsync(
+    private async Task<UploadDocumentResponse> UploadDocumentAsync(
         HttpClient client,
         string fileName,
         Guid? bucketId = null,
@@ -672,11 +672,15 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
             await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
 
         Assert.NotNull(upload);
+        
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var job = await db.IngestionJobs.FirstOrDefaultAsync(j => j.DocumentId == upload.DocumentId);
 
-        return upload;
+        return upload with { IngestionJobId = job?.Id };
     }
 
-    private static async Task<UploadDocumentResponse> UploadDocumentAsync(
+    private async Task<UploadDocumentResponse> UploadDocumentAsync(
         HttpClient client,
         string fileName,
         byte[] content,
@@ -705,8 +709,12 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
             await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
 
         Assert.NotNull(upload);
+        
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var job = await db.IngestionJobs.FirstOrDefaultAsync(j => j.DocumentId == upload.DocumentId);
 
-        return upload;
+        return upload with { IngestionJobId = job?.Id };
     }
 
     private static async Task WaitForAsync(Func<Task<bool>> condition)
