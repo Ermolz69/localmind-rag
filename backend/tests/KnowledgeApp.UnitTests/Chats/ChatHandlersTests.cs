@@ -26,7 +26,8 @@ public sealed class ChatHandlersTests
             new FakeRagAnswerGenerator(),
             validator,
             new FixedDateTimeProvider(),
-            new FakeLocalDeviceResolver());
+            new FakeLocalDeviceResolver(),
+            new FakeOperationLogRepository());
 
         ConversationDto? conversation = (await create.HandleAsync(new CreateConversationRequest("Question"))).AssertSuccess();
         Contracts.Common.CursorPage<ConversationDto> conversations = (await list.HandleAsync(new GetChatsQuery())).AssertSuccess();
@@ -54,7 +55,8 @@ public sealed class ChatHandlersTests
             new FakeRagAnswerGenerator(),
             new ChatRequestValidator(),
             new FixedDateTimeProvider(),
-            new FakeLocalDeviceResolver());
+            new FakeLocalDeviceResolver(),
+            new FakeOperationLogRepository());
 
         Result<RagAnswerDto> result = await send.HandleAsync(Guid.NewGuid(), new ChatMessageRequest("Hello"));
 
@@ -87,5 +89,11 @@ public sealed class ChatHandlersTests
             yield return new RagAnswerChunkDto("Stub answer");
             await Task.Yield();
         }
+    }
+
+    private sealed class FakeOperationLogRepository : KnowledgeApp.Application.Common.Diagnostics.IOperationLogRepository
+    {
+        public Task AddAsync(KnowledgeApp.Domain.Entities.OperationLog log, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>> GetRecentLogsAsync(int limit, string? cursor, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>>([]);
     }
 }

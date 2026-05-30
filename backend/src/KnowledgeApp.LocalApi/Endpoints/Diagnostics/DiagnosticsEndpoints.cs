@@ -66,6 +66,16 @@ public static class DiagnosticsEndpoints
             .WithSummary("Gets vector index diagnostics.")
             .Produces<ApiResponse<DiagnosticsVectorIndexDto>>();
 
+        group.MapGet("/operations", async (
+            [Microsoft.AspNetCore.Http.AsParameters] CursorPageRequest request,
+            MediatR.IMediator mediator,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+            ApiResults.Ok(await mediator.Send(new KnowledgeApp.Application.Diagnostics.Queries.GetOperationLogsQuery(request.Limit, request.Cursor), cancellationToken), context))
+            .WithName("DiagnosticsOperations")
+            .WithSummary("Gets recent operation logs.")
+            .Produces<ApiResponse<CursorPage<KnowledgeApp.Contracts.Diagnostics.OperationLogDto>>>();
+
         return app;
     }
 }

@@ -17,6 +17,7 @@ public sealed class UploadDocumentHandler(
     ILocalDeviceResolver localDeviceResolver,
     IDomainEventPublisher eventPublisher,
     UploadDocumentCommandValidator validator,
+    IOperationLogRepository operationLogRepository,
     IAppDiagnosticLogger? diagnostics = null)
 {
     public async Task<Result<UploadDocumentResponse>> HandleAsync(UploadDocumentCommand command, CancellationToken cancellationToken = default)
@@ -77,6 +78,16 @@ public sealed class UploadDocumentHandler(
 
         await documentRepository.AddAsync(document, cancellationToken);
         await documentRepository.AddFileAsync(documentFile, cancellationToken);
+
+        await operationLogRepository.AddAsync(new OperationLog
+        {
+            OperationType = "Document.Import",
+            EntityType = "Document",
+            EntityId = document.Id.ToString(),
+            Message = $"Imported document '{document.Name}'",
+            MetadataJson = $"{{\"fileName\":\"{documentFile.FileName}\",\"sizeBytes\":{documentFile.SizeBytes}}}",
+            TraceId = operationId.ToString()
+        }, cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
         await eventPublisher.PublishAsync(new DocumentUploadedEvent(document.Id, now), cancellationToken);

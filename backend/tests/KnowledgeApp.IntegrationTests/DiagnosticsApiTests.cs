@@ -151,4 +151,31 @@ public sealed class DiagnosticsApiTests : IClassFixture<LocalApiTestFactory>
                 && error.DocumentId == document.Id
                 && error.DocumentName == document.Name);
     }
+
+    [Fact]
+    public async Task OperationsEndpoint_Should_Return_Recent_Logs()
+    {
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        OperationLog log = new OperationLog
+        {
+            OperationType = "Test.Operation",
+            EntityType = "Test",
+            EntityId = "123",
+            Message = "Test message",
+            MetadataJson = "{}"
+        };
+
+        db.OperationLogs.Add(log);
+        await db.SaveChangesAsync();
+
+        using HttpClient client = factory.CreateClient();
+
+        CursorPage<KnowledgeApp.Contracts.Diagnostics.OperationLogDto>? logs =
+            await client.GetApiDataAsync<CursorPage<KnowledgeApp.Contracts.Diagnostics.OperationLogDto>>("/api/v1/diagnostics/operations");
+
+        Assert.NotNull(logs);
+        Assert.Contains(logs.Items, x => x.OperationType == "Test.Operation" && x.EntityId == "123");
+    }
 }
