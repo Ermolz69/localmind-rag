@@ -14,7 +14,6 @@ Documentation is authored by hand under `docs/product`, `docs/architecture`, and
 
 Do not add new markdown files directly to the docs root unless they are navigation/config entrypoints.
 
-`docs/architecture/technology-stack-defense.md` is intentionally kept as a standalone defense document. Do not edit, split, or shorten it unless that file is explicitly in scope.
 
 ## Generated Files
 
@@ -23,7 +22,6 @@ Do not edit these by hand:
 ```text
 docs/auto-generated/openapi/
 docs/auto-generated/dotnet-api/
-docs/auto-generated/swagger-ui/
 artifacts/docs/site/
 ```
 
@@ -33,8 +31,8 @@ The docs build script deletes and recreates generated documentation. Manual edit
 
 Run:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/docs/build-docs.ps1
+```bash
+task docs:build
 ```
 
 The script:
@@ -43,7 +41,6 @@ The script:
 - builds backend projects needed for metadata;
 - generates OpenAPI JSON into `docs/auto-generated/openapi/openapi.json`;
 - generates .NET API metadata into `docs/auto-generated/dotnet-api/`;
-- copies Swagger UI assets;
 - builds the static site into `artifacts/docs/site`.
 
 ## Check OpenAPI
@@ -68,9 +65,9 @@ After changing endpoints, DTOs, XML comments, or OpenAPI metadata:
 
 For documentation-only changes, run:
 
-```powershell
-dotnet test backend/tests/KnowledgeApp.ArchitectureTests/KnowledgeApp.ArchitectureTests.csproj --no-restore
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/docs/build-docs.ps1
+```bash
+task test:architecture
+task docs:build
 ```
 
 Run broader backend/frontend checks only when documentation changes also touch code, contracts, scripts, or generated behavior.

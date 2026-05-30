@@ -7,12 +7,20 @@ Install:
 - pnpm 10
 - Rust/Cargo for full Tauri packaging
 - Docker, optional, for remote sync infrastructure
+- Task (https://taskfile.dev) for running predefined tasks
 
 Then run:
 
 ```bash
-pnpm install
-pnpm check
+task setup
+task check
+```
+
+To run the application locally:
+
+```bash
+task build
+pnpm dev
 ```
 
 Local environment values belong in `.env`, which is ignored. Keep `.env.example` updated when new settings are introduced.

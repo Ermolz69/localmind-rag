@@ -179,17 +179,12 @@ tasks:
 
   # === DOCUMENTATION & OPENAPI ===
   docs:build:
-    desc: Generates OpenAPI, .NET metadata, Swagger-UI, and builds DocFX site
+    desc: Generates OpenAPI, .NET metadata, and builds DocFX site
     cmds:
-      - cmd: rm -rf artifacts/docs/site docs/auto-generated/openapi docs/auto-generated/dotnet-api docs/auto-generated/swagger-ui
-      - cmd: mkdir -p docs/auto-generated/openapi docs/auto-generated/dotnet-api docs/auto-generated/swagger-ui artifacts/docs/site
+      - cmd: rm -rf artifacts/docs/site docs/auto-generated/openapi docs/auto-generated/dotnet-api
+      - cmd: mkdir -p docs/auto-generated/openapi docs/auto-generated/dotnet-api artifacts/docs/site
       - task: openapi:generate
         vars: { REPO_ROOT: '.', OUTPUT_FILE: 'docs/auto-generated/openapi/openapi.json', RUNTIME_ROOT: 'artifacts/docs/runtime', DBNAME: 'knowledge-app-docs.db' }
-      - cmd: cp node_modules/swagger-ui-dist/swagger-ui.css docs/auto-generated/swagger-ui/
-      - cmd: cp node_modules/swagger-ui-dist/swagger-ui-bundle.js docs/auto-generated/swagger-ui/
-      - cmd: cp node_modules/swagger-ui-dist/swagger-ui-standalone-preset.js docs/auto-generated/swagger-ui/
-      - cmd: cp node_modules/swagger-ui-dist/favicon-16x16.png docs/auto-generated/swagger-ui/
-      - cmd: cp node_modules/swagger-ui-dist/favicon-32x32.png docs/auto-generated/swagger-ui/
       - cmd: dotnet tool restore
       - cmd: dotnet tool run docfx metadata docs/docfx.json
       - cmd: dotnet tool run docfx build docs/docfx.json

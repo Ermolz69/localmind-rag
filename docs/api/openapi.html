@@ -4,7 +4,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LocalMind OpenAPI</title>
-    <link rel="stylesheet" href="../auto-generated/swagger-ui/swagger-ui.css" />
     <style>
       body {
         margin: 0;
@@ -12,20 +11,8 @@
     </style>
   </head>
   <body>
-    <div id="swagger-ui"></div>
-    <script src="../auto-generated/swagger-ui/swagger-ui-bundle.js"></script>
-    <script src="../auto-generated/swagger-ui/swagger-ui-standalone-preset.js"></script>
-    <script>
-      window.onload = () => {
-        window.ui = SwaggerUIBundle({
-          url: "../auto-generated/openapi/openapi.json",
-          dom_id: "#swagger-ui",
-          deepLinking: true,
-          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
-          layout: "StandaloneLayout"
-        });
-      };
-    </script>
+    <script id="api-reference" data-url="../auto-generated/openapi/openapi.json"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
   </body>
 </html>
 
