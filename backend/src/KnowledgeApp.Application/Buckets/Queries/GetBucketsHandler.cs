@@ -4,16 +4,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Buckets;
 
-public sealed class GetBucketsHandler(IAppDbContext dbContext)
+public sealed class GetBucketsHandler(IBucketRepository bucketRepository)
 {
     public async Task<IReadOnlyList<BucketDto>> HandleAsync(CancellationToken cancellationToken = default)
     {
-        Domain.Entities.Bucket[]? buckets = await dbContext.Buckets
-            .AsNoTracking()
-            .Where(bucket => bucket.DeletedAt == null)
-            .OrderBy(bucket => bucket.Name)
-            .ToArrayAsync(cancellationToken);
+        IReadOnlyList<Domain.Entities.Bucket> buckets = await bucketRepository.ListAsync(cancellationToken);
 
-        return buckets.Select(BucketMapper.ToDto).ToArray();
+        return buckets
+            .OrderBy(bucket => bucket.Name)
+            .Select(BucketMapper.ToDto)
+            .ToArray();
     }
 }

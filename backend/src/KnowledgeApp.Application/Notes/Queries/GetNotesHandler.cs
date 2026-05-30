@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Notes;
 
-public sealed class GetNotesHandler(IAppDbContext dbContext)
+public sealed class GetNotesHandler(INoteRepository noteRepository)
 {
     private const string CursorKind = "notes";
 
@@ -34,25 +34,17 @@ public sealed class GetNotesHandler(IAppDbContext dbContext)
 
         CursorPayload? cursor = cursorResult.Value;
 
-        IQueryable<Note> notesQuery = dbContext.Notes
-            .AsNoTracking()
-            .Where(note => note.DeletedAt == null)
-            .AsQueryable();
+        IReadOnlyList<Note> allNotes = await noteRepository.ListAsync(query.BucketId, cancellationToken);
 
-        if (query.BucketId.HasValue)
-        {
-            notesQuery = notesQuery.Where(note => note.BucketId == query.BucketId.Value);
-        }
-
+        IEnumerable<Note> filteredNotes = allNotes;
         if (!string.IsNullOrWhiteSpace(normalizedQuery))
         {
-            notesQuery = notesQuery.Where(note =>
-                note.Title.Contains(normalizedQuery) ||
-                note.Markdown.Contains(normalizedQuery));
+            filteredNotes = filteredNotes.Where(note =>
+                note.Title.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                note.Markdown.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase));
         }
 
-        Note[] notes = await notesQuery.ToArrayAsync(cancellationToken);
-        Note[] sortedNotes = notes
+        Note[] sortedNotes = filteredNotes
             .OrderByDescending(note => note.UpdatedAt.HasValue)
             .ThenByDescending(note => note.UpdatedAt)
             .ThenByDescending(note => note.CreatedAt)

@@ -9,12 +9,13 @@ using KnowledgeApp.Domain.Enums;
 namespace KnowledgeApp.Application.Documents;
 
 public sealed class UploadDocumentHandler(
-    IAppDbContext dbContext,
+    IDocumentRepository documentRepository,
+    IUnitOfWork unitOfWork,
     IFileStorageService fileStorage,
     IDateTimeProvider dateTimeProvider,
     IBucketResolver bucketResolver,
     ILocalDeviceResolver localDeviceResolver,
-    IIngestionJobRepository ingestionJobs,
+    IDomainEventPublisher eventPublisher,
     UploadDocumentCommandValidator validator,
     IAppDiagnosticLogger? diagnostics = null)
 {
@@ -74,11 +75,11 @@ public sealed class UploadDocumentHandler(
                 [DiagnosticNames.Properties.BucketId] = bucket.Id,
             });
 
-        dbContext.Documents.Add(document);
-        dbContext.DocumentFiles.Add(documentFile);
+        await documentRepository.AddAsync(document, cancellationToken);
+        await documentRepository.AddFileAsync(documentFile, cancellationToken);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-        IngestionJob ingestionJob = await ingestionJobs.CreatePendingAsync(document.Id, now, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await eventPublisher.PublishAsync(new DocumentUploadedEvent(document.Id, now), cancellationToken);
 
         diagnostics?.LogStep(
             operationId,
@@ -86,10 +87,9 @@ public sealed class UploadDocumentHandler(
             new Dictionary<string, object?>
             {
                 [DiagnosticNames.Properties.DocumentId] = document.Id,
-                [DiagnosticNames.Properties.IngestionJobId] = ingestionJob.Id,
                 [DiagnosticNames.Properties.Status] = document.Status.ToString(),
             });
 
-        return Result<UploadDocumentResponse>.Success(new UploadDocumentResponse(document.Id, ingestionJob.Id, document.Status.ToString()));
+        return Result<UploadDocumentResponse>.Success(new UploadDocumentResponse(document.Id, null, document.Status.ToString()));
     }
 }

@@ -11,7 +11,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Documents;
 
-public sealed class GetDocumentsHandler(IAppDbContext dbContext)
+public sealed class GetDocumentsHandler(
+    IDocumentRepository documentRepository,
+    IIngestionJobRepository ingestionJobs)
 {
     private const string CursorKind = "documents";
 
@@ -40,22 +42,13 @@ public sealed class GetDocumentsHandler(IAppDbContext dbContext)
 
         CursorPayload? cursor = cursorResult.Value;
 
-        IQueryable<Document> documents = dbContext.Documents
-            .AsNoTracking()
-            .Where(document => document.DeletedAt == null);
+        IReadOnlyList<Document> documentRows = await documentRepository.ListAsync(
+            query.BucketId,
+            status?.ToString(),
+            limit: 0,
+            offset: 0,
+            cancellationToken);
 
-        if (query.BucketId.HasValue)
-        {
-            documents = documents.Where(document => document.BucketId == query.BucketId.Value);
-        }
-
-        if (status.HasValue)
-        {
-            documents = documents.Where(document => document.Status == status.Value);
-        }
-
-        Document[] documentRows = await documents
-            .ToArrayAsync(cancellationToken);
         Document[] sortedDocuments = documentRows
             .OrderByDescending(document => document.CreatedAt)
             .ThenByDescending(document => document.Id.ToString("N", CultureInfo.InvariantCulture))
@@ -74,10 +67,7 @@ public sealed class GetDocumentsHandler(IAppDbContext dbContext)
                 HasPrimaryDate: false));
 
         Guid[] documentIds = documentPage.Items.Select(document => document.Id).ToArray();
-        IngestionJob[] failedJobs = await dbContext.IngestionJobs
-            .AsNoTracking()
-            .Where(job => documentIds.Contains(job.DocumentId) && job.ErrorMessage != null)
-            .ToArrayAsync(cancellationToken);
+        IReadOnlyList<IngestionJob> failedJobs = await ingestionJobs.GetFailedJobsForDocumentsAsync(documentIds, cancellationToken);
         DocumentDto[] documentDtos = documentPage.Items
             .Select(document => ToDocumentDto(document, failedJobs))
             .ToArray();

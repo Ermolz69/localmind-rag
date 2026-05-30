@@ -172,6 +172,14 @@ public sealed class RuntimeProviderContractTests
             return Task.FromResult("answer");
         }
 
+        public async IAsyncEnumerable<string> GenerateChatCompletionStreamAsync(
+            ChatModelRequest request,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            yield return "answer";
+            await Task.Yield();
+        }
+
         public Task<float[]> GenerateEmbeddingAsync(
             string text,
             CancellationToken cancellationToken = default)

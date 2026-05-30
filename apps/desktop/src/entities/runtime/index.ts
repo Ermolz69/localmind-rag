@@ -1,10 +1,11 @@
 export type {
-  DiagnosticsCounts,
+  DiagnosticsDatabase,
+  DiagnosticsHealthStatus,
   DiagnosticsIngestionError,
-  DiagnosticsPaths,
   DiagnosticsRuntime,
   DiagnosticsStatus,
   DiagnosticsStorage,
+  DiagnosticsVectorIndex,
   HealthStatus,
   RuntimeSetupResponse,
   RuntimeStatus,

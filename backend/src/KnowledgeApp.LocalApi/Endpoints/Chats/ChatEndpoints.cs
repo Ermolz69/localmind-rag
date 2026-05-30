@@ -1,7 +1,11 @@
 using KnowledgeApp.Application.Chats;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Exceptions;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Rag;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
 
@@ -120,6 +124,71 @@ public static class ChatEndpoints
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest)
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
 
+        app.MapPost("/chats/{id:guid}/messages/stream", async (
+            Guid id,
+            ChatMessageRequest request,
+            SendChatStreamMessageHandler handler,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+        {
+            // Validate request and conversation presence before setting stream response headers.
+            // This ensures early failures (e.g. 400 Bad Request, 404 Not Found) are handled
+            // consistently by the global exception handler as standard JSON ApiResponse envelopes.
+            await handler.ValidateAndPrepareAsync(id, request, cancellationToken);
+
+            context.Response.Headers.ContentType = "text/event-stream";
+            context.Response.Headers.CacheControl = "no-cache";
+            context.Response.Headers.Connection = "keep-alive";
+
+            try
+            {
+                await foreach (RagAnswerChunkDto chunk in handler.HandleStreamAsync(id, request, cancellationToken))
+                {
+                    await context.Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(chunk, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase })}\n\n", cancellationToken);
+                    await context.Response.Body.FlushAsync(cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Client disconnected
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Format the mid-stream error consistently with the backend error policy
+                ApiResponse<object?> apiResponse = MapExceptionToApiResponse(ex, context);
+                string json = System.Text.Json.JsonSerializer.Serialize(apiResponse, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+                await context.Response.WriteAsync($"data: {json}\n\n", CancellationToken.None);
+                await context.Response.Body.FlushAsync(CancellationToken.None);
+            }
+        })
+            .WithName("StreamChatMessage")
+            .WithTags("Chats")
+            .WithSummary("Streams a chat message.")
+            .WithDescription("Adds a user message, builds RAG context, and streams the answer with sources using Server-Sent Events.");
+
         return app;
+    }
+
+    private static ApiResponse<object?> MapExceptionToApiResponse(Exception exception, HttpContext context)
+    {
+        var environment = context.RequestServices.GetRequiredService<IHostEnvironment>();
+
+        return exception switch
+        {
+            ValidationAppException valEx => ApiResponse.Failure(
+                valEx.Code,
+                valEx.Message,
+                context.TraceIdentifier,
+                valEx.Errors.SelectMany(error => error.Value.Select(msg => new ApiErrorDetail(error.Key, msg))).ToArray()),
+
+            AppException appEx => ApiResponse.Failure(appEx.Code, appEx.Message, context.TraceIdentifier),
+
+            ArgumentException argEx => ApiResponse.Failure(ErrorCodes.RequestInvalid, argEx.Message, context.TraceIdentifier),
+
+            _ => ApiResponse.Failure(
+                ErrorCodes.Unexpected,
+                environment.IsDevelopment() ? ErrorMessages.UnexpectedDevelopment : ErrorMessages.UnexpectedProduction,
+                context.TraceIdentifier)
+        };
     }
 }

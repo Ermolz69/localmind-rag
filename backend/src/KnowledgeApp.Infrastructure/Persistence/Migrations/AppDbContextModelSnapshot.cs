@@ -471,6 +471,42 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.ToTable("note_links", (string)null);
                 });
 
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.SemanticCacheEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Answer")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EmbeddingDimension")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("QuestionEmbedding")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("SourcesJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("semantic_cache_entries", (string)null);
+                });
+
             modelBuilder.Entity("KnowledgeApp.Domain.Entities.SyncOutboxItem", b =>
                 {
                     b.Property<Guid>("Id")

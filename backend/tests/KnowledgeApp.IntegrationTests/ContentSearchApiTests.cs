@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 
 using KnowledgeApp.Contracts.Documents;
+using KnowledgeApp.Contracts.Ingestion;
 using KnowledgeApp.Contracts.Search;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
@@ -341,8 +342,12 @@ public sealed class ContentSearchApiTests : IClassFixture<LocalApiTestFactory>
 
         Assert.NotNull(upload);
 
+        IngestionJobListResponse? list = await client.GetApiDataAsync<IngestionJobListResponse>("/api/v1/ingestion/jobs");
+        Guid jobId = list?.Items.FirstOrDefault(i => i.DocumentId == upload.DocumentId)?.Id ?? Guid.Empty;
+        Assert.NotEqual(Guid.Empty, jobId);
+
         using HttpResponseMessage processResponse = await client.PostAsync(
-            $"/api/v1/ingestion/jobs/{upload.IngestionJobId}/process",
+            $"/api/v1/ingestion/jobs/{jobId}/process",
             content: null);
 
         Assert.Equal(HttpStatusCode.Accepted, processResponse.StatusCode);

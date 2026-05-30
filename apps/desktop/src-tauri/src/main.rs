@@ -20,7 +20,6 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 const LOCAL_API_URL: &str = "http://127.0.0.1:49321";
-const LOCAL_API_SOCKET: &str = "127.0.0.1:49321";
 
 #[derive(Default)]
 struct LocalApiProcess {
@@ -41,6 +40,7 @@ impl Drop for LocalApiProcess {
 fn main() {
     tauri::Builder::default()
         .manage(LocalApiProcess::default())
+        .invoke_handler(tauri::generate_handler![get_sidecar_port])
         .setup(|app| {
             start_local_api(app);
             Ok(())
@@ -49,13 +49,30 @@ fn main() {
         .expect("error while running localmind");
 }
 
+#[tauri::command]
+fn get_sidecar_port() -> Result<u16, String> {
+    get_current_sidecar_port().ok_or_else(|| "Sidecar port not found".to_string())
+}
+
+fn get_current_sidecar_port() -> Option<u16> {
+    let app_root = portable_root();
+    let port_file = app_root.join("runtime").join("app").join("data").join("sidecar-port.txt");
+    if let Ok(content) = fs::read_to_string(&port_file) {
+        if let Ok(port) = content.trim().parse::<u16>() {
+            return Some(port);
+        }
+    }
+    None
+}
+
 fn start_local_api(app: &mut tauri::App) {
     let app_root = portable_root();
 
     if is_local_api_running() {
+        let port = get_current_sidecar_port().unwrap_or(49321);
         write_sidecar_log(
             &app_root,
-            "LocalApi is already listening on 127.0.0.1:49321.",
+            &format!("LocalApi is already listening on 127.0.0.1:{}.", port),
         );
         return;
     }
@@ -82,7 +99,6 @@ fn start_local_api(app: &mut tauri::App) {
     command
         .current_dir(&root)
         .env("KNOWLEDGE_APP_ROOT", &root)
-        .env("ASPNETCORE_URLS", LOCAL_API_URL)
         .stdin(Stdio::null())
         .stdout(
             log_file
@@ -143,8 +159,6 @@ fn local_api_launch() -> Option<LocalApiLaunch> {
             .arg("run")
             .arg("--project")
             .arg(&project_path)
-            .arg("--urls")
-            .arg(LOCAL_API_URL)
             .env("ASPNETCORE_ENVIRONMENT", "Development")
             .env("DOTNET_ENVIRONMENT", "Development");
 
@@ -189,7 +203,10 @@ fn local_api_path(app_root: &Path) -> PathBuf {
 }
 
 fn is_local_api_running() -> bool {
-    let Ok(mut addrs) = LOCAL_API_SOCKET.to_socket_addrs() else {
+    let port = get_current_sidecar_port().unwrap_or(49321);
+    let address = format!("127.0.0.1:{}", port);
+    
+    let Ok(mut addrs) = address.to_socket_addrs() else {
         return false;
     };
 

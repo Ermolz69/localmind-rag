@@ -14,10 +14,12 @@ public sealed class NoteHandlersTests
     {
         await using ApplicationTestDatabase? database = await ApplicationTestDatabase.CreateAsync();
         NoteRequestValidator validator = new();
-        CreateNoteHandler create = new(database.Context, validator, new FakeLocalDeviceResolver());
-        GetNotesHandler list = new(database.Context);
-        UpdateNoteHandler update = new(database.Context, validator);
-        DeleteNoteHandler delete = new(database.Context, new FixedDateTimeProvider());
+        var noteRepository = new KnowledgeApp.Infrastructure.Services.Persistence.NoteRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        CreateNoteHandler create = new(noteRepository, unitOfWork, validator, new FakeLocalDeviceResolver());
+        GetNotesHandler list = new(noteRepository);
+        UpdateNoteHandler update = new(noteRepository, unitOfWork, validator);
+        DeleteNoteHandler delete = new(noteRepository, unitOfWork, new FixedDateTimeProvider());
 
         NoteDto? note = (await create.HandleAsync(new CreateNoteRequest(BucketId: null, "Draft", "Body"))).AssertSuccess();
         Contracts.Common.CursorPage<NoteDto> notes = (await list.HandleAsync(new GetNotesQuery())).AssertSuccess();

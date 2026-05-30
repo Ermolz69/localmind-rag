@@ -6,7 +6,8 @@ using KnowledgeApp.Domain.Entities;
 namespace KnowledgeApp.Application.Chats;
 
 public sealed class CreateChatHandler(
-    IAppDbContext dbContext,
+    IConversationRepository conversationRepository,
+    IUnitOfWork unitOfWork,
     ChatRequestValidator validator,
     ILocalDeviceResolver localDeviceResolver)
 {
@@ -27,8 +28,8 @@ public sealed class CreateChatHandler(
             LocalDeviceId = localDeviceId,
         };
 
-        dbContext.Conversations.Add(conversation);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await conversationRepository.AddAsync(conversation, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result<ConversationDto>.Success(ConversationMapper.ToDto(conversation));
     }
 }

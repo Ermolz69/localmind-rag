@@ -53,6 +53,8 @@ public static class DiagnosticNames
         public const string StatusReturned = "status-returned";
         public const string TextExtracted = "text-extracted";
         public const string UploadSaved = "upload-saved";
+        public const string CacheHit = "cache-hit";
+        public const string CacheMiss = "cache-miss";
     }
 
     public static class Properties

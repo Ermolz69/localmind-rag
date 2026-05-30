@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Chats;
 
-public sealed class GetChatsHandler(IAppDbContext dbContext)
+public sealed class GetChatsHandler(IConversationRepository conversationRepository)
 {
     private const string CursorKind = "chats";
 
@@ -33,10 +33,7 @@ public sealed class GetChatsHandler(IAppDbContext dbContext)
 
         CursorPayload? cursor = cursorResult.Value;
 
-        Conversation[] conversations = await dbContext.Conversations
-            .AsNoTracking()
-            .Where(conversation => conversation.DeletedAt == null)
-            .ToArrayAsync(cancellationToken);
+        IReadOnlyList<Conversation> conversations = await conversationRepository.ListAsync(cancellationToken);
         Conversation[] sortedConversations = conversations
             .OrderByDescending(conversation => conversation.UpdatedAt.HasValue)
             .ThenByDescending(conversation => conversation.UpdatedAt)

@@ -35,6 +35,36 @@ public sealed class StubChatModelClient : IChatModelClient
         return Task.FromResult(answer.ToString());
     }
 
+    public async IAsyncEnumerable<string> GenerateStreamAsync(ChatModelRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (request.Question.Contains("trigger-error", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Simulated AI runtime error during streaming.");
+        }
+
+        if (request.Question.Contains("cancel", StringComparison.OrdinalIgnoreCase))
+        {
+            for (int i = 1; i <= 50; i++)
+            {
+                if (i > 3)
+                {
+                    throw new OperationCanceledException(cancellationToken);
+                }
+                yield return $"word{i} ";
+                await Task.Delay(20, cancellationToken);
+            }
+            yield break;
+        }
+
+        string fullAnswer = await GenerateAsync(request, cancellationToken);
+        string[] words = fullAnswer.Split(' ');
+        for (int i = 0; i < words.Length; i++)
+        {
+            yield return words[i] + (i < words.Length - 1 ? " " : "");
+            await Task.Delay(20, cancellationToken); // simulate token generation
+        }
+    }
+
     private static string NormalizeSnippet(string snippet)
     {
         return Regex.Replace(snippet, "\\s+", " ").Trim();

@@ -15,6 +15,8 @@ public interface IIngestionJobRepository
 
     Task<IReadOnlyList<Guid>> ListPendingJobIdsAsync(int batchSize, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<IngestionJob>> GetFailedJobsForDocumentsAsync(IEnumerable<Guid> documentIds, CancellationToken cancellationToken = default);
+
     Task<IngestionJob?> ClaimForProcessingAsync(Guid jobId, Guid operationId, DateTimeOffset now, CancellationToken cancellationToken = default);
 
     Task UpdateStepAsync(Guid jobId, IngestionJobStatus status, string currentStep, int progressPercent, DateTimeOffset now, CancellationToken cancellationToken = default);

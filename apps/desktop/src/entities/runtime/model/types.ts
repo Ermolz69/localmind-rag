@@ -28,33 +28,41 @@ export type SyncStatus = {
   status: string;
 };
 
-export type DiagnosticsPaths = {
-  databasePath: string;
-  filesPath: string;
-  indexPath: string;
-  logsPath: string;
+export type DiagnosticsHealthStatus = "Healthy" | "Degraded" | "Unhealthy";
+
+export type DiagnosticsDatabase = {
+  status: DiagnosticsHealthStatus;
+  bucketsCount: number;
+  documentsCount: number;
+  documentFilesCount: number;
+  notesCount: number;
+  conversationsCount: number;
+  pendingIngestionJobsCount: number;
+  runningIngestionJobsCount: number;
+  failedIngestionJobsCount: number;
+  cancelledIngestionJobsCount: number;
+  lastProcessedIngestionJobId: string | null;
+};
+
+export type DiagnosticsVectorIndex = {
+  status: DiagnosticsHealthStatus;
+  documentChunksCount: number;
+  documentEmbeddingsCount: number;
 };
 
 export type DiagnosticsStorage = {
+  status: DiagnosticsHealthStatus;
   databaseSizeBytes: number;
   filesSizeBytes: number;
   indexSizeBytes: number;
   logsSizeBytes: number;
 };
 
-export type DiagnosticsCounts = {
-  bucketsCount: number;
-  documentsCount: number;
-  documentFilesCount: number;
-  documentChunksCount: number;
-  documentEmbeddingsCount: number;
-  notesCount: number;
-  conversationsCount: number;
-  pendingIngestionJobsCount: number;
-  failedIngestionJobsCount: number;
-  runningIngestionJobsCount: number;
-  cancelledIngestionJobsCount: number;
-  lastProcessedIngestionJobId: string | null;
+export type DiagnosticsRuntime = {
+  status: DiagnosticsHealthStatus;
+  runtimeMode: string;
+  localApiVersion: string;
+  aiRuntimeStatus: RuntimeStatus;
 };
 
 export type DiagnosticsIngestionError = {
@@ -68,15 +76,11 @@ export type DiagnosticsIngestionError = {
   lastOperationId: string | null;
 };
 
-export type DiagnosticsRuntime = {
-  runtimeMode: string;
-  aiRuntimeStatus: RuntimeStatus;
-};
-
 export type DiagnosticsStatus = {
-  paths: DiagnosticsPaths;
+  status: DiagnosticsHealthStatus;
+  database: DiagnosticsDatabase;
   storage: DiagnosticsStorage;
-  counts: DiagnosticsCounts;
-  latestErrors: DiagnosticsIngestionError[];
+  vectorIndex: DiagnosticsVectorIndex;
   runtime: DiagnosticsRuntime;
+  latestErrors: DiagnosticsIngestionError[];
 };

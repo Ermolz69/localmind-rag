@@ -6,7 +6,8 @@ using KnowledgeApp.Domain.Entities;
 namespace KnowledgeApp.Application.Buckets;
 
 public sealed class CreateBucketHandler(
-    IAppDbContext dbContext,
+    IBucketRepository bucketRepository,
+    IUnitOfWork unitOfWork,
     BucketRequestValidator validator,
     ILocalDeviceResolver localDeviceResolver)
 {
@@ -26,8 +27,8 @@ public sealed class CreateBucketHandler(
             LocalDeviceId = localDeviceId,
         };
 
-        dbContext.Buckets.Add(bucket);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await bucketRepository.AddAsync(bucket, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result<BucketDto>.Success(BucketMapper.ToDto(bucket));
     }
 }

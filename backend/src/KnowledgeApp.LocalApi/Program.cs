@@ -4,6 +4,18 @@ using KnowledgeApp.LocalApi.Endpoints;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+int port = 49321;
+try
+{
+    using var socket = new System.Net.Sockets.Socket(System.Net.Sockets.AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
+    socket.Bind(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, port));
+}
+catch
+{
+    port = 0; // Fallback to dynamic port
+}
+builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
+
 builder.AddKnowledgeAppBootstrap();
 
 builder.Services.AddOpenApi(ApiVersions.V1DocumentName, options =>
@@ -18,6 +30,7 @@ builder.Services.AddOpenApi(ApiVersions.V1DocumentName, options =>
         return Task.CompletedTask;
     });
 });
+builder.Services.AddHostedService<KnowledgeApp.LocalApi.Services.SidecarPortWriter>();
 
 WebApplication app = builder.Build();
 

@@ -50,8 +50,13 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Install frontend dependencies
-        run: pnpm.cmd install --frozen-lockfile
+        run: task setup:frontend
 
       - name: Cache AI runtime and models
         uses: actions/cache@v4
@@ -64,19 +69,10 @@ jobs:
             ai-runtime-${{ runner.os }}-
 
       - name: Build portable folder
-        shell: powershell
-        run: >
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package/package.ps1
-          -Configuration Release
-          -RuntimeIdentifier win-x64
-          -OutputPath artifacts/localmind-portable-win-x64
+        run: task package
 
       - name: Smoke test portable package
-        shell: powershell
-        run: >
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package/test-portable-package.ps1
-          -PackagePath artifacts/localmind-portable-win-x64
-          -ZipPath artifacts/localmind-portable-win-x64.zip
+        run: task package:smoke-test
 
       - name: Upload portable artifact
         uses: actions/upload-artifact@v4

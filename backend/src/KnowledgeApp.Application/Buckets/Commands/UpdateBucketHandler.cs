@@ -7,7 +7,8 @@ using Microsoft.EntityFrameworkCore;
 namespace KnowledgeApp.Application.Buckets;
 
 public sealed class UpdateBucketHandler(
-    IAppDbContext dbContext,
+    IBucketRepository bucketRepository,
+    IUnitOfWork unitOfWork,
     IDateTimeProvider dateTimeProvider,
     BucketRequestValidator validator)
 {
@@ -22,8 +23,7 @@ public sealed class UpdateBucketHandler(
             return validation;
         }
 
-        Domain.Entities.Bucket? bucket = await dbContext.Buckets
-            .FirstOrDefaultAsync(x => x.Id == bucketId && x.DeletedAt == null, cancellationToken);
+        Domain.Entities.Bucket? bucket = await bucketRepository.GetByIdAsync(bucketId, cancellationToken);
         if (bucket is null)
         {
             return Result.Failure(ApplicationErrors.NotFound(ErrorCodes.Buckets.NotFound, ErrorMessages.Buckets.NotFound));
@@ -33,7 +33,8 @@ public sealed class UpdateBucketHandler(
         bucket.Description = request.Description;
         bucket.UpdatedAt = dateTimeProvider.UtcNow;
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await bucketRepository.UpdateAsync(bucket, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
 }

@@ -20,6 +20,7 @@ public interface IAppDbContext
     DbSet<NoteLink> NoteLinks { get; }
     DbSet<SyncOutboxItem> SyncOutbox { get; }
     DbSet<SyncState> SyncStates { get; }
+    DbSet<SemanticCacheEntry> SemanticCacheEntries { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

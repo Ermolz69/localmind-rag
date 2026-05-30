@@ -21,6 +21,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<NoteLink> NoteLinks => Set<NoteLink>();
     public DbSet<SyncOutboxItem> SyncOutbox => Set<SyncOutboxItem>();
     public DbSet<SyncState> SyncStates => Set<SyncState>();
+    public DbSet<SemanticCacheEntry> SemanticCacheEntries => Set<SemanticCacheEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

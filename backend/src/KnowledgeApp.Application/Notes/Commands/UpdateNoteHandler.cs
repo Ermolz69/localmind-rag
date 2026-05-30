@@ -6,7 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Notes;
 
-public sealed class UpdateNoteHandler(IAppDbContext dbContext, NoteRequestValidator validator)
+public sealed class UpdateNoteHandler(
+    INoteRepository noteRepository,
+    IUnitOfWork unitOfWork,
+    NoteRequestValidator validator)
 {
     public async Task<Result> HandleAsync(
         Guid noteId,
@@ -19,8 +22,7 @@ public sealed class UpdateNoteHandler(IAppDbContext dbContext, NoteRequestValida
             return validation;
         }
 
-        Domain.Entities.Note? note = await dbContext.Notes
-            .FirstOrDefaultAsync(x => x.Id == noteId && x.DeletedAt == null, cancellationToken);
+        Domain.Entities.Note? note = await noteRepository.GetByIdAsync(noteId, cancellationToken);
         if (note is null)
         {
             return Result.Failure(ApplicationErrors.NotFound(ErrorCodes.Notes.NotFound, "Note was not found."));
@@ -28,7 +30,8 @@ public sealed class UpdateNoteHandler(IAppDbContext dbContext, NoteRequestValida
 
         note.Title = request.Title.Trim();
         note.Markdown = request.Markdown;
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await noteRepository.UpdateAsync(note, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
 }

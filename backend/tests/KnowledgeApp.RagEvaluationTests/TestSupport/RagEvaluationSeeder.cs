@@ -30,10 +30,13 @@ internal sealed class RagEvaluationSeeder(
                 await using AsyncServiceScope scope =
                     factory.Services.CreateAsyncScope();
 
+                var dbContext = scope.ServiceProvider.GetRequiredService<KnowledgeApp.Infrastructure.Persistence.AppDbContext>();
+                var job = dbContext.IngestionJobs.First(j => j.DocumentId == upload.DocumentId);
+
                 IIngestionJobProcessor processor =
                     scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
 
-                await processor.ProcessAsync(upload.IngestionJobId);
+                await processor.ProcessAsync(job.Id);
             }
 
             factory.FixturesSeeded = true;

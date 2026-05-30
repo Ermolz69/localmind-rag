@@ -5,18 +5,17 @@
   "scripts": {
     "setup": "pnpm install && pnpm setup:ai",
     "dev": "concurrently -n localapi,desktop \"dotnet run --project backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj --urls http://127.0.0.1:49321\" \"pnpm --filter desktop dev\"",
-    "check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check/check.ps1",
-    "docs:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/docs/build-docs.ps1",
-    "package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package/package.ps1",
-    "setup:ai": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup/setup-ai.ps1",
-    "setup:ai-runtime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup/setup-ai-runtime.ps1",
-    "setup:ai-models": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup/setup-ai-models.ps1",
-    "setup:ocr": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup/setup-ocr.ps1",
+    "check": "task check",
+    "docs:build": "task docs:build",
+    "package": "task package",
+    "setup:ai": "task setup:ai",
+    "setup:ai-runtime": "task setup:ai-runtime",
+    "setup:ai-models": "task setup:ai-models",
+    "setup:ocr": "task setup:ocr",
     "docker:up": "docker compose -f infra/docker-compose.remote.yml up -d"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "prettier": "^3.6.2",
-    "swagger-ui-dist": "^5.32.6"
+    "prettier": "^3.6.2"
   }
 }

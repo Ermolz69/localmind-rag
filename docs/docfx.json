@@ -33,8 +33,7 @@
           "auto-generated/dotnet-api/**/*.yml"
         ],
         "exclude": [
-          "auto-generated/openapi/**",
-          "auto-generated/swagger-ui/**"
+          "auto-generated/openapi/**"
         ]
       }
     ],
@@ -42,8 +41,7 @@
       {
         "files": [
           "api/**",
-          "auto-generated/openapi/openapi.json",
-          "auto-generated/swagger-ui/**"
+          "auto-generated/openapi/openapi.json"
         ]
       }
     ],

@@ -52,8 +52,6 @@
       href: architecture/offline-online-sync.md
     - name: Diagrams
       href: architecture/diagrams.md
-    - name: Technology stack defense
-      href: architecture/technology-stack-defense.md
 
 - name: Decisions
   items:
@@ -103,3 +101,5 @@
       href: api/openapi.html
     - name: .NET API
       href: auto-generated/dotnet-api/toc.yml
+    - name: UI Documentation
+      href: storybook/index.html

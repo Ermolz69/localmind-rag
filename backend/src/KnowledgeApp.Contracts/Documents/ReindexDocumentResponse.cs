@@ -4,4 +4,4 @@ namespace KnowledgeApp.Contracts.Documents;
 /// <param name="DocumentId">Document queued for reindexing.</param>
 /// <param name="IngestionJobId">Ingestion job created for the reindex operation.</param>
 /// <param name="Status">Initial ingestion job status.</param>
-public sealed record ReindexDocumentResponse(Guid DocumentId, Guid IngestionJobId, string Status);
+public sealed record ReindexDocumentResponse(Guid DocumentId, Guid? IngestionJobId, string Status);

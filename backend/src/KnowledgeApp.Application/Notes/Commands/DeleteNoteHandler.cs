@@ -6,12 +6,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Notes;
 
-public sealed class DeleteNoteHandler(IAppDbContext dbContext, IDateTimeProvider dateTimeProvider)
+public sealed class DeleteNoteHandler(
+    INoteRepository noteRepository,
+    IUnitOfWork unitOfWork,
+    IDateTimeProvider dateTimeProvider)
 {
     public async Task<Result> HandleAsync(Guid noteId, CancellationToken cancellationToken = default)
     {
-        Domain.Entities.Note? note = await dbContext.Notes
-            .FirstOrDefaultAsync(x => x.Id == noteId && x.DeletedAt == null, cancellationToken);
+        Domain.Entities.Note? note = await noteRepository.GetByIdAsync(noteId, cancellationToken);
         if (note is null)
         {
             return Result.Failure(ApplicationErrors.NotFound(ErrorCodes.Notes.NotFound, "Note was not found."));
@@ -20,7 +22,8 @@ public sealed class DeleteNoteHandler(IAppDbContext dbContext, IDateTimeProvider
         note.DeletedAt = dateTimeProvider.UtcNow;
         note.SyncStatus = SyncStatus.DeletedLocal;
         note.UpdatedAt = dateTimeProvider.UtcNow;
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await noteRepository.UpdateAsync(note, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
 }

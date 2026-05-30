@@ -7,25 +7,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Chats;
 
-public sealed class GetChatMessagesHandler(IAppDbContext dbContext)
+public sealed class GetChatMessagesHandler(IConversationRepository conversationRepository)
 {
     public async Task<Result<IReadOnlyList<ChatMessageDto>>> HandleAsync(
         Guid conversationId,
         CancellationToken cancellationToken = default)
     {
-        bool conversationExists = await dbContext.Conversations
-            .AsNoTracking()
-            .AnyAsync(conversation => conversation.Id == conversationId && conversation.DeletedAt == null, cancellationToken);
+        bool conversationExists = await conversationRepository.ExistsAsync(conversationId, cancellationToken);
         if (!conversationExists)
         {
             return Result<IReadOnlyList<ChatMessageDto>>.Failure(
                 ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound));
         }
 
-        ChatMessage[] messages = await dbContext.ChatMessages
-            .AsNoTracking()
-            .Where(message => message.ConversationId == conversationId && message.DeletedAt == null)
-            .ToArrayAsync(cancellationToken);
+        IReadOnlyList<ChatMessage> messages = await conversationRepository.GetMessagesAsync(conversationId, cancellationToken);
 
         IReadOnlyList<ChatMessageDto> result = messages
             .OrderBy(message => message.CreatedAt)

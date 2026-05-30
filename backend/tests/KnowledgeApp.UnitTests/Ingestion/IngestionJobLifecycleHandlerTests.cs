@@ -24,7 +24,9 @@ public sealed class IngestionJobLifecycleHandlerTests
         };
         database.Context.IngestionJobs.Add(job);
         await database.Context.SaveChangesAsync();
-        RetryIngestionJobHandler handler = new(database.Context, new IngestionJobRepository(database.Context), new FixedDateTimeProvider());
+        var documentRepository = new KnowledgeApp.Infrastructure.Services.Persistence.DocumentRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        RetryIngestionJobHandler handler = new(documentRepository, new IngestionJobRepository(database.Context), unitOfWork, new FixedDateTimeProvider());
 
         IngestionJobActionResponse response = (await handler.HandleAsync(job.Id)).AssertSuccess();
 
@@ -43,7 +45,9 @@ public sealed class IngestionJobLifecycleHandlerTests
         IngestionJob job = new() { DocumentId = Guid.NewGuid(), Status = IngestionJobStatus.Indexed };
         database.Context.IngestionJobs.Add(job);
         await database.Context.SaveChangesAsync();
-        CancelIngestionJobHandler handler = new(database.Context, new IngestionJobRepository(database.Context), new FixedDateTimeProvider());
+        var documentRepository = new KnowledgeApp.Infrastructure.Services.Persistence.DocumentRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        CancelIngestionJobHandler handler = new(documentRepository, new IngestionJobRepository(database.Context), unitOfWork, new FixedDateTimeProvider());
 
         Result<IngestionJobActionResponse> result = await handler.HandleAsync(job.Id);
 

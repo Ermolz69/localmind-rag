@@ -53,6 +53,9 @@ public static partial class DependencyInjection
         services.Configure<OcrOptions>(
             configuration.GetSection("Ocr"));
 
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(KnowledgeApp.Application.AssemblyReference).Assembly));
+        services.AddScoped<KnowledgeApp.Application.Abstractions.IDomainEventPublisher, KnowledgeApp.Infrastructure.Services.Events.MediatRDomainEventPublisher>();
+
         return services
             .AddRuntime()
             .AddPersistence()

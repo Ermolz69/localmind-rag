@@ -17,7 +17,7 @@ README.txt
 Build it locally:
 
 ```bash
-pnpm package
+task package
 ```
 
 The output goes to `artifacts/`, which is ignored by Git. The `Portable Release` GitHub workflow uploads the ZIP as a workflow artifact and attaches it to tag releases matching `v*`.

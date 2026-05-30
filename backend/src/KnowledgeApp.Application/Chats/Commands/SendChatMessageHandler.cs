@@ -9,7 +9,8 @@ using Microsoft.EntityFrameworkCore;
 namespace KnowledgeApp.Application.Chats;
 
 public sealed class SendChatMessageHandler(
-    IAppDbContext dbContext,
+    IConversationRepository conversationRepository,
+    IUnitOfWork unitOfWork,
     IRagAnswerGenerator ragAnswerGenerator,
     ChatRequestValidator validator,
     IDateTimeProvider dateTimeProvider,
@@ -26,9 +27,7 @@ public sealed class SendChatMessageHandler(
             return Result<RagAnswerDto>.Failure(validation);
         }
 
-        bool conversationExists = await dbContext.Conversations
-            .AsNoTracking()
-            .AnyAsync(conversation => conversation.Id == conversationId && conversation.DeletedAt == null, cancellationToken);
+        bool conversationExists = await conversationRepository.ExistsAsync(conversationId, cancellationToken);
         if (!conversationExists)
         {
             return Result<RagAnswerDto>.Failure(ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound));
@@ -36,27 +35,27 @@ public sealed class SendChatMessageHandler(
 
         DateTimeOffset now = dateTimeProvider.UtcNow;
         Guid localDeviceId = await localDeviceResolver.ResolveCurrentDeviceIdAsync(cancellationToken);
-        dbContext.ChatMessages.Add(new ChatMessage
+        await conversationRepository.AddMessageAsync(new ChatMessage
         {
             ConversationId = conversationId,
             CreatedAt = now,
             LocalDeviceId = localDeviceId,
             Role = ChatRole.User,
             Content = request.Content.Trim(),
-        });
+        }, cancellationToken);
 
         RagAnswerDto answer = await ragAnswerGenerator.AnswerAsync(conversationId, request.Content.Trim(), cancellationToken);
 
-        dbContext.ChatMessages.Add(new ChatMessage
+        await conversationRepository.AddMessageAsync(new ChatMessage
         {
             ConversationId = conversationId,
             CreatedAt = now,
             LocalDeviceId = localDeviceId,
             Role = ChatRole.Assistant,
             Content = answer.Answer,
-        });
+        }, cancellationToken);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result<RagAnswerDto>.Success(answer);
     }
 }

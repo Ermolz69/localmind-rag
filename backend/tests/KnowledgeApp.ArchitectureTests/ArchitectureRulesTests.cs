@@ -198,8 +198,6 @@ public sealed class ArchitectureRulesTests
         string root = FindRepositoryRoot();
         string[] sourceFiles =
         [
-            "backend/src/KnowledgeApp.Application/Documents/Commands/UploadDocumentHandler.cs",
-            "backend/src/KnowledgeApp.Application/Documents/Commands/ReindexDocumentHandler.cs",
             "backend/src/KnowledgeApp.Application/Ingestion/Commands/ProcessIngestionJobHandler.cs",
             "backend/src/KnowledgeApp.Application/Ingestion/Commands/RetryIngestionJobHandler.cs",
             "backend/src/KnowledgeApp.Application/Ingestion/Commands/CancelIngestionJobHandler.cs",

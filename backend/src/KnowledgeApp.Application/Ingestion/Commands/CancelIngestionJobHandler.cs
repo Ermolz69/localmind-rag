@@ -8,8 +8,9 @@ using Microsoft.EntityFrameworkCore;
 namespace KnowledgeApp.Application.Ingestion;
 
 public sealed class CancelIngestionJobHandler(
-    IAppDbContext dbContext,
+    IDocumentRepository documentRepository,
     IIngestionJobRepository ingestionJobs,
+    IUnitOfWork unitOfWork,
     IDateTimeProvider dateTimeProvider)
 {
     public async Task<Result<IngestionJobActionResponse>> HandleAsync(Guid jobId, CancellationToken cancellationToken = default)
@@ -31,15 +32,15 @@ public sealed class CancelIngestionJobHandler(
         Guid operationId = Guid.NewGuid();
         await ingestionJobs.MarkCancelledAsync(job.Id, operationId, now, cancellationToken);
 
-        Domain.Entities.Document? document = await dbContext.Documents
-            .FirstOrDefaultAsync(item => item.Id == job.DocumentId && item.DeletedAt == null, cancellationToken);
+        Domain.Entities.Document? document = await documentRepository.GetByIdAsync(job.DocumentId, cancellationToken);
         if (document is not null)
         {
             document.Status = DocumentStatus.Queued;
             document.UpdatedAt = now;
+            await documentRepository.UpdateAsync(document, cancellationToken);
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<IngestionJobActionResponse>.Success(
             new IngestionJobActionResponse(job.Id, IngestionJobStatus.Cancelled.ToString(), ErrorMessages.Ingestion.Cancelled));

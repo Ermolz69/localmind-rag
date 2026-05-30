@@ -4,31 +4,21 @@
 
 Run the full local validation pipeline before pushing:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1
+```bash
+task check
 ```
 
-The compatibility wrapper calls `scripts/check/check.ps1`.
-
-The check script restores and builds the backend, runs backend tests, validates the frontend, builds the frontend, and checks for hardcoded frontend colors.
+The check task executes all formatting, linting, typechecking, frontend/backend build, and architecture validation checks.
 
 ## Backend Coverage
 
 Run the local coverage workflow when changing backend logic:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage.ps1
-```
-
-Linux/macOS:
-
 ```bash
-./scripts/coverage.sh
+task test:coverage
 ```
 
-The compatibility wrappers call `scripts/check/coverage.ps1` and `scripts/check/coverage.sh`.
-
-The coverage script:
+The coverage task:
 
 - builds the backend solution;
 - runs unit, integration and RAG evaluation tests with `XPlat Code Coverage`;
@@ -65,8 +55,8 @@ RAG evaluation tests are designed to validate retrieval quality and answer groun
 
 Run them directly:
 
-```powershell
-dotnet test backend/tests/KnowledgeApp.RagEvaluationTests/KnowledgeApp.RagEvaluationTests.csproj
+```bash
+task test:rag
 ```
 
 The suite uses:
@@ -93,8 +83,8 @@ Requirements:
 
 Run integration tests locally:
 
-```powershell
-dotnet test backend/tests/KnowledgeApp.IntegrationTests/KnowledgeApp.IntegrationTests.csproj
+```bash
+task test:integration
 ```
 
 If Docker is unavailable, container-backed tests fail fast.
