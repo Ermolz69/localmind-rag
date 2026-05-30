@@ -67,6 +67,14 @@ public sealed class IngestionJobProcessor(
         }
 
         document.Status = DocumentStatus.Processing;
+        dbContext.OperationLogs.Add(new OperationLog
+        {
+            OperationType = "Ingestion.Start",
+            EntityType = "IngestionJob",
+            EntityId = jobId.ToString(),
+            Message = $"Started processing ingestion job for document '{document.Id}'",
+            TraceId = operationId.ToString()
+        });
         await dbContext.SaveChangesAsync(cancellationToken);
 
         try
@@ -176,6 +184,14 @@ public sealed class IngestionJobProcessor(
             }
 
             document.Status = DocumentStatus.Indexed;
+            dbContext.OperationLogs.Add(new OperationLog
+            {
+                OperationType = "Ingestion.Success",
+                EntityType = "IngestionJob",
+                EntityId = jobId.ToString(),
+                Message = $"Ingestion job for document '{document.Id}' completed successfully",
+                TraceId = operationId.ToString()
+            });
             await dbContext.SaveChangesAsync(cancellationToken);
             await ingestionJobs.MarkIndexedAsync(jobId, dateTimeProvider.UtcNow, cancellationToken);
         }
@@ -202,6 +218,14 @@ public sealed class IngestionJobProcessor(
                 dateTimeProvider.UtcNow,
                 cancellationToken);
             document.Status = DocumentStatus.Failed;
+            dbContext.OperationLogs.Add(new OperationLog
+            {
+                OperationType = "Ingestion.Failure",
+                EntityType = "IngestionJob",
+                EntityId = jobId.ToString(),
+                Message = $"Ingestion job for document '{document.Id}' failed: {sanitizedError}",
+                TraceId = operationId.ToString()
+            });
             diagnostics?.LogFailure(operationId, exception);
         }
 

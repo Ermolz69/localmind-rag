@@ -31,7 +31,8 @@ public sealed class DocumentCommandHandlersTests
         DeleteDocumentHandler delete = new DeleteDocumentHandler(
             documentRepository,
             unitOfWork,
-            new FixedDateTimeProvider());
+            new FixedDateTimeProvider(),
+            new FakeOperationLogRepository());
 
         ReindexDocumentResponse? reindexResult = (await reindex.HandleAsync(document.Id)).AssertSuccess();
         Result<ReindexDocumentResponse> missingReindexResult = await reindex.HandleAsync(Guid.NewGuid());
@@ -60,5 +61,11 @@ public sealed class DocumentCommandHandlersTests
             Events.Add(domainEvent);
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeOperationLogRepository : KnowledgeApp.Application.Common.Diagnostics.IOperationLogRepository
+    {
+        public Task AddAsync(KnowledgeApp.Domain.Entities.OperationLog log, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>> GetRecentLogsAsync(int limit, string? cursor, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>>([]);
     }
 }

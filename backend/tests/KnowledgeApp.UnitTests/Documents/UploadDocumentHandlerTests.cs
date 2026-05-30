@@ -164,7 +164,8 @@ public sealed class UploadDocumentHandlerTests
             new BucketResolver(bucketRepository, database.Context, clock),
             new FakeLocalDeviceResolver(),
             publisher,
-            new UploadDocumentCommandValidator());
+            new UploadDocumentCommandValidator(),
+            new FakeOperationLogRepository());
     }
 
     private sealed class FakeDomainEventPublisher : IDomainEventPublisher
@@ -223,5 +224,11 @@ public sealed class UploadDocumentHandlerTests
             await Context.DisposeAsync();
             await connection.DisposeAsync();
         }
+    }
+
+    private sealed class FakeOperationLogRepository : KnowledgeApp.Application.Common.Diagnostics.IOperationLogRepository
+    {
+        public Task AddAsync(KnowledgeApp.Domain.Entities.OperationLog log, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>> GetRecentLogsAsync(int limit, string? cursor, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>>([]);
     }
 }

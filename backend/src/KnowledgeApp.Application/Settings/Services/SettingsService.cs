@@ -4,13 +4,16 @@ using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
+using KnowledgeApp.Application.Common.Diagnostics;
+
 namespace KnowledgeApp.Application.Settings;
 
 public sealed class SettingsService(
     IAppDbContext dbContext,
     IDateTimeProvider dateTimeProvider,
     ISettingsDefaultsProvider defaultsProvider,
-    SettingsValidator validator) : ISettingsService
+    SettingsValidator validator,
+    IOperationLogRepository operationLogRepository) : ISettingsService
 {
     public async Task<AppSettingsDto> GetAsync(CancellationToken cancellationToken = default)
     {
@@ -65,6 +68,15 @@ public sealed class SettingsService(
         Upsert(storedSettings, SettingsKeys.RuntimeLogsPath, request.RuntimePaths.LogsPath);
         Upsert(storedSettings, SettingsKeys.SyncEnabled, request.Sync.Enabled.ToString());
         Upsert(storedSettings, SettingsKeys.SyncAutoSync, request.Sync.AutoSync.ToString());
+
+        await operationLogRepository.AddAsync(new OperationLog
+        {
+            OperationType = "Settings.Update",
+            EntityType = "Settings",
+            EntityId = "Global",
+            Message = "Updated application settings",
+            MetadataJson = "{}"
+        }, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return Result.Success();

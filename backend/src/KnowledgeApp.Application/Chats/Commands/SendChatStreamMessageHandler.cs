@@ -11,6 +11,8 @@ using KnowledgeApp.Domain.Enums;
 
 using Microsoft.EntityFrameworkCore;
 
+using KnowledgeApp.Application.Common.Diagnostics;
+
 namespace KnowledgeApp.Application.Chats;
 
 public sealed class SendChatStreamMessageHandler(
@@ -19,7 +21,8 @@ public sealed class SendChatStreamMessageHandler(
     IRagAnswerGenerator ragAnswerGenerator,
     ChatRequestValidator validator,
     IDateTimeProvider dateTimeProvider,
-    ILocalDeviceResolver localDeviceResolver)
+    ILocalDeviceResolver localDeviceResolver,
+    IOperationLogRepository operationLogRepository)
 {
     public async Task ValidateAndPrepareAsync(
         Guid conversationId,
@@ -62,6 +65,15 @@ public sealed class SendChatStreamMessageHandler(
             LocalDeviceId = localDeviceId,
             Role = ChatRole.User,
             Content = request.Content.Trim(),
+        }, cancellationToken);
+
+        await operationLogRepository.AddAsync(new OperationLog
+        {
+            OperationType = "Chat.Ask",
+            EntityType = "Conversation",
+            EntityId = conversationId.ToString(),
+            Message = "User asked a question in chat",
+            MetadataJson = "{}"
         }, cancellationToken);
 
         // Save the user message first so it appears in the conversation history

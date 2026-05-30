@@ -32,7 +32,8 @@ public sealed class SendChatStreamMessageHandlerTests
             ragGenerator,
             new ChatRequestValidator(),
             new FixedDateTimeProvider(),
-            new FakeLocalDeviceResolver());
+            new FakeLocalDeviceResolver(),
+            new FakeOperationLogRepository());
 
         List<RagAnswerChunkDto> chunks = [];
         await foreach (var chunk in handler.HandleStreamAsync(conversation.Id, new ChatMessageRequest("Hi")))
@@ -72,5 +73,11 @@ public sealed class SendChatStreamMessageHandlerTests
                 await Task.Yield();
             }
         }
+    }
+
+    private sealed class FakeOperationLogRepository : KnowledgeApp.Application.Common.Diagnostics.IOperationLogRepository
+    {
+        public Task AddAsync(KnowledgeApp.Domain.Entities.OperationLog log, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>> GetRecentLogsAsync(int limit, string? cursor, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>>([]);
     }
 }

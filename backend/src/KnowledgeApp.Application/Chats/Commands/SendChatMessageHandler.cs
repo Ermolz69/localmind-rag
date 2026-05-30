@@ -6,6 +6,8 @@ using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
+using KnowledgeApp.Application.Common.Diagnostics;
+
 namespace KnowledgeApp.Application.Chats;
 
 public sealed class SendChatMessageHandler(
@@ -14,7 +16,8 @@ public sealed class SendChatMessageHandler(
     IRagAnswerGenerator ragAnswerGenerator,
     ChatRequestValidator validator,
     IDateTimeProvider dateTimeProvider,
-    ILocalDeviceResolver localDeviceResolver)
+    ILocalDeviceResolver localDeviceResolver,
+    IOperationLogRepository operationLogRepository)
 {
     public async Task<Result<RagAnswerDto>> HandleAsync(
         Guid conversationId,
@@ -42,6 +45,15 @@ public sealed class SendChatMessageHandler(
             LocalDeviceId = localDeviceId,
             Role = ChatRole.User,
             Content = request.Content.Trim(),
+        }, cancellationToken);
+
+        await operationLogRepository.AddAsync(new OperationLog
+        {
+            OperationType = "Chat.Ask",
+            EntityType = "Conversation",
+            EntityId = conversationId.ToString(),
+            Message = "User asked a question in chat",
+            MetadataJson = "{}"
         }, cancellationToken);
 
         RagAnswerDto answer = await ragAnswerGenerator.AnswerAsync(conversationId, request.Content.Trim(), cancellationToken);
