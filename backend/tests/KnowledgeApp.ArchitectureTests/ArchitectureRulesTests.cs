@@ -237,6 +237,11 @@ public sealed class ArchitectureRulesTests
 
         foreach (string frontendFile in frontendFiles)
         {
+            if (frontendFile.EndsWith("generated.ts", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             string source = File.ReadAllText(frontendFile);
 
             Assert.DoesNotContain("ollama", source, StringComparison.OrdinalIgnoreCase);

@@ -73,10 +73,12 @@
       href: architecture/decisions/0006-local-vector-index-and-offline-mode.md
     - name: AI runtime provider abstraction
       href: architecture/decisions/0007-ai-runtime-provider-abstraction.md
-    - name: Ingestion job lifecycle
+    - name: ADR 0008 - Ingestion Job Lifecycle
       href: architecture/decisions/0008-ingestion-job-lifecycle.md
-    - name: LocalApi local security
+    - name: ADR 0009 - LocalApi Local Security
       href: architecture/decisions/0009-localapi-local-security.md
+    - name: ADR 0010 - Offline-First Sync Outbox
+      href: architecture/decisions/0010-offline-first-sync-outbox.md
 
 - name: Development
   items:
