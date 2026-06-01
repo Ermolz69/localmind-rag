@@ -60,7 +60,7 @@ export function SemanticSearchPage() {
           </Select>
 
           <Button
-            className="!h-11 shrink-0 min-w-28 !px-5 !text-sm !font-medium"
+            className="!h-11 min-w-28 shrink-0 !px-5 !text-sm !font-medium"
             onClick={() => void page.runSearch()}
             disabled={!page.query.trim()}
           >
@@ -105,7 +105,9 @@ export function SemanticSearchPage() {
                         {source.documentName}
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {source.pageNumber ? `Page ${source.pageNumber}` : "Page not available"}
+                        {source.pageNumber
+                          ? `Page ${source.pageNumber}`
+                          : "Page not available"}
                       </div>
                     </div>
                     <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
