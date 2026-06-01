@@ -6,19 +6,22 @@ import {
   FileText,
   Folders,
   Home,
+  Search,
   Settings,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
+import { routes } from "@shared/constants/routes";
 import { cn } from "@shared/lib/cn";
 
 const items = [
-  { to: "/", label: "Dashboard", icon: Home },
-  { to: "/buckets", label: "Buckets", icon: Folders },
-  { to: "/documents", label: "Documents", icon: FileText },
-  { to: "/notes", label: "Notes", icon: BookOpen },
-  { to: "/chat", label: "Chat", icon: Bot },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: routes.dashboard, label: "Dashboard", icon: Home },
+  { to: routes.buckets, label: "Buckets", icon: Folders },
+  { to: routes.documents, label: "Documents", icon: FileText },
+  { to: routes.search, label: "Search", icon: Search },
+  { to: routes.notes, label: "Notes", icon: BookOpen },
+  { to: routes.chat, label: "Chat", icon: Bot },
+  { to: routes.settings, label: "Settings", icon: Settings },
 ];
 
 const sidebarStorageKey = "localmind.sidebar.expanded";
