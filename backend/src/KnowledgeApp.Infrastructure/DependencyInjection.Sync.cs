@@ -12,6 +12,7 @@ public static partial class DependencyInjection
         services.AddScoped<ISyncService>(provider => provider.GetRequiredService<SyncService>());
         services.AddScoped<ISyncQueue>(provider => provider.GetRequiredService<SyncService>());
         services.AddScoped<ISyncClient>(provider => provider.GetRequiredService<SyncService>());
+        services.AddScoped<KnowledgeApp.Application.Abstractions.Sync.ILocalDeviceIdentityService, KnowledgeApp.Infrastructure.Services.Sync.LocalDeviceIdentityService>();
 
         return services;
     }

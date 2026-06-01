@@ -7,4 +7,6 @@ public abstract class Entity
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset? UpdatedAt { get; set; }
+
+    public long LocalVersion { get; set; } = 1;
 }
