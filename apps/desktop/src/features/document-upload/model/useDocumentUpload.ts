@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { UploadDocumentResponse } from "@entities/document";
-import { documentsApi, getErrorMessage, getFieldError } from "@shared/api";
+import { documentsApi, getFieldError } from "@shared/api";
+import { useApiMutation } from "@shared/lib/hooks";
 
 export type UploadState =
   | (UploadDocumentResponse & { fileName: string })
@@ -19,33 +20,32 @@ export function useDocumentUpload({
 }: UseDocumentUploadOptions) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [lastUpload, setLastUpload] = useState<UploadState>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  const uploadMutation = useApiMutation(
+    (file: File) => documentsApi.uploadDocument(file, selectedBucketId || null),
+    { fallbackError: "Upload failed." },
+  );
+
   async function uploadFile(file: File) {
-    setIsUploading(true);
-    try {
-      const upload = await documentsApi.uploadDocument(
-        file,
-        selectedBucketId || null,
-      );
+    const upload = await uploadMutation.mutate(file);
+    if (upload) {
       setLastUpload({ ...upload, fileName: file.name });
       await onUploaded();
-    } catch (exception) {
+    } else if (uploadMutation.rawError) {
       onError(
-        getFieldError(exception, "file") ??
-          getFieldError(exception, "fileName") ??
-          getErrorMessage(exception, "Upload failed."),
+        getFieldError(uploadMutation.rawError, "file") ??
+          getFieldError(uploadMutation.rawError, "fileName") ??
+          uploadMutation.error ??
+          "Upload failed.",
       );
-    } finally {
-      setIsUploading(false);
     }
   }
 
   return {
     fileInputRef,
     isDragging,
-    isUploading,
+    isUploading: uploadMutation.isPending,
     lastUpload,
     setIsDragging,
     setLastUpload,

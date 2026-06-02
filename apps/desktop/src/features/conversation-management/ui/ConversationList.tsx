@@ -57,7 +57,12 @@ export function ConversationList({
             onChange={(event) => onTitleChange(event.target.value)}
             placeholder="New conversation title"
           />
-          <Button type="submit" variant="secondary" disabled={isCreating}>
+          <Button
+            type="submit"
+            variant="secondary"
+            className="!h-11 px-4"
+            disabled={isCreating}
+          >
             {isCreating ? (
               <Loader2 size={16} className="animate-spin" aria-hidden />
             ) : (

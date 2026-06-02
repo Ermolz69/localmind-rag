@@ -45,7 +45,11 @@ export function NotesPage() {
             </option>
           ))}
         </Select>
-        <Button variant="secondary" onClick={() => page.setIsCreateOpen(true)}>
+        <Button
+          variant="secondary"
+          className="!h-11 px-4"
+          onClick={() => page.setIsCreateOpen(true)}
+        >
           <FolderPlus size={16} aria-hidden />
           New file
         </Button>

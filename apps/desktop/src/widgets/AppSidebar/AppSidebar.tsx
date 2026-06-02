@@ -73,19 +73,19 @@ export function AppSidebar() {
       <div className="flex h-full min-w-0 flex-col overflow-hidden p-3">
         <div
           className={cn(
-            "mb-3 flex h-11 items-center rounded-md px-2 transition-[justify-content]",
-            isExpanded ? "justify-start" : "justify-center",
+            "mb-3 flex h-11 items-center rounded-md transition-[justify-content,padding]",
+            isExpanded ? "justify-start px-2" : "justify-center px-0",
           )}
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold leading-none text-primary-foreground">
             L
           </div>
           <div
             className={cn(
-              "ml-3 min-w-0 transition-[opacity,transform] duration-200",
+              "min-w-0 overflow-hidden transition-[opacity,transform] duration-200",
               isExpanded
-                ? "translate-x-0 opacity-100"
-                : "pointer-events-none -translate-x-2 opacity-0",
+                ? "ml-3 translate-x-0 opacity-100"
+                : "pointer-events-none ml-0 w-0 -translate-x-2 opacity-0",
             )}
           >
             <p className="truncate text-base font-semibold leading-5">

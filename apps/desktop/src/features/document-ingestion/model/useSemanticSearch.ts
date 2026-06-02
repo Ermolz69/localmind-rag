@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { RagSource } from "@entities/source";
-import { getErrorMessage, searchApi } from "@shared/api";
+import { searchApi } from "@shared/api";
+import { useApiMutation } from "@shared/lib/hooks";
 
 const DEFAULT_LIMIT = 8;
 
@@ -13,8 +14,15 @@ export function useSemanticSearch() {
   const requestIdRef = useRef(0);
   const [results, setResults] = useState<RagSource[]>([]);
   const [submittedQuery, setSubmittedQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const searchMutation = useApiMutation(
+    (query: string, options: SearchOptions = {}) =>
+      searchApi.semanticSearch(query, {
+        bucketId: options.bucketId ?? null,
+        limit: options.limit ?? DEFAULT_LIMIT,
+      }),
+    { fallbackError: "Unable to run semantic search." },
+  );
 
   async function search(query: string, options: SearchOptions = {}) {
     const trimmedQuery = query.trim();
@@ -23,8 +31,7 @@ export function useSemanticSearch() {
       requestIdRef.current += 1;
       setSubmittedQuery("");
       setResults([]);
-      setIsSearching(false);
-      setError(null);
+      searchMutation.reset();
       return;
     }
 
@@ -32,31 +39,17 @@ export function useSemanticSearch() {
     requestIdRef.current = requestId;
 
     setSubmittedQuery(trimmedQuery);
-    setIsSearching(true);
-    setError(null);
 
-    try {
-      const sources = await searchApi.semanticSearch(trimmedQuery, {
-        bucketId: options.bucketId ?? null,
-        limit: options.limit ?? DEFAULT_LIMIT,
-      });
+    const sources = await searchMutation.mutate(trimmedQuery, options);
 
-      if (requestId !== requestIdRef.current) {
-        return;
-      }
+    if (requestId !== requestIdRef.current) {
+      return;
+    }
 
+    if (sources) {
       setResults([...sources].sort((left, right) => right.score - left.score));
-    } catch (exception) {
-      if (requestId !== requestIdRef.current) {
-        return;
-      }
-
+    } else {
       setResults([]);
-      setError(getErrorMessage(exception, "Unable to run semantic search."));
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setIsSearching(false);
-      }
     }
   }
 
@@ -64,14 +57,13 @@ export function useSemanticSearch() {
     requestIdRef.current += 1;
     setResults([]);
     setSubmittedQuery("");
-    setIsSearching(false);
-    setError(null);
+    searchMutation.reset();
   }
 
   return {
     clear,
-    error,
-    isSearching,
+    error: searchMutation.error,
+    isSearching: searchMutation.isPending,
     results,
     search,
     searchSubmitted: Boolean(submittedQuery),

@@ -1,16 +1,22 @@
-import { useCallback, useEffect, useState } from "react";
-import type { BucketDto } from "@entities/bucket";
+import { useCallback, useState } from "react";
 import type { NoteDto } from "@entities/note";
-import { bucketsApi, getErrorMessage, notesApi } from "@shared/api";
-import { useCursorPage, useDebouncedValue } from "@shared/lib/hooks";
+import { bucketsApi, notesApi } from "@shared/api";
+import { useApiQuery, useCursorPage, useDebouncedValue } from "@shared/lib/hooks";
 
 export function useNoteList() {
-  const [buckets, setBuckets] = useState<BucketDto[]>([]);
   const [selectedBucketId, setSelectedBucketId] = useState("");
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, 250);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-  const [noteListError, setNoteListError] = useState<string | null>(null);
+
+  const {
+    data: buckets,
+    isLoading: isLoadingBuckets,
+    error: bucketsError,
+  } = useApiQuery(() => bucketsApi.getBuckets(), {
+    initialData: [],
+    fallbackError: "Unable to load buckets.",
+  });
 
   const loadNotesPage = useCallback(
     (cursor?: string | null) =>
@@ -31,31 +37,18 @@ export function useNoteList() {
   const selectedNote =
     notesPage.items.find((note) => note.id === selectedNoteId) ?? null;
 
-  useEffect(() => {
-    async function loadBuckets() {
-      try {
-        setBuckets(await bucketsApi.getBuckets());
-      } catch (exception) {
-        setNoteListError(getErrorMessage(exception, "Unable to load buckets."));
-      }
-    }
-
-    void loadBuckets();
-  }, []);
-
   return {
-    buckets,
+    buckets: buckets ?? [],
     hasMore: notesPage.hasMore,
-    isLoading: notesPage.isLoading,
+    isLoading: notesPage.isLoading || isLoadingBuckets,
     isLoadingMore: notesPage.isLoadingMore,
     loadMore: notesPage.loadMore,
-    noteListError: noteListError ?? notesPage.error,
+    noteListError: bucketsError ?? notesPage.error,
     notes: notesPage.items,
     query,
     selectedBucketId,
     selectedNote,
     selectedNoteId,
-    setNoteListError,
     setNotes: notesPage.setItems,
     setQuery,
     setSelectedBucketId,

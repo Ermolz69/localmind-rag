@@ -1,28 +1,34 @@
-import { useCallback, useEffect, useState } from "react";
-import type { BucketDto } from "@entities/bucket";
-import { bucketsApi, getErrorMessage } from "@shared/api";
+import { useState } from "react";
+import { bucketsApi } from "@shared/api";
+import { useApiMutation, useApiQuery } from "@shared/lib/hooks";
 
 export function useBuckets() {
-  const [buckets, setBuckets] = useState<BucketDto[]>([]);
   const [selectedBucketId, setSelectedBucketId] = useState("");
   const [name, setName] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadBuckets = useCallback(async () => {
-    setError(null);
-    try {
-      setBuckets(await bucketsApi.getBuckets());
-    } catch (exception) {
-      setError(getErrorMessage(exception, "Unable to load buckets."));
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const {
+    data: buckets,
+    isLoading,
+    error: queryError,
+    reload: loadBuckets,
+  } = useApiQuery(() => bucketsApi.getBuckets(), {
+    initialData: [],
+    fallbackError: "Unable to load buckets.",
+  });
 
-  useEffect(() => {
-    void loadBuckets();
-  }, [loadBuckets]);
+  const createMutation = useApiMutation(
+    (nextName: string) => bucketsApi.createBucket({ name: nextName }),
+    { fallbackError: "Bucket creation failed." },
+  );
+
+  const renameMutation = useApiMutation(
+    (id: string, newName: string) => bucketsApi.updateBucket(id, { name: newName }),
+    { fallbackError: "Failed to rename bucket." },
+  );
+
+  const deleteMutation = useApiMutation((id: string) => bucketsApi.deleteBucket(id), {
+    fallbackError: "Failed to delete bucket.",
+  });
 
   async function createBucket() {
     const nextName = name.trim();
@@ -30,22 +36,40 @@ export function useBuckets() {
       return;
     }
 
-    setError(null);
-    try {
-      const bucket = await bucketsApi.createBucket({ name: nextName });
+    const bucket = await createMutation.mutate(nextName);
+    if (bucket) {
       setName("");
       setSelectedBucketId(bucket.id);
       await loadBuckets();
-    } catch (exception) {
-      setError(getErrorMessage(exception, "Bucket creation failed."));
     }
   }
 
+  async function renameBucket(id: string, newName: string) {
+    const nextName = newName.trim();
+    if (!nextName) return;
+
+    await renameMutation.mutate(id, nextName);
+    await loadBuckets();
+    setSelectedBucketId(id);
+  }
+
+  async function deleteBucket(id: string) {
+    await deleteMutation.mutate(id);
+    setSelectedBucketId((prev) => (prev === id ? "" : prev));
+    await loadBuckets();
+  }
+
   return {
-    buckets,
+    buckets: buckets ?? [],
     createBucket,
-    error,
-    isLoading,
+    renameBucket,
+    deleteBucket,
+    error:
+      queryError ??
+      createMutation.error ??
+      renameMutation.error ??
+      deleteMutation.error,
+    isLoading: isLoading || createMutation.isPending || renameMutation.isPending || deleteMutation.isPending,
     loadBuckets,
     name,
     selectedBucketId,

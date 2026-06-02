@@ -50,7 +50,7 @@ export function BucketPanel({
               }
             }}
           />
-          <Button className="shrink-0" onClick={onCreateBucket}>
+          <Button className="!h-11 shrink-0 px-4" onClick={onCreateBucket}>
             Create
           </Button>
         </div>

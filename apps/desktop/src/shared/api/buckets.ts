@@ -25,4 +25,13 @@ export const bucketsApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  updateBucket: (id: string, payload: Partial<CreateBucketRequest>) =>
+    request<BucketDto>(`/buckets/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  deleteBucket: (id: string) =>
+    request<void>(`/buckets/${id}`, {
+      method: "DELETE",
+    }),
 };

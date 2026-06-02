@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { NoteDto } from "@entities/note";
-import { getErrorMessage, notesApi } from "@shared/api";
+import { notesApi } from "@shared/api";
+import { useApiMutation } from "@shared/lib/hooks";
 import type { NoteDraft } from "./types";
 
 const emptyDraft: NoteDraft = {
@@ -26,8 +27,20 @@ export function useNoteEditor({
   const [createDraft, setCreateDraft] = useState<NoteDraft>(emptyDraft);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [noteEditorError, setNoteEditorError] = useState<string | null>(null);
+
+  const createMutation = useApiMutation(
+    (nextDraft: NoteDraft) => notesApi.createNote(nextDraft),
+    { fallbackError: "Failed to create note." },
+  );
+
+  const updateMutation = useApiMutation(
+    (id: string, nextDraft: NoteDraft) => notesApi.updateNote(id, nextDraft),
+    { fallbackError: "Failed to save note." },
+  );
+
+  const deleteMutation = useApiMutation((id: string) => notesApi.deleteNote(id), {
+    fallbackError: "Failed to delete note.",
+  });
 
   const isDirty = useMemo(() => {
     if (!selectedNote) {
@@ -71,21 +84,16 @@ export function useNoteEditor({
       return;
     }
 
-    setNoteEditorError(null);
-    setIsSubmitting(true);
-    try {
-      const note = await notesApi.createNote({
-        title,
-        markdown: createDraft.markdown,
-        bucketId: createDraft.bucketId,
-      });
+    const note = await createMutation.mutate({
+      title,
+      markdown: createDraft.markdown,
+      bucketId: createDraft.bucketId,
+    });
+
+    if (note) {
       onCreated(note);
       setCreateDraft(emptyDraft);
       setIsCreateOpen(false);
-    } catch (exception) {
-      setNoteEditorError(getErrorMessage(exception, "Failed to create note."));
-    } finally {
-      setIsSubmitting(false);
     }
   }
 
@@ -94,20 +102,14 @@ export function useNoteEditor({
       return;
     }
 
-    setNoteEditorError(null);
-    setIsSubmitting(true);
-    try {
-      await notesApi.updateNote(selectedNote.id, draft);
+    const success = await updateMutation.mutate(selectedNote.id, draft);
+    if (success !== null) {
       onUpdated({
         ...selectedNote,
         title: draft.title,
         markdown: draft.markdown,
         bucketId: draft.bucketId,
       });
-    } catch (exception) {
-      setNoteEditorError(getErrorMessage(exception, "Failed to save note."));
-    } finally {
-      setIsSubmitting(false);
     }
   }
 
@@ -116,16 +118,10 @@ export function useNoteEditor({
       return;
     }
 
-    setNoteEditorError(null);
-    setIsSubmitting(true);
-    try {
-      await notesApi.deleteNote(deleteTargetId);
+    const success = await deleteMutation.mutate(deleteTargetId);
+    if (success !== null) {
       onDeleted(deleteTargetId);
       setDeleteTargetId(null);
-    } catch (exception) {
-      setNoteEditorError(getErrorMessage(exception, "Failed to delete note."));
-    } finally {
-      setIsSubmitting(false);
     }
   }
 
@@ -138,8 +134,8 @@ export function useNoteEditor({
     draft,
     isCreateOpen,
     isDirty,
-    isSubmitting,
-    noteEditorError,
+    isSubmitting: createMutation.isPending || updateMutation.isPending || deleteMutation.isPending,
+    noteEditorError: createMutation.error ?? updateMutation.error ?? deleteMutation.error,
     saveNote,
     setCreateDraft,
     setDeleteTargetId,

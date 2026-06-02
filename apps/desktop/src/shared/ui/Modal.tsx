@@ -33,10 +33,10 @@ export function Modal({
             ) : null}
           </div>
           <Button
-            className="h-8 w-8 bg-muted px-0 text-muted-foreground"
+            className="!h-9 !w-9 bg-muted px-0 text-muted-foreground"
             onClick={onClose}
           >
-            <X size={16} aria-hidden />
+            <X size={18} aria-hidden />
           </Button>
         </div>
         <div className="mt-5">{children}</div>
