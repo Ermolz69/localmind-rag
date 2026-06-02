@@ -52,7 +52,7 @@ The repository is a monorepo with:
 
 ## Backend
 
-- .NET 10 SDK, pinned by `global.json`.
+- .NET 10 SDK, pinned by `backend/global.json`.
 - ASP.NET Core for LocalApi and SyncApi.
 - EF Core 10 with SQLite for local persistence.
 - Npgsql package is present for PostgreSQL-related/sync infrastructure.
@@ -63,7 +63,7 @@ The repository is a monorepo with:
 - xUnit for tests.
 - Testcontainers for .NET in integration tests that need external/containerized services.
 - PdfPig and OpenXML-based document extraction packages.
-- Central package management through `Directory.Packages.props`.
+- Central package management through `backend/Directory.Packages.props`.
 
 ## Frontend
 
@@ -253,7 +253,7 @@ Recommended:
 
 The `Check` workflow runs:
 
-- Backend format: `dotnet format backend/KnowledgeApp.slnx --verify-no-changes --no-restore`.
+- Backend format: `cd backend && dotnet format KnowledgeApp.slnx --verify-no-changes --no-restore`.
 - Backend build.
 - Backend unit tests.
 - Backend integration tests.
@@ -283,9 +283,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1
 Backend only:
 
 ```bash
-dotnet restore backend/KnowledgeApp.slnx
-dotnet build backend/KnowledgeApp.slnx
-dotnet test backend/KnowledgeApp.slnx
+cd backend
+dotnet restore KnowledgeApp.slnx
+dotnet build KnowledgeApp.slnx
+dotnet test KnowledgeApp.slnx
 ```
 
 Frontend checks:

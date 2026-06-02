@@ -105,7 +105,13 @@ export function useConversationList() {
       return true;
     }
     return false;
-  }, [conversations, deleteMutation, deleteTargetId, selectedConversationId, setConversations]);
+  }, [
+    conversations,
+    deleteMutation,
+    deleteTargetId,
+    selectedConversationId,
+    setConversations,
+  ]);
 
   const selectConversation = useCallback((conversationId: string) => {
     setSelectedConversationId(conversationId);

@@ -12,14 +12,14 @@ Install:
 Then run:
 
 ```bash
-task setup
-task check
+task -t .config/task/Taskfile.yml setup
+task -t .config/task/Taskfile.yml check
 ```
 
 To run the application locally:
 
 ```bash
-task build
+task -t .config/task/Taskfile.yml build
 pnpm dev
 ```
 

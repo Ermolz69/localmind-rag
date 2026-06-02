@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AppSettings } from "@entities/settings";
-import {
-  diagnosticsApi,
-  getFieldErrors,
-  settingsApi,
-} from "@shared/api";
+import { diagnosticsApi, getFieldErrors, settingsApi } from "@shared/api";
 import { useApiMutation, useApiQuery } from "@shared/lib/hooks";
 import { useTheme } from "@shared/theme/theme-provider";
 
