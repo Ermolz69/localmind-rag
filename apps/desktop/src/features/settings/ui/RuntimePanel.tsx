@@ -78,7 +78,7 @@ function getAiRuntimeValue(runtime: RuntimeStatus | null) {
   }
 
   if (runtime.aiRuntimeStatus === "Running") {
-    return "Ready";
+    return runtime.chatModelName ?? "Ready";
   }
 
   if (runtime.setupRequired) {

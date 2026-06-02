@@ -24,6 +24,11 @@ public sealed class SemanticCacheRepository(AppDbContext dbContext) : ISemanticC
 
         foreach (var candidate in candidates)
         {
+            if (IsEmptySources(candidate.SourcesJson))
+            {
+                continue;
+            }
+
             float[] candidateEmbedding = EmbeddingVectorSerializer.FromBytes(candidate.QuestionEmbedding);
             double score = CosineSimilarity(queryEmbedding, candidateEmbedding);
             if (score >= threshold && score > bestScore)
@@ -40,6 +45,12 @@ public sealed class SemanticCacheRepository(AppDbContext dbContext) : ISemanticC
     {
         dbContext.SemanticCacheEntries.Add(entry);
         await dbContext.SaveChangesAsync(ct);
+    }
+
+    private static bool IsEmptySources(string sourcesJson)
+    {
+        return string.IsNullOrWhiteSpace(sourcesJson)
+            || string.Equals(sourcesJson.Trim(), "[]", StringComparison.Ordinal);
     }
 
     private static double CosineSimilarity(float[] left, float[] right)

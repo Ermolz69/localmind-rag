@@ -4,6 +4,8 @@ using KnowledgeApp.Application.Abstractions.Rag;
 using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Infrastructure.Options;
+using Microsoft.Extensions.Options;
 
 namespace KnowledgeApp.Infrastructure.Services;
 
@@ -11,12 +13,18 @@ public sealed class CachedRagAnswerGenerator(
     IRagAnswerGenerator inner,
     ISemanticCacheRepository cache,
     IEmbeddingGenerator embeddingGenerator,
+    IOptions<RagOptions> options,
     IAppDiagnosticLogger? diagnostics = null) : IRagAnswerGenerator
 {
     private const double CacheThreshold = 0.95;
 
     public async Task<RagAnswerDto> AnswerAsync(Guid conversationId, string question, CancellationToken cancellationToken = default)
     {
+        if (!options.Value.EnableSemanticCache)
+        {
+            return await inner.AnswerAsync(conversationId, question, cancellationToken);
+        }
+
         Guid operationId = diagnostics?.BeginOperation(
             DiagnosticNames.Areas.Rag,
             DiagnosticNames.Operations.RagAnswer,
@@ -46,6 +54,11 @@ public sealed class CachedRagAnswerGenerator(
 
         var result = await inner.AnswerAsync(conversationId, question, cancellationToken);
 
+        if (result.Sources.Count == 0)
+        {
+            return result;
+        }
+
         var entry = new SemanticCacheEntry
         {
             Question = question,
@@ -62,6 +75,16 @@ public sealed class CachedRagAnswerGenerator(
 
     public async IAsyncEnumerable<RagAnswerChunkDto> AnswerStreamAsync(Guid conversationId, string question, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        if (!options.Value.EnableSemanticCache)
+        {
+            await foreach (var chunk in inner.AnswerStreamAsync(conversationId, question, cancellationToken))
+            {
+                yield return chunk;
+            }
+
+            yield break;
+        }
+
         Guid operationId = diagnostics?.BeginOperation(
             DiagnosticNames.Areas.Rag,
             DiagnosticNames.Operations.RagAnswer,
@@ -101,6 +124,11 @@ public sealed class CachedRagAnswerGenerator(
                 finalSources = chunk.Sources;
             }
             yield return chunk;
+        }
+
+        if (finalSources is not { Count: > 0 })
+        {
+            yield break;
         }
 
         var entry = new SemanticCacheEntry

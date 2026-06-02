@@ -15,6 +15,10 @@ namespace KnowledgeApp.Contracts.Runtime;
 /// <param name="Capabilities">Capabilities advertised by the provider.</param>
 /// <param name="BaseUrl">Provider API base URL when applicable.</param>
 /// <param name="FailureReason">Sanitized provider failure or setup reason.</param>
+/// <param name="ChatModelName">Configured chat model name.</param>
+/// <param name="EmbeddingModelName">Configured embedding model name.</param>
+/// <param name="ChatModelPath">Resolved local chat model path.</param>
+/// <param name="EmbeddingModelPath">Resolved local embedding model path.</param>
 public sealed record RuntimeStatusDto(
     bool LocalApiReady,
     string AiRuntimeStatus,
@@ -29,4 +33,8 @@ public sealed record RuntimeStatusDto(
     string ProviderStatus = AiRuntimeProviderStatus.Missing,
     AiRuntimeProviderCapabilities? Capabilities = null,
     string? BaseUrl = null,
-    string? FailureReason = null);
+    string? FailureReason = null,
+    string? ChatModelName = null,
+    string? EmbeddingModelName = null,
+    string? ChatModelPath = null,
+    string? EmbeddingModelPath = null);

@@ -14,6 +14,12 @@ public sealed class RagOptionsValidator : IValidateOptions<RagOptions>
                 "Rag:MinimumSourceScore must be between 0 and 1.");
         }
 
+        if (options.MaxSourceScoreDistance < 0 || options.MaxSourceScoreDistance > 1)
+        {
+            return ValidateOptionsResult.Fail(
+                "Rag:MaxSourceScoreDistance must be between 0 and 1.");
+        }
+
         return ValidateOptionsResult.Success;
     }
 }

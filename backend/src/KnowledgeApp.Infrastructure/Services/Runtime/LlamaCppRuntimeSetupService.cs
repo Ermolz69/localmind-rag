@@ -15,6 +15,7 @@ public sealed class LlamaCppRuntimeSetupService(
     IAppPathProvider paths,
     IOptions<RuntimeOptions> options,
     EmbeddingModelStore embeddingModelStore,
+    ChatModelStore chatModelStore,
     HttpClient httpClient,
     ILogger<LlamaCppRuntimeSetupService> logger,
     IAppDiagnosticLogger? diagnostics = null) : IAiRuntimeSetupService
@@ -34,6 +35,10 @@ public sealed class LlamaCppRuntimeSetupService(
             diagnostics?.LogStep(operationId, DiagnosticNames.Steps.RuntimeReady);
 
             await embeddingModelStore.EnsureDownloadedAsync(cancellationToken: cancellationToken);
+
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.ModelReady);
+
+            await chatModelStore.EnsureDownloadedAsync(cancellationToken: cancellationToken);
 
             diagnostics?.LogStep(operationId, DiagnosticNames.Steps.ModelReady);
         }

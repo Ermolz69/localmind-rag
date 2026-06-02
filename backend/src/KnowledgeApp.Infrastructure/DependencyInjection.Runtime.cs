@@ -18,6 +18,13 @@ public static partial class DependencyInjection
         services.AddHostedService<LocalRuntimeInitializer>();
 
         services.AddSingleton<AiRuntimeManager>();
+        services.AddSingleton<ChatModelCatalog>();
+        services.AddSingleton(provider =>
+            new ChatModelStore(
+                provider.GetRequiredService<IAppPathProvider>(),
+                provider.GetRequiredService<IOptions<EmbeddingOptions>>(),
+                provider.GetRequiredService<ChatModelCatalog>(),
+                new HttpClient()));
         services.AddSingleton<StubEmbeddingGenerator>();
         services.AddSingleton<StubChatModelClient>();
         services.AddSingleton<StubAiRuntimeProvider>();
@@ -41,6 +48,7 @@ public static partial class DependencyInjection
                 provider.GetRequiredService<IAppPathProvider>(),
                 provider.GetRequiredService<IOptions<RuntimeOptions>>(),
                 provider.GetRequiredService<EmbeddingModelStore>(),
+                provider.GetRequiredService<ChatModelStore>(),
                 new HttpClient(),
                 provider.GetRequiredService<ILogger<LlamaCppRuntimeSetupService>>()));
 
