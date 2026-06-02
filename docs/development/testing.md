@@ -5,7 +5,7 @@
 Run the full local validation pipeline before pushing:
 
 ```bash
-task check
+task -t .config/task/Taskfile.yml check
 ```
 
 The check task executes all formatting, linting, typechecking, frontend/backend build, and architecture validation checks.
@@ -15,7 +15,7 @@ The check task executes all formatting, linting, typechecking, frontend/backend 
 Run the local coverage workflow when changing backend logic:
 
 ```bash
-task test:coverage
+task -t .config/task/Taskfile.yml test:coverage
 ```
 
 The coverage task:
@@ -56,7 +56,7 @@ RAG evaluation tests are designed to validate retrieval quality and answer groun
 Run them directly:
 
 ```bash
-task test:rag
+task -t .config/task/Taskfile.yml test:rag
 ```
 
 The suite uses:
@@ -84,7 +84,7 @@ Requirements:
 Run integration tests locally:
 
 ```bash
-task test:integration
+task -t .config/task/Taskfile.yml test:integration
 ```
 
 If Docker is unavailable, container-backed tests fail fast.

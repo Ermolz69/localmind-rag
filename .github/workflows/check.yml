@@ -23,9 +23,65 @@ permissions:
   pull-requests: read
 
 jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      docker: ${{ steps.filter.outputs.docker }}
+      docs: ${{ steps.filter.outputs.docs }}
+      global: ${{ steps.filter.outputs.global }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Filter changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.config/task/**'
+              - 'AGENTS.md'
+              - '.github/workflows/check.yml'
+            frontend:
+              - 'apps/desktop/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.config/task/**'
+              - '.github/workflows/check.yml'
+            docker:
+              - 'infra/**'
+              - '.dockerignore'
+              - 'backend/.dockerignore'
+              - 'apps/desktop/.dockerignore'
+              - '.github/workflows/check.yml'
+            docs:
+              - 'docs/**'
+              - 'README.md'
+              - 'AGENTS.md'
+              - 'GEMINI.md'
+              - '.config/task/**'
+              - '.github/workflows/docs.yml'
+            global:
+              - '.github/workflows/**'
+              - '.config/task/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+
   backend-format:
     name: Backend format
     runs-on: windows-latest
+    needs:
+      - changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.global == 'true'
 
     steps:
       - name: Checkout
@@ -34,7 +90,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          global-json-file: backend/global.json
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -42,14 +98,17 @@ jobs:
           version: 3.x
 
       - name: Restore backend
-        run: task setup:backend
+        run: task -t .config/task/Taskfile.yml setup:backend
 
       - name: Verify dotnet format
-        run: task check:backend:format
+        run: task -t .config/task/Taskfile.yml check:backend:format
 
   backend-build:
     name: Backend build
     runs-on: windows-latest
+    needs:
+      - changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.global == 'true'
 
     steps:
       - name: Checkout
@@ -58,7 +117,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          global-json-file: backend/global.json
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -66,16 +125,18 @@ jobs:
           version: 3.x
 
       - name: Restore backend
-        run: task setup:backend
+        run: task -t .config/task/Taskfile.yml setup:backend
 
       - name: Build backend
-        run: task build:backend
+        run: task -t .config/task/Taskfile.yml build:backend
 
   backend-unit-tests:
     name: Backend unit tests
     runs-on: windows-latest
     needs:
+      - changes
       - backend-build
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.global == 'true'
 
     steps:
       - name: Checkout
@@ -84,7 +145,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          global-json-file: backend/global.json
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -92,13 +153,13 @@ jobs:
           version: 3.x
 
       - name: Restore backend
-        run: task setup:backend
+        run: task -t .config/task/Taskfile.yml setup:backend
 
       - name: Build backend
-        run: task build:backend
+        run: task -t .config/task/Taskfile.yml build:backend
 
       - name: Run unit tests with coverage
-        run: task test:ci:unit TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/unit"
+        run: task -t .config/task/Taskfile.yml test:ci:unit TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/unit"
 
       - name: Publish unit test report
         if: always()
@@ -119,7 +180,7 @@ jobs:
 
       - name: Generate unit coverage report
         if: always()
-        run: task test:ci:report TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/unit" COVERAGE_REPORT_DIR="${{ env.COVERAGE_REPORT_DIR }}/unit"
+        run: task -t .config/task/Taskfile.yml test:ci:report TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/unit" COVERAGE_REPORT_DIR="${{ env.COVERAGE_REPORT_DIR }}/unit"
 
       - name: Add unit coverage summary
         if: always()
@@ -142,7 +203,9 @@ jobs:
     name: Backend integration tests
     runs-on: ubuntu-latest
     needs:
+      - changes
       - backend-build
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.global == 'true'
 
     steps:
       - name: Checkout
@@ -151,7 +214,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          global-json-file: backend/global.json
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -159,13 +222,13 @@ jobs:
           version: 3.x
 
       - name: Restore backend
-        run: task setup:backend
+        run: task -t .config/task/Taskfile.yml setup:backend
 
       - name: Build backend
-        run: task build:backend
+        run: task -t .config/task/Taskfile.yml build:backend
 
       - name: Run integration tests with coverage
-        run: task test:ci:integration TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/integration"
+        run: task -t .config/task/Taskfile.yml test:ci:integration TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/integration"
 
       - name: Publish integration test report
         if: always()
@@ -186,7 +249,7 @@ jobs:
 
       - name: Generate integration coverage report
         if: always()
-        run: task test:ci:report TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/integration" COVERAGE_REPORT_DIR="${{ env.COVERAGE_REPORT_DIR }}/integration"
+        run: task -t .config/task/Taskfile.yml test:ci:report TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/integration" COVERAGE_REPORT_DIR="${{ env.COVERAGE_REPORT_DIR }}/integration"
 
       - name: Add integration coverage summary
         if: always()
@@ -209,7 +272,9 @@ jobs:
     name: Backend RAG evaluation tests
     runs-on: ubuntu-latest
     needs:
+      - changes
       - backend-build
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.global == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -217,7 +282,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          global-json-file: backend/global.json
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -225,13 +290,13 @@ jobs:
           version: 3.x
 
       - name: Restore backend
-        run: task setup:backend
+        run: task -t .config/task/Taskfile.yml setup:backend
 
       - name: Build backend
-        run: task build:backend
+        run: task -t .config/task/Taskfile.yml build:backend
 
       - name: Run RAG evaluation tests with coverage
-        run: task test:ci:rag TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/rag-evaluation"
+        run: task -t .config/task/Taskfile.yml test:ci:rag TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/rag-evaluation"
 
       - name: Publish RAG evaluation test report
         if: always()
@@ -252,7 +317,7 @@ jobs:
 
       - name: Generate RAG evaluation coverage report
         if: always()
-        run: task test:ci:report TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/rag-evaluation" COVERAGE_REPORT_DIR="${{ env.COVERAGE_REPORT_DIR }}/rag-evaluation"
+        run: task -t .config/task/Taskfile.yml test:ci:report TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/rag-evaluation" COVERAGE_REPORT_DIR="${{ env.COVERAGE_REPORT_DIR }}/rag-evaluation"
 
       - name: Add RAG evaluation coverage summary
         if: always()
@@ -275,7 +340,9 @@ jobs:
     name: Backend architecture tests
     runs-on: windows-latest
     needs:
+      - changes
       - backend-build
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.global == 'true'
 
     steps:
       - name: Checkout
@@ -284,7 +351,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          global-json-file: backend/global.json
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -292,13 +359,13 @@ jobs:
           version: 3.x
 
       - name: Restore backend
-        run: task setup:backend
+        run: task -t .config/task/Taskfile.yml setup:backend
 
       - name: Build backend
-        run: task build:backend
+        run: task -t .config/task/Taskfile.yml build:backend
 
       - name: Run architecture tests
-        run: task test:ci:architecture TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/architecture"
+        run: task -t .config/task/Taskfile.yml test:ci:architecture TEST_RESULTS_DIR="${{ env.TEST_RESULTS_DIR }}/architecture"
 
       - name: Publish architecture test report
         if: always()
@@ -320,6 +387,9 @@ jobs:
   frontend-format:
     name: Frontend format
     runs-on: windows-latest
+    needs:
+      - changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.global == 'true'
 
     steps:
       - name: Checkout
@@ -342,14 +412,17 @@ jobs:
           version: 3.x
 
       - name: Install dependencies
-        run: task setup:frontend
+        run: task -t .config/task/Taskfile.yml setup:frontend
 
       - name: Check Prettier formatting
-        run: task check:frontend:format
+        run: task -t .config/task/Taskfile.yml check:frontend:format
 
   frontend-lint:
     name: Frontend lint
     runs-on: windows-latest
+    needs:
+      - changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.global == 'true'
 
     steps:
       - name: Checkout
@@ -372,14 +445,17 @@ jobs:
           version: 3.x
 
       - name: Install dependencies
-        run: task setup:frontend
+        run: task -t .config/task/Taskfile.yml setup:frontend
 
       - name: Run ESLint
-        run: task check:frontend:lint
+        run: task -t .config/task/Taskfile.yml check:frontend:lint
 
   frontend-typecheck:
     name: Frontend typecheck
     runs-on: windows-latest
+    needs:
+      - changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.global == 'true'
 
     steps:
       - name: Checkout
@@ -402,17 +478,19 @@ jobs:
           version: 3.x
 
       - name: Install dependencies
-        run: task setup:frontend
+        run: task -t .config/task/Taskfile.yml setup:frontend
 
       - name: Run TypeScript
-        run: task check:frontend:typecheck
+        run: task -t .config/task/Taskfile.yml check:frontend:typecheck
 
   frontend-build:
     name: Frontend build
     runs-on: windows-latest
     needs:
+      - changes
       - frontend-lint
       - frontend-typecheck
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.global == 'true'
 
     steps:
       - name: Checkout
@@ -435,14 +513,17 @@ jobs:
           version: 3.x
 
       - name: Install dependencies
-        run: task setup:frontend
+        run: task -t .config/task/Taskfile.yml setup:frontend
 
       - name: Build desktop frontend
-        run: task build:frontend
+        run: task -t .config/task/Taskfile.yml build:frontend
 
   frontend-color-guard:
     name: Frontend color guard
     runs-on: windows-latest
+    needs:
+      - changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.global == 'true'
 
     steps:
       - name: Checkout
@@ -454,11 +535,14 @@ jobs:
           version: 3.x
 
       - name: Check hardcoded colors
-        run: task check:colors
+        run: task -t .config/task/Taskfile.yml check:colors
 
   docker-compose:
     name: Docker compose config
     runs-on: ubuntu-latest
+    needs:
+      - changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.docker == 'true' || needs.changes.outputs.global == 'true'
 
     steps:
       - name: Checkout
@@ -470,13 +554,14 @@ jobs:
           version: 3.x
 
       - name: Validate remote compose file
-        run: task check:docker
+        run: task -t .config/task/Taskfile.yml check:docker
 
   check-summary:
     name: Check summary
     runs-on: ubuntu-latest
     if: always()
     needs:
+      - changes
       - backend-format
       - backend-build
       - backend-unit-tests
@@ -496,6 +581,7 @@ jobs:
           echo "## Check results" >> "$GITHUB_STEP_SUMMARY"
           echo "| Job | Result |" >> "$GITHUB_STEP_SUMMARY"
           echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Change detection | ${{ needs.changes.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Backend format | ${{ needs.backend-format.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Backend build | ${{ needs.backend-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Backend unit tests | ${{ needs.backend-unit-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"

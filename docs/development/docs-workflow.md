@@ -4,16 +4,15 @@ Documentation is authored by hand under `docs/product`, `docs/architecture`, and
 
 ## Where Things Go
 
-| Content | Location |
-| --- | --- |
-| Product requirements and priorities | `docs/product/requirements/` |
-| Architecture overview, flows, contracts, diagrams, ADRs | `docs/architecture/` |
-| Development setup, testing, packaging, docs workflow | `docs/development/` |
-| OpenAPI page shell | `docs/api/` |
-| Generated OpenAPI, Swagger UI, DocFX metadata | `docs/auto-generated/` |
+| Content                                                 | Location                     |
+| ------------------------------------------------------- | ---------------------------- |
+| Product requirements and priorities                     | `docs/product/requirements/` |
+| Architecture overview, flows, contracts, diagrams, ADRs | `docs/architecture/`         |
+| Development setup, testing, packaging, docs workflow    | `docs/development/`          |
+| OpenAPI page shell                                      | `docs/api/`                  |
+| Generated OpenAPI, Swagger UI, DocFX metadata           | `docs/auto-generated/`       |
 
 Do not add new markdown files directly to the docs root unless they are navigation/config entrypoints.
-
 
 ## Generated Files
 
@@ -32,7 +31,7 @@ The docs build script deletes and recreates generated documentation. Manual edit
 Run:
 
 ```bash
-task docs:build
+task -t .config/task/Taskfile.yml docs:build
 ```
 
 The script:
@@ -66,8 +65,8 @@ After changing endpoints, DTOs, XML comments, or OpenAPI metadata:
 For documentation-only changes, run:
 
 ```bash
-task test:architecture
-task docs:build
+task -t .config/task/Taskfile.yml test:architecture
+task -t .config/task/Taskfile.yml docs:build
 ```
 
 Run broader backend/frontend checks only when documentation changes also touch code, contracts, scripts, or generated behavior.

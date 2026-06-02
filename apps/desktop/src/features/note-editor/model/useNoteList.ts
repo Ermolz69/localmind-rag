@@ -1,7 +1,11 @@
 import { useCallback, useState } from "react";
 import type { NoteDto } from "@entities/note";
 import { bucketsApi, notesApi } from "@shared/api";
-import { useApiQuery, useCursorPage, useDebouncedValue } from "@shared/lib/hooks";
+import {
+  useApiQuery,
+  useCursorPage,
+  useDebouncedValue,
+} from "@shared/lib/hooks";
 
 export function useNoteList() {
   const [selectedBucketId, setSelectedBucketId] = useState("");

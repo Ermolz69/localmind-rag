@@ -26,7 +26,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          global-json-file: backend/global.json
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -35,7 +35,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'backend/**/*.csproj') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/global.json', 'backend/Directory.Packages.props', 'backend/**/*.csproj') }}
           restore-keys: |
             nuget-${{ runner.os }}-
 
@@ -56,7 +56,7 @@ jobs:
           version: 3.x
 
       - name: Install frontend dependencies
-        run: task setup:frontend
+        run: task -t .config/task/Taskfile.yml setup:frontend
 
       - name: Cache AI runtime and models
         uses: actions/cache@v4
@@ -69,10 +69,10 @@ jobs:
             ai-runtime-${{ runner.os }}-
 
       - name: Build portable folder
-        run: task package
+        run: task -t .config/task/Taskfile.yml package
 
       - name: Smoke test portable package
-        run: task package:smoke-test
+        run: task -t .config/task/Taskfile.yml package:smoke-test
 
       - name: Upload portable artifact
         uses: actions/upload-artifact@v4

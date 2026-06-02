@@ -20,6 +20,8 @@ appsettings.*.local.json
 
 # Logs and diagnostics
 *.log
+.localapi.*.log
+.vite.*.log
 logs/
 *.pid
 *.seed

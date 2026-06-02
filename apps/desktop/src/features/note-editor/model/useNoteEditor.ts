@@ -38,9 +38,12 @@ export function useNoteEditor({
     { fallbackError: "Failed to save note." },
   );
 
-  const deleteMutation = useApiMutation((id: string) => notesApi.deleteNote(id), {
-    fallbackError: "Failed to delete note.",
-  });
+  const deleteMutation = useApiMutation(
+    (id: string) => notesApi.deleteNote(id),
+    {
+      fallbackError: "Failed to delete note.",
+    },
+  );
 
   const isDirty = useMemo(() => {
     if (!selectedNote) {
@@ -134,8 +137,12 @@ export function useNoteEditor({
     draft,
     isCreateOpen,
     isDirty,
-    isSubmitting: createMutation.isPending || updateMutation.isPending || deleteMutation.isPending,
-    noteEditorError: createMutation.error ?? updateMutation.error ?? deleteMutation.error,
+    isSubmitting:
+      createMutation.isPending ||
+      updateMutation.isPending ||
+      deleteMutation.isPending,
+    noteEditorError:
+      createMutation.error ?? updateMutation.error ?? deleteMutation.error,
     saveNote,
     setCreateDraft,
     setDeleteTargetId,

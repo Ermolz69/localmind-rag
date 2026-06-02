@@ -15,11 +15,41 @@ env:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      global: ${{ steps.filter.outputs.global }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Filter changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.config/task/**'
+              - '.github/workflows/openapi.yml'
+            global:
+              - '.github/workflows/**'
+              - '.config/task/**'
+
   openapi-compatibility:
     name: OpenAPI compatibility
     runs-on: ubuntu-latest
+    needs:
+      - changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.global == 'true'
 
     steps:
       - name: Checkout revision
@@ -37,7 +67,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: revision/global.json
+          global-json-file: revision/backend/global.json
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -46,8 +76,8 @@ jobs:
 
       - name: Generate revision OpenAPI
         run: >
-          task -t revision/Taskfile.yml openapi:generate
-          REPO_ROOT="../revision"
+          task -t revision/.config/task/Taskfile.yml openapi:generate
+          REPO_ROOT="${{ github.workspace }}/revision"
           OUTPUT_FILE="${{ github.workspace }}/artifacts/openapi/revision/local-api-v1.json"
           RUNTIME_ROOT="${{ github.workspace }}/artifacts/openapi/runtime/revision"
           DBNAME="knowledge-app-openapi-revision.db"
@@ -55,8 +85,8 @@ jobs:
       - name: Generate base OpenAPI
         if: github.event_name == 'pull_request'
         run: >
-          task -t revision/Taskfile.yml openapi:generate
-          REPO_ROOT="../base"
+          task -t revision/.config/task/Taskfile.yml openapi:generate
+          REPO_ROOT="${{ github.workspace }}/base"
           OUTPUT_FILE="${{ github.workspace }}/artifacts/openapi/base/local-api-v1.json"
           RUNTIME_ROOT="${{ github.workspace }}/artifacts/openapi/runtime/base"
           DBNAME="knowledge-app-openapi-base.db"

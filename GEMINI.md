@@ -57,11 +57,11 @@ pnpm dev    # Starts LocalApi and the desktop frontend dev server
 
 ### Building and Testing
 
-- **Full Validation:** `pnpm check` or `task check` (lints, format, color guard, docker config).
-- **Backend Tests:** `task test` (Unit, Integration, RAG Evaluation, Architecture).
+- **Full Validation:** `pnpm check` or `task -t .config/task/Taskfile.yml check` (lints, format, color guard, docker config).
+- **Backend Tests:** `task -t .config/task/Taskfile.yml test` (Unit, Integration, RAG Evaluation, Architecture).
 - **Frontend Build:** `pnpm --filter desktop build`.
-- **Docs Build:** `task docs:build`.
-- **Packaging:** `task package` (Windows portable package).
+- **Docs Build:** `pnpm docs:build` or `task -t .config/task/Taskfile.yml docs:build`.
+- **Packaging:** `pnpm package` or `task -t .config/task/Taskfile.yml package` (Windows portable package).
 
 ## Development Conventions
 
@@ -79,7 +79,7 @@ When operating as an AI agent in this repository, you **MUST** adhere to these r
 - **API Standards:** Always use `ApiResponse<T>` envelopes for new LocalApi endpoints. Use the existing stable error code taxonomy.
 - **Clean Architecture:** Respect project boundaries. Domain must not depend on outer layers. Application must not depend on Infrastructure.
 - **Hygiene:** Do not commit runtime data, local databases, AI models, generated documentation, or release artifacts.
-- **Verification:** Always run architecture tests (`task test:architecture`) and docs build (`task docs:build`) after significant backend or documentation changes.
+- **Verification:** Always run architecture tests (`task -t .config/task/Taskfile.yml test:architecture`) and docs build (`pnpm docs:build`) after significant backend or documentation changes.
 - **Types:** Update `KnowledgeApp.Contracts` and frontend TS mirrors when changing API DTOs.
 - **Documentation:** Do not edit `docs/auto-generated/` files. Use the provided scripts to regenerate them.
 
