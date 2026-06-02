@@ -101,7 +101,11 @@ export function DocumentsPage() {
               isProcessing={
                 page.processingDocumentId === page.lastUpload.documentId
               }
-              onProcess={() => void page.processLastUpload()}
+              onProcess={
+                page.lastUpload.ingestionJobId
+                  ? () => void page.processLastUpload()
+                  : undefined
+              }
             />
           ) : null}
 

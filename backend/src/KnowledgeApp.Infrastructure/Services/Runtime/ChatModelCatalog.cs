@@ -1,11 +1,13 @@
 using System.Reflection;
 using System.Text.Json;
+
 using KnowledgeApp.Infrastructure.Options;
+
 using Microsoft.Extensions.Options;
 
 namespace KnowledgeApp.Infrastructure.Services;
 
-public sealed class EmbeddingModelCatalog
+public sealed class ChatModelCatalog
 {
     private const string ResourcePrefix =
         "KnowledgeApp.Infrastructure.Resources.AiModels.";
@@ -13,46 +15,46 @@ public sealed class EmbeddingModelCatalog
     private static readonly JsonSerializerOptions SerializerOptions =
         new(JsonSerializerDefaults.Web);
 
-    private readonly Lazy<IReadOnlyDictionary<string, EmbeddingModelManifest>> manifests;
-    private readonly EmbeddingOptions options;
+    private readonly Lazy<IReadOnlyDictionary<string, ChatModelManifest>> manifests;
+    private readonly RuntimeOptions options;
 
-    public EmbeddingModelCatalog(IOptions<EmbeddingOptions> options)
+    public ChatModelCatalog(IOptions<RuntimeOptions> options)
     {
         this.options = options.Value;
-        manifests = new Lazy<IReadOnlyDictionary<string, EmbeddingModelManifest>>(
+        manifests = new Lazy<IReadOnlyDictionary<string, ChatModelManifest>>(
             LoadManifests);
     }
 
-    public IReadOnlyCollection<EmbeddingModelManifest> List()
+    public IReadOnlyCollection<ChatModelManifest> List()
     {
         return manifests.Value.Values.ToArray();
     }
 
-    public EmbeddingModelManifest GetDefault()
+    public ChatModelManifest GetDefault()
     {
-        string manifestId = string.IsNullOrWhiteSpace(options.EmbeddingModelManifest)
-            ? "bge-m3-q4-k-m"
-            : options.EmbeddingModelManifest;
+        string manifestId = string.IsNullOrWhiteSpace(options.ChatModelManifest)
+            ? "llama-3.2-3b-instruct-q4-k-m"
+            : options.ChatModelManifest;
 
         return GetById(manifestId);
     }
 
-    public EmbeddingModelManifest GetById(string id)
+    public ChatModelManifest GetById(string id)
     {
-        if (manifests.Value.TryGetValue(id, out EmbeddingModelManifest? manifest))
+        if (manifests.Value.TryGetValue(id, out ChatModelManifest? manifest))
         {
             return manifest;
         }
 
         throw new InvalidOperationException(
-            $"Embedding model manifest '{id}' was not found.");
+            $"Chat model manifest '{id}' was not found.");
     }
 
-    private static IReadOnlyDictionary<string, EmbeddingModelManifest> LoadManifests()
+    private static IReadOnlyDictionary<string, ChatModelManifest> LoadManifests()
     {
-        Assembly assembly = typeof(EmbeddingModelCatalog).Assembly;
+        Assembly assembly = typeof(ChatModelCatalog).Assembly;
 
-        Dictionary<string, EmbeddingModelManifest> loaded =
+        Dictionary<string, ChatModelManifest> loaded =
             new(StringComparer.OrdinalIgnoreCase);
 
         foreach (string resourceName in assembly.GetManifestResourceNames()
@@ -66,14 +68,14 @@ public sealed class EmbeddingModelCatalog
                 continue;
             }
 
-            EmbeddingModelManifest? manifest =
-                JsonSerializer.Deserialize<EmbeddingModelManifest>(
+            ChatModelManifest? manifest =
+                JsonSerializer.Deserialize<ChatModelManifest>(
                     stream,
                     SerializerOptions);
 
             if (manifest is null
                 || string.IsNullOrWhiteSpace(manifest.Id)
-                || manifest.Dimension <= 0)
+                || string.IsNullOrWhiteSpace(manifest.BaseModel))
             {
                 continue;
             }
@@ -84,7 +86,7 @@ public sealed class EmbeddingModelCatalog
         if (loaded.Count == 0)
         {
             throw new InvalidOperationException(
-                "No embedding model manifests were found.");
+                "No chat model manifests were found.");
         }
 
         return loaded;

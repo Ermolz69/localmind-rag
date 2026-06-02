@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -22,6 +23,8 @@ public sealed class AiRuntimeManager(
     IOptions<EmbeddingOptions> embeddingOptions,
     EmbeddingModelCatalog embeddingModelCatalog,
     EmbeddingModelStore embeddingModelStore,
+    ChatModelCatalog chatModelCatalog,
+    ChatModelStore chatModelStore,
     ILogger<AiRuntimeManager> logger,
     IAppDiagnosticLogger? diagnostics = null) : IAiRuntimeManager, IAiModelRegistry, IAiRuntimeProvider, IDisposable
 {
@@ -32,7 +35,9 @@ public sealed class AiRuntimeManager(
     private readonly EmbeddingOptions embedding = embeddingOptions.Value;
     private readonly object syncRoot = new();
 
-    private Process? runtimeProcess;
+    private Process? embeddingProcess;
+
+    private Process? chatProcess;
 
     public string ProviderId => "llama-cpp";
 
@@ -57,15 +62,28 @@ public sealed class AiRuntimeManager(
         string runtimePath = ResolvePath(runtime.RuntimePath);
 
         EmbeddingModelManifest manifest = embeddingModelCatalog.GetDefault();
+        ChatModelManifest chatManifest = chatModelCatalog.GetDefault();
 
-        string modelPath = embeddingModelStore.GetModelPath(manifest);
+        string embeddingModelPath = embeddingModelStore.GetModelPath(manifest);
+        string chatModelPath = chatModelStore.GetModelPath(chatManifest);
 
         bool runtimeAvailable = File.Exists(runtimePath);
 
-        bool modelAvailable =
+        bool embeddingModelAvailable =
             await embeddingModelStore.IsValidAsync(cancellationToken: cancellationToken);
 
-        bool runtimeRunning = await IsRuntimeHealthyAsync(cancellationToken);
+        bool chatModelAvailable =
+            await chatModelStore.IsValidAsync(cancellationToken: cancellationToken);
+
+        bool modelAvailable = embeddingModelAvailable && chatModelAvailable;
+
+        bool embeddingRuntimeRunning =
+            await IsRuntimeHealthyAsync(GetEmbeddingBaseUrl(), cancellationToken);
+
+        bool chatRuntimeRunning =
+            await IsRuntimeHealthyAsync(GetChatBaseUrl(), cancellationToken);
+
+        bool runtimeRunning = embeddingRuntimeRunning && chatRuntimeRunning;
 
         string runtimeStatus = (runtimeAvailable, modelAvailable, runtimeRunning) switch
         {
@@ -75,7 +93,10 @@ public sealed class AiRuntimeManager(
             _ => "Stopped",
         };
 
-        string? setupReason = GetSetupReason(runtimeAvailable, modelAvailable);
+        string? setupReason = GetSetupReason(
+            runtimeAvailable,
+            embeddingModelAvailable,
+            chatModelAvailable);
 
         string providerStatus = runtimeStatus switch
         {
@@ -90,22 +111,27 @@ public sealed class AiRuntimeManager(
             ModelsAvailable: modelAvailable,
             OfflineMode: true,
             RuntimePath: runtimePath,
-            ModelPath: modelPath,
+            ModelPath: chatModelPath,
             SetupRequired: setupReason is not null,
             SetupReason: setupReason,
             ProviderId: ProviderId,
             ProviderName: ProviderName,
             ProviderStatus: providerStatus,
             Capabilities: Capabilities,
-            BaseUrl: runtime.BaseUrl,
-            FailureReason: setupReason);
+            BaseUrl: GetChatBaseUrl(),
+            FailureReason: setupReason,
+            ChatModelName: chatManifest.ModelName,
+            EmbeddingModelName: manifest.ModelName,
+            ChatModelPath: chatModelPath,
+            EmbeddingModelPath: embeddingModelPath);
     }
 
     public Task<IReadOnlyCollection<string>> ListModelsAsync(
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyCollection<string> models = embeddingModelCatalog.List()
+        IReadOnlyCollection<string> models = chatModelCatalog.List()
             .Select(model => model.ModelName)
+            .Concat(embeddingModelCatalog.List().Select(model => model.ModelName))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -118,14 +144,14 @@ public sealed class AiRuntimeManager(
     {
         ChatCompletionRequest payload = new(
             Model: runtime.ChatModel,
-            Messages:
-            [
-                new ChatCompletionMessage(
-                    "system",
-                    "Answer using only the provided local context. If no relevant local context is available, say that no relevant local sources were found."),
+                Messages:
+                [
+                    new ChatCompletionMessage(
+                        "system",
+                        "You are a local RAG assistant. Answer the user's question using only the provided local context. Prefer the passage that directly matches the question. Ignore adjacent topics, repeated passages, and loosely related notes. If the context is empty or irrelevant, say that no relevant local sources were found. Do not answer from general knowledge."),
                 new ChatCompletionMessage(
                     "user",
-                    $"Context:\n{request.ContextText}\n\nQuestion:\n{request.Question}"),
+                    BuildChatPrompt(request)),
             ],
             Temperature: runtime.Temperature);
 
@@ -135,7 +161,7 @@ public sealed class AiRuntimeManager(
         };
 
         using HttpResponseMessage response = await client.PostAsJsonAsync(
-            BuildUri("/v1/chat/completions"),
+            BuildChatUri("/v1/chat/completions"),
             payload,
             SerializerOptions,
             cancellationToken);
@@ -178,14 +204,14 @@ public sealed class AiRuntimeManager(
     {
         ChatCompletionRequest payload = new(
             Model: runtime.ChatModel,
-            Messages:
-            [
-                new ChatCompletionMessage(
-                    "system",
-                    "Answer using only the provided local context. If no relevant local context is available, say that no relevant local sources were found."),
+                Messages:
+                [
+                    new ChatCompletionMessage(
+                        "system",
+                        "You are a local RAG assistant. Answer the user's question using only the provided local context. Prefer the passage that directly matches the question. Ignore adjacent topics, repeated passages, and loosely related notes. If the context is empty or irrelevant, say that no relevant local sources were found. Do not answer from general knowledge."),
                 new ChatCompletionMessage(
                     "user",
-                    $"Context:\n{request.ContextText}\n\nQuestion:\n{request.Question}"),
+                    BuildChatPrompt(request)),
             ],
             Temperature: runtime.Temperature,
             Stream: true);
@@ -196,7 +222,7 @@ public sealed class AiRuntimeManager(
         };
 
         using HttpResponseMessage response = await client.PostAsJsonAsync(
-            BuildUri("/v1/chat/completions"),
+            BuildChatUri("/v1/chat/completions"),
             payload,
             SerializerOptions,
             cancellationToken);
@@ -254,7 +280,7 @@ public sealed class AiRuntimeManager(
         };
 
         using HttpResponseMessage response = await client.PostAsJsonAsync(
-            BuildUri("/v1/embeddings"),
+            BuildEmbeddingUri("/v1/embeddings"),
             payload,
             SerializerOptions,
             cancellationToken);
@@ -306,11 +332,13 @@ public sealed class AiRuntimeManager(
             return;
         }
 
-        if (await IsRuntimeHealthyAsync(cancellationToken))
+        if (await IsRuntimeHealthyAsync(GetEmbeddingBaseUrl(), cancellationToken)
+            && await IsRuntimeHealthyAsync(GetChatBaseUrl(), cancellationToken))
         {
             logger.LogInformation(
-                "AI runtime is already available at {BaseUrl}.",
-                runtime.BaseUrl);
+                "AI runtime is already available at {EmbeddingBaseUrl} and {ChatBaseUrl}.",
+                GetEmbeddingBaseUrl(),
+                GetChatBaseUrl());
 
             diagnostics?.LogStep(
                 operationId,
@@ -362,11 +390,100 @@ public sealed class AiRuntimeManager(
             return;
         }
 
-        EmbeddingModelManifest manifest = embeddingModelCatalog.GetDefault();
+        if (!await chatModelStore.IsValidAsync(cancellationToken: cancellationToken))
+        {
+            ChatModelManifest missingManifest =
+                chatModelCatalog.GetDefault();
 
-        string modelPath = embeddingModelStore.GetModelPath(manifest);
+            string missingModelPath =
+                chatModelStore.GetModelPath(missingManifest);
 
-        Uri baseUri = new(runtime.BaseUrl);
+            logger.LogWarning(
+                "Chat model is missing or invalid at {ModelPath}. Use the first-run AI setup action to download {ModelName}.",
+                missingModelPath,
+                missingManifest.DisplayName);
+
+            diagnostics?.LogStep(
+                operationId,
+                DiagnosticNames.Steps.ModelMissing,
+                new Dictionary<string, object?>
+                {
+                    [DiagnosticNames.Properties.ModelPath] = missingModelPath,
+                });
+
+            return;
+        }
+
+        EmbeddingModelManifest embeddingManifest = embeddingModelCatalog.GetDefault();
+        ChatModelManifest chatManifest = chatModelCatalog.GetDefault();
+
+        string embeddingModelPath = embeddingModelStore.GetModelPath(embeddingManifest);
+        string chatModelPath = chatModelStore.GetModelPath(chatManifest);
+
+        try
+        {
+            await StartRuntimeProcessAsync(
+                runtimePath,
+                embeddingModelPath,
+                GetEmbeddingBaseUrl(),
+                enableEmbedding: true,
+                processSlot: RuntimeProcessSlot.Embedding,
+                cancellationToken);
+
+            await StartRuntimeProcessAsync(
+                runtimePath,
+                chatModelPath,
+                GetChatBaseUrl(),
+                enableEmbedding: false,
+                processSlot: RuntimeProcessSlot.Chat,
+                cancellationToken);
+
+            diagnostics?.LogStep(
+                operationId,
+                DiagnosticNames.Steps.RuntimeStartFinished);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            diagnostics?.LogFailure(operationId, exception);
+
+            diagnostics?.LogStep(
+                operationId,
+                DiagnosticNames.Steps.RuntimeStartFailed);
+
+            throw;
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (syncRoot)
+        {
+            DisposeProcess(embeddingProcess);
+            DisposeProcess(chatProcess);
+            embeddingProcess = null;
+            chatProcess = null;
+        }
+    }
+
+    private async Task StartRuntimeProcessAsync(
+        string runtimePath,
+        string modelPath,
+        string baseUrl,
+        bool enableEmbedding,
+        RuntimeProcessSlot processSlot,
+        CancellationToken cancellationToken)
+    {
+        if (await IsRuntimeHealthyAsync(baseUrl, cancellationToken))
+        {
+            logger.LogInformation(
+                "AI runtime process for {ProcessSlot} is already available at {BaseUrl}.",
+                processSlot,
+                baseUrl);
+
+            return;
+        }
+
+        Uri baseUri = new(baseUrl);
 
         string host = string.IsNullOrWhiteSpace(baseUri.Host)
             ? "127.0.0.1"
@@ -388,7 +505,13 @@ public sealed class AiRuntimeManager(
 
         startInfo.ArgumentList.Add("-m");
         startInfo.ArgumentList.Add(modelPath);
-        startInfo.ArgumentList.Add("--embedding");
+        if (enableEmbedding)
+        {
+            startInfo.ArgumentList.Add("--embedding");
+        }
+
+        startInfo.ArgumentList.Add("-c");
+        startInfo.ArgumentList.Add(runtime.ContextSize.ToString(CultureInfo.InvariantCulture));
         startInfo.ArgumentList.Add("--host");
         startInfo.ArgumentList.Add(host);
         startInfo.ArgumentList.Add("--port");
@@ -408,17 +531,18 @@ public sealed class AiRuntimeManager(
 
         process.Exited += (_, _) =>
             logger.LogInformation(
-                "AI runtime process exited with code {ExitCode}.",
+                "AI runtime process for {ProcessSlot} exited with code {ExitCode}.",
+                processSlot,
                 process.ExitCode);
 
         lock (syncRoot)
         {
-            if (runtimeProcess is { HasExited: false })
+            if (GetProcess(processSlot) is { HasExited: false })
             {
                 return;
             }
 
-            runtimeProcess = process;
+            SetProcess(processSlot, process);
         }
 
         try
@@ -428,31 +552,22 @@ public sealed class AiRuntimeManager(
             process.BeginErrorReadLine();
 
             logger.LogInformation(
-                "Started AI runtime process {ProcessId} at {BaseUrl}.",
+                "Started AI runtime process {ProcessId} for {ProcessSlot} at {BaseUrl}.",
                 process.Id,
-                runtime.BaseUrl);
+                processSlot,
+                baseUrl);
 
-            await WaitForRuntimeAsync(cancellationToken);
-
-            diagnostics?.LogStep(
-                operationId,
-                DiagnosticNames.Steps.RuntimeStartFinished);
+            await WaitForRuntimeAsync(baseUrl, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             lock (syncRoot)
             {
-                if (ReferenceEquals(runtimeProcess, process))
+                if (ReferenceEquals(GetProcess(processSlot), process))
                 {
-                    runtimeProcess = null;
+                    SetProcess(processSlot, null);
                 }
             }
-
-            diagnostics?.LogFailure(operationId, exception);
-
-            diagnostics?.LogStep(
-                operationId,
-                DiagnosticNames.Steps.RuntimeStartFailed);
 
             throw new ExternalDependencyAppException(
                 ErrorCodes.Runtime.ExternalDependencyUnavailable,
@@ -461,41 +576,57 @@ public sealed class AiRuntimeManager(
         }
     }
 
-    public void Dispose()
+    private Process? GetProcess(RuntimeProcessSlot slot)
     {
-        lock (syncRoot)
-        {
-            if (runtimeProcess is null)
-            {
-                return;
-            }
+        return slot == RuntimeProcessSlot.Embedding
+            ? embeddingProcess
+            : chatProcess;
+    }
 
-            try
+    private void SetProcess(RuntimeProcessSlot slot, Process? process)
+    {
+        if (slot == RuntimeProcessSlot.Embedding)
+        {
+            embeddingProcess = process;
+
+            return;
+        }
+
+        chatProcess = process;
+    }
+
+    private static void DisposeProcess(Process? process)
+    {
+        if (process is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!process.HasExited)
             {
-                if (!runtimeProcess.HasExited)
-                {
-                    runtimeProcess.Kill(entireProcessTree: true);
-                }
+                process.Kill(entireProcessTree: true);
             }
-            catch (InvalidOperationException)
-            {
-            }
-            finally
-            {
-                runtimeProcess.Dispose();
-                runtimeProcess = null;
-            }
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            process.Dispose();
         }
     }
 
     private async Task<bool> IsRuntimeHealthyAsync(
+        string baseUrl,
         CancellationToken cancellationToken)
     {
         try
         {
             using HttpClient client = new()
             {
-                BaseAddress = new Uri(runtime.BaseUrl),
+                BaseAddress = new Uri(baseUrl),
                 Timeout = TimeSpan.FromSeconds(2),
             };
 
@@ -513,7 +644,9 @@ public sealed class AiRuntimeManager(
         }
     }
 
-    private async Task WaitForRuntimeAsync(CancellationToken cancellationToken)
+    private async Task WaitForRuntimeAsync(
+        string baseUrl,
+        CancellationToken cancellationToken)
     {
         using CancellationTokenSource timeout =
             CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -524,11 +657,11 @@ public sealed class AiRuntimeManager(
         {
             while (!timeout.IsCancellationRequested)
             {
-                if (await IsRuntimeHealthyAsync(timeout.Token))
+                if (await IsRuntimeHealthyAsync(baseUrl, timeout.Token))
                 {
                     logger.LogInformation(
                         "AI runtime is ready at {BaseUrl}.",
-                        runtime.BaseUrl);
+                        baseUrl);
 
                     return;
                 }
@@ -546,16 +679,22 @@ public sealed class AiRuntimeManager(
 
     private static string? GetSetupReason(
         bool runtimeAvailable,
-        bool modelAvailable)
+        bool embeddingModelAvailable,
+        bool chatModelAvailable)
     {
         if (!runtimeAvailable)
         {
             return "AI runtime executable is missing. Install the local AI runtime first.";
         }
 
-        if (!modelAvailable)
+        if (!embeddingModelAvailable)
         {
             return "Embedding model is missing or failed checksum validation. Download the local embedding model first.";
+        }
+
+        if (!chatModelAvailable)
+        {
+            return "Chat model is missing or failed checksum validation. Download the local chat model first.";
         }
 
         return null;
@@ -566,13 +705,57 @@ public sealed class AiRuntimeManager(
         return Path.GetFullPath(path, paths.AppRootDirectory);
     }
 
-    private Uri BuildUri(string path)
+    private Uri BuildChatUri(string path)
+    {
+        return BuildUri(GetChatBaseUrl(), path);
+    }
+
+    private Uri BuildEmbeddingUri(string path)
+    {
+        return BuildUri(GetEmbeddingBaseUrl(), path);
+    }
+
+    private static Uri BuildUri(string baseUrl, string path)
     {
         Uri baseUri = new(
-            runtime.BaseUrl.TrimEnd('/') + "/",
+            baseUrl.TrimEnd('/') + "/",
             UriKind.Absolute);
 
         return new Uri(baseUri, path.TrimStart('/'));
+    }
+
+    private string GetChatBaseUrl()
+    {
+        return string.IsNullOrWhiteSpace(runtime.ChatBaseUrl)
+            ? runtime.BaseUrl
+            : runtime.ChatBaseUrl;
+    }
+
+    private string GetEmbeddingBaseUrl()
+    {
+        return string.IsNullOrWhiteSpace(runtime.EmbeddingBaseUrl)
+            ? runtime.BaseUrl
+            : runtime.EmbeddingBaseUrl;
+    }
+
+    private static string BuildChatPrompt(ChatModelRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.ContextText))
+        {
+            return $"Question:\n{request.Question}\n\nLocal context:\n(no relevant local context)";
+        }
+
+        return
+            $"Question:\n{request.Question}\n\n" +
+            "Local context:\n" +
+            $"{request.ContextText}\n\n" +
+            "Instructions:\n" +
+            "- Answer the question above.\n" +
+            "- Use only the local context above.\n" +
+            "- Focus on the directly relevant passage, not every retrieved passage.\n" +
+            "- Do not include adjacent methods, related sections, or repeated items unless the question asks for them.\n" +
+            "- Keep the answer concise.\n" +
+            "- Include the concrete steps or facts when they are present in the context.";
     }
 
     private static async Task<ExternalDependencyAppException>
@@ -644,4 +827,10 @@ public sealed class AiRuntimeManager(
 
     private sealed record ChatCompletionStreamDelta(
         [property: JsonPropertyName("content")] string? Content);
+
+    private enum RuntimeProcessSlot
+    {
+        Embedding,
+        Chat,
+    }
 }

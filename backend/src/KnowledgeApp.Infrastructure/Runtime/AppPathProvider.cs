@@ -39,18 +39,24 @@ public sealed class AppPathProvider(
         }
 
         DirectoryInfo? current = new DirectoryInfo(Directory.GetCurrentDirectory());
+        DirectoryInfo? runtimeRoot = null;
 
         while (current is not null)
         {
-            if (File.Exists(Path.Combine(current.FullName, "pnpm-workspace.yaml")) ||
-                Directory.Exists(Path.Combine(current.FullName, "runtime")))
+            if (File.Exists(Path.Combine(current.FullName, "pnpm-workspace.yaml")))
             {
                 return current.FullName;
+            }
+
+            if (runtimeRoot is null &&
+                Directory.Exists(Path.Combine(current.FullName, "runtime")))
+            {
+                runtimeRoot = current;
             }
 
             current = current.Parent;
         }
 
-        return Directory.GetCurrentDirectory();
+        return runtimeRoot?.FullName ?? Directory.GetCurrentDirectory();
     }
 }

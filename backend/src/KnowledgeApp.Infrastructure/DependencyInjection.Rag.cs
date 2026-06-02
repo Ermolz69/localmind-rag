@@ -16,6 +16,7 @@ public static partial class DependencyInjection
                 provider.GetRequiredService<RagAnswerGenerator>(),
                 provider.GetRequiredService<KnowledgeApp.Application.Abstractions.Rag.ISemanticCacheRepository>(),
                 provider.GetRequiredService<IEmbeddingGenerator>(),
+                provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<KnowledgeApp.Infrastructure.Options.RagOptions>>(),
                 provider.GetService<IAppDiagnosticLogger>()));
 
         return services;
