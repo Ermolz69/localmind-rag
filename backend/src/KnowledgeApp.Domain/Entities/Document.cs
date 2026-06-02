@@ -11,4 +11,5 @@ public sealed class Document : Entity
     public SyncStatus SyncStatus { get; set; } = SyncStatus.LocalOnly;
     public Guid? LocalDeviceId { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
+    public ICollection<DocumentTag> Tags { get; set; } = [];
 }

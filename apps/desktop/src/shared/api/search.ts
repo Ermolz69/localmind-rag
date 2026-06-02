@@ -6,6 +6,7 @@ type SemanticSearchOptions = {
   bucketId?: string | null;
   documentId?: string | null;
   limit?: number;
+  tags?: Record<string, string> | null;
 };
 
 export const searchApi = {
@@ -17,6 +18,7 @@ export const searchApi = {
         limit: options.limit,
         bucketId: options.bucketId,
         documentId: options.documentId,
+        tags: options.tags,
       }),
     }).then((response): RagSource[] => response.sources),
 };

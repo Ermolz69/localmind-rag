@@ -35,7 +35,7 @@ public sealed class SemanticSearchHandler(
             }
 
             float[] vector = await embeddings.GenerateAsync(request.Query.Trim(), cancellationToken);
-            VectorSearchOptions options = new(request.Limit, request.BucketId, request.DocumentId);
+            VectorSearchOptions options = new(request.Limit, request.BucketId, request.DocumentId, request.Tags);
             IReadOnlyList<RagSourceDto> sources = await search.SearchAsync(vector, options, cancellationToken);
 
             diagnostics?.LogStep(

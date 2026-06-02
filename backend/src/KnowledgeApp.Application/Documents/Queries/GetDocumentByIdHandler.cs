@@ -21,14 +21,21 @@ public sealed class GetDocumentByIdHandler(
 
         IReadOnlyList<Domain.Entities.IngestionJob> failedJobs = await ingestionJobs.GetFailedJobsForDocumentsAsync([document.Id], cancellationToken);
 
+        var lastError = failedJobs
+            .OrderByDescending(job => job.ProcessedAt ?? job.CreatedAt)
+            .Select(job => job.ErrorMessage)
+            .FirstOrDefault();
+
+        var tags = document.Tags?.Count > 0 
+            ? (IReadOnlyDictionary<string, string>)document.Tags.ToDictionary(t => t.Key, t => t.Value) 
+            : null;
+
         return Result<DocumentDto>.Success(new DocumentDto(
             document.Id,
             document.Name,
             document.Status.ToString(),
             document.CreatedAt,
-            failedJobs
-                .OrderByDescending(job => job.ProcessedAt ?? job.CreatedAt)
-                .Select(job => job.ErrorMessage)
-                .FirstOrDefault()));
+            lastError,
+            tags));
     }
 }
