@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import type { ChatConversation } from "@entities/chat";
-import { chatsApi, getErrorMessage } from "@shared/api";
+import { chatsApi } from "@shared/api";
+import { useApiMutation } from "@shared/lib/hooks";
 import type { ChatMessageView } from "./useConversationMessages";
 
 type UseSendChatMessageOptions = {
@@ -27,17 +28,18 @@ export function useSendChatMessage({
   updateMessage,
 }: UseSendChatMessageOptions) {
   const [question, setQuestion] = useState("");
-  const [sendMessageError, setSendMessageError] = useState<string | null>(null);
-  const [isSendingQuestion, setIsSendingQuestion] = useState(false);
+
+  const sendMutation = useApiMutation(
+    (conversationId: string, content: string) =>
+      chatsApi.sendChatMessage(conversationId, content),
+    { fallbackError: "The local API request failed." },
+  );
 
   const sendQuestion = useCallback(async () => {
     const content = question.trim();
-    if (!content || isSendingQuestion) {
+    if (!content || sendMutation.isPending) {
       return;
     }
-
-    setSendMessageError(null);
-    setIsSendingQuestion(true);
 
     let conversationId = selectedConversationId;
     if (!conversationId) {
@@ -45,7 +47,6 @@ export function useSendChatMessage({
         newConversationTitle.trim() || content.slice(0, 48) || "New chat",
       );
       if (!created) {
-        setIsSendingQuestion(false);
         return;
       }
 
@@ -74,8 +75,9 @@ export function useSendChatMessage({
     setSelectedConversationId(conversationId);
     setActiveSourceMessageId(assistantMessageId);
 
-    try {
-      const answer = await chatsApi.sendChatMessage(conversationId, content);
+    const answer = await sendMutation.mutate(conversationId, content);
+
+    if (answer) {
       updateMessage(conversationId, assistantMessageId, (message) => ({
         ...message,
         content: answer.answer,
@@ -83,35 +85,31 @@ export function useSendChatMessage({
         sources: answer.sources,
       }));
       setActiveSourceMessageId(assistantMessageId);
-    } catch (exception) {
-      const error = getErrorMessage(exception, "The local API request failed.");
+    } else if (sendMutation.error) {
       updateMessage(conversationId, assistantMessageId, (message) => ({
         ...message,
         content: "I couldn't generate an answer for that question.",
         status: "error",
         sources: [],
-        error,
+        error: sendMutation.error ?? undefined,
       }));
-      setSendMessageError(error);
-    } finally {
-      setIsSendingQuestion(false);
     }
   }, [
     appendMessages,
     createConversation,
-    isSendingQuestion,
     newConversationTitle,
     question,
     selectedConversationId,
     setActiveSourceMessageId,
     setSelectedConversationId,
     updateMessage,
+    sendMutation,
   ]);
 
   return {
-    isSendingQuestion,
+    isSendingQuestion: sendMutation.isPending,
     question,
-    sendMessageError,
+    sendMessageError: sendMutation.error,
     sendQuestion,
     setQuestion,
   };

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { DocumentSummary } from "@entities/document";
-import { documentsApi, getErrorMessage } from "@shared/api";
+import { documentsApi } from "@shared/api";
+import { useApiMutation } from "@shared/lib/hooks";
 
 const refreshAttempts = 4;
 
@@ -14,7 +15,18 @@ export function useProcessIngestionJob({
   const [processingDocumentId, setProcessingDocumentId] = useState<
     string | null
   >(null);
-  const [processError, setProcessError] = useState<string | null>(null);
+
+  const processMutation = useApiMutation(
+    async (documentId: string, ingestionJobId?: string) => {
+      let jobId = ingestionJobId;
+      if (!jobId) {
+        const reindex = await documentsApi.reindexDocument(documentId);
+        jobId = reindex.ingestionJobId;
+      }
+      await documentsApi.processIngestionJob(jobId);
+    },
+    { fallbackError: "Ingestion failed." },
+  );
 
   async function refreshAfterProcessing() {
     for (let attempt = 0; attempt < refreshAttempts; attempt += 1) {
@@ -29,13 +41,11 @@ export function useProcessIngestionJob({
     }
 
     setProcessingDocumentId(document.id);
-    setProcessError(null);
     try {
-      const reindex = await documentsApi.reindexDocument(document.id);
-      await documentsApi.processIngestionJob(reindex.ingestionJobId);
-      await refreshAfterProcessing();
-    } catch (exception) {
-      setProcessError(getErrorMessage(exception, "Ingestion failed."));
+      const success = await processMutation.mutate(document.id);
+      if (success !== null) {
+        await refreshAfterProcessing();
+      }
     } finally {
       setProcessingDocumentId(null);
     }
@@ -47,13 +57,12 @@ export function useProcessIngestionJob({
     onComplete: () => void,
   ) {
     setProcessingDocumentId(documentId);
-    setProcessError(null);
     try {
-      await documentsApi.processIngestionJob(ingestionJobId);
-      onComplete();
-      await refreshAfterProcessing();
-    } catch (exception) {
-      setProcessError(getErrorMessage(exception, "Ingestion failed."));
+      const success = await processMutation.mutate(documentId, ingestionJobId);
+      if (success !== null) {
+        onComplete();
+        await refreshAfterProcessing();
+      }
     } finally {
       setProcessingDocumentId(null);
     }
@@ -61,7 +70,7 @@ export function useProcessIngestionJob({
 
   return {
     processDocument,
-    processError,
+    processError: processMutation.error,
     processingDocumentId,
     processUploadedDocument,
   };

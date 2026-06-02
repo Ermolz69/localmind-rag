@@ -1,92 +1,62 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ChatConversation } from "@entities/chat";
-import { chatsApi, getErrorMessage } from "@shared/api";
+import { chatsApi } from "@shared/api";
+import { useApiMutation, useCursorPage } from "@shared/lib/hooks";
 
 export function useConversationList() {
-  const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<
     string | null
   >(null);
-  const [chatCursor, setChatCursor] = useState<string | null>(null);
-  const [hasMoreChats, setHasMoreChats] = useState(false);
   const [newConversationTitle, setNewConversationTitle] = useState("");
-  const [conversationListError, setConversationListError] = useState<
-    string | null
-  >(null);
-  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
-  const [isLoadingMoreChats, setIsLoadingMoreChats] = useState(false);
-  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
-  const [isRenamingConversation, setIsRenamingConversation] = useState(false);
-  const [isDeletingConversation, setIsDeletingConversation] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
+  const {
+    items: conversations,
+    setItems: setConversations,
+    isLoading: isLoadingConversations,
+    isLoadingMore: isLoadingMoreChats,
+    hasMore: hasMoreChats,
+    error: queryError,
+    loadMore: loadMoreChats,
+  } = useCursorPage<ChatConversation>(
+    (cursor) => chatsApi.getChats({ cursor, limit: 30 }),
+    "Failed to load conversations.",
+  );
 
   const selectedConversation =
     conversations.find(
       (conversation) => conversation.id === selectedConversationId,
     ) ?? null;
 
-  const loadConversations = useCallback(async () => {
-    setConversationListError(null);
-    setIsLoadingConversations(true);
-    try {
-      const page = await chatsApi.getChats({ limit: 30 });
-      setConversations(page.items);
-      setChatCursor(page.nextCursor);
-      setHasMoreChats(page.hasMore);
-      setSelectedConversationId(
-        (current) => current ?? page.items[0]?.id ?? null,
-      );
-    } catch (exception) {
-      setConversationListError(
-        getErrorMessage(exception, "Failed to load conversations."),
-      );
-    } finally {
-      setIsLoadingConversations(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void loadConversations();
-  }, [loadConversations]);
-
-  const loadMoreChats = useCallback(async () => {
-    if (!chatCursor || isLoadingMoreChats) {
-      return;
+    if (!selectedConversationId && conversations.length > 0) {
+      setSelectedConversationId(conversations[0].id);
     }
+  }, [conversations, selectedConversationId]);
 
-    setConversationListError(null);
-    setIsLoadingMoreChats(true);
-    try {
-      const page = await chatsApi.getChats({ cursor: chatCursor, limit: 30 });
-      setConversations((current) => [...current, ...page.items]);
-      setChatCursor(page.nextCursor);
-      setHasMoreChats(page.hasMore);
-    } catch (exception) {
-      setConversationListError(
-        getErrorMessage(exception, "Failed to load conversations."),
-      );
-    } finally {
-      setIsLoadingMoreChats(false);
-    }
-  }, [chatCursor, isLoadingMoreChats]);
+  const createMutation = useApiMutation(
+    (title: string) => chatsApi.createChat({ title }),
+    { fallbackError: "Failed to create conversation." },
+  );
 
-  const createConversation = useCallback(async (title: string) => {
-    setConversationListError(null);
-    setIsCreatingConversation(true);
-    try {
-      const conversation = await chatsApi.createChat({ title });
-      setConversations((current) => [conversation, ...current]);
-      setSelectedConversationId(conversation.id);
-      return conversation;
-    } catch (exception) {
-      setConversationListError(
-        getErrorMessage(exception, "Failed to create conversation."),
-      );
+  const createConversation = useCallback(
+    async (title: string) => {
+      const conversation = await createMutation.mutate(title);
+      if (conversation) {
+        setConversations((current) => [conversation, ...current]);
+        setSelectedConversationId(conversation.id);
+        return conversation;
+      }
       return null;
-    } finally {
-      setIsCreatingConversation(false);
-    }
-  }, []);
+    },
+    [createMutation, setConversations],
+  );
+
+  const renameMutation = useApiMutation(
+    (conversationId: string, title: string) =>
+      chatsApi.updateChat(conversationId, { title }),
+    { fallbackError: "Failed to rename conversation." },
+  );
 
   const renameConversation = useCallback(
     async (conversationId: string, title: string) => {
@@ -95,10 +65,8 @@ export function useConversationList() {
         return;
       }
 
-      setConversationListError(null);
-      setIsRenamingConversation(true);
-      try {
-        await chatsApi.updateChat(conversationId, { title: nextTitle });
+      const success = await renameMutation.mutate(conversationId, nextTitle);
+      if (success !== null) {
         setConversations((current) =>
           current.map((conversation) =>
             conversation.id === conversationId
@@ -106,26 +74,23 @@ export function useConversationList() {
               : conversation,
           ),
         );
-      } catch (exception) {
-        setConversationListError(
-          getErrorMessage(exception, "Failed to rename conversation."),
-        );
-      } finally {
-        setIsRenamingConversation(false);
       }
     },
-    [],
+    [renameMutation, setConversations],
+  );
+
+  const deleteMutation = useApiMutation(
+    (id: string) => chatsApi.deleteChat(id),
+    { fallbackError: "Failed to delete conversation." },
   );
 
   const deleteConversation = useCallback(async () => {
     if (!deleteTargetId) {
-      return;
+      return false;
     }
 
-    setConversationListError(null);
-    setIsDeletingConversation(true);
-    try {
-      await chatsApi.deleteChat(deleteTargetId);
+    const success = await deleteMutation.mutate(deleteTargetId);
+    if (success !== null) {
       const nextSelected =
         selectedConversationId === deleteTargetId
           ? (conversations.find((item) => item.id !== deleteTargetId)?.id ??
@@ -138,32 +103,30 @@ export function useConversationList() {
       setSelectedConversationId(nextSelected);
       setDeleteTargetId(null);
       return true;
-    } catch (exception) {
-      setConversationListError(
-        getErrorMessage(exception, "Failed to delete conversation."),
-      );
-      return false;
-    } finally {
-      setIsDeletingConversation(false);
     }
-  }, [conversations, deleteTargetId, selectedConversationId]);
+    return false;
+  }, [conversations, deleteMutation, deleteTargetId, selectedConversationId, setConversations]);
 
   const selectConversation = useCallback((conversationId: string) => {
     setSelectedConversationId(conversationId);
   }, []);
 
   return {
-    conversationListError,
+    conversationListError:
+      queryError ??
+      createMutation.error ??
+      renameMutation.error ??
+      deleteMutation.error,
     conversations,
     createConversation,
     deleteConversation,
     deleteTargetId,
     hasMoreChats,
-    isCreatingConversation,
-    isDeletingConversation,
+    isCreatingConversation: createMutation.isPending,
+    isDeletingConversation: deleteMutation.isPending,
     isLoadingConversations,
     isLoadingMoreChats,
-    isRenamingConversation,
+    isRenamingConversation: renameMutation.isPending,
     loadMoreChats,
     newConversationTitle,
     renameConversation,

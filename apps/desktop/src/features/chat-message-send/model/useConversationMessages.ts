@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ChatMessageDto } from "@entities/chat";
 import type { RagSource } from "@entities/source";
-import { chatsApi, getErrorMessage } from "@shared/api";
+import { chatsApi } from "@shared/api";
+import { useApiQuery } from "@shared/lib/hooks";
 
 export type ChatMessageView = {
   id: string;
@@ -31,9 +32,15 @@ export function useConversationMessages(selectedConversationId: string | null) {
   const [activeSourceMessageId, setActiveSourceMessageId] = useState<
     string | null
   >(null);
-  const [messagesError, setMessagesError] = useState<string | null>(null);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
+
+  const messagesQuery = useApiQuery(
+    () =>
+      selectedConversationId
+        ? chatsApi.getChatMessages(selectedConversationId)
+        : Promise.resolve([]),
+    { enabled: false, fallbackError: "Failed to load chat messages." },
+  );
 
   const selectedMessages = useMemo(
     () =>
@@ -69,10 +76,8 @@ export function useConversationMessages(selectedConversationId: string | null) {
         return;
       }
 
-      setMessagesError(null);
-      setIsLoadingMessages(true);
-      try {
-        const messages = await chatsApi.getChatMessages(conversationId);
+      const messages = await messagesQuery.execute();
+      if (messages) {
         setMessagesByConversation((current) => ({
           ...current,
           [conversationId]: messages.map(mapPersistedMessage),
@@ -82,15 +87,9 @@ export function useConversationMessages(selectedConversationId: string | null) {
           next.add(conversationId);
           return next;
         });
-      } catch (exception) {
-        setMessagesError(
-          getErrorMessage(exception, "Failed to load chat messages."),
-        );
-      } finally {
-        setIsLoadingMessages(false);
       }
     },
-    [loadedMessageConversationIds],
+    [loadedMessageConversationIds, messagesQuery],
   );
 
   const appendMessages = useCallback(
@@ -167,9 +166,9 @@ export function useConversationMessages(selectedConversationId: string | null) {
     activeSourceMessageId,
     appendMessages,
     initializeConversationMessages,
-    isLoadingMessages,
+    isLoadingMessages: messagesQuery.isLoading || messagesQuery.isFetching,
     loadMessages,
-    messagesError,
+    messagesError: messagesQuery.error,
     removeConversationMessages,
     selectedAssistantMessage,
     selectedMessages,

@@ -1,62 +1,51 @@
-import { useCallback, useEffect, useState } from "react";
-import type {
-  HealthStatus,
-  RuntimeStatus,
-  SyncStatus,
-} from "@entities/runtime";
-import { getErrorMessage, healthApi, runtimeApi } from "@shared/api";
+import { useCallback } from "react";
+import { healthApi, runtimeApi } from "@shared/api";
+import { useApiMutation, useApiQuery } from "@shared/lib/hooks";
 
 export function useRuntimeStatus() {
-  const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
-  const [sync, setSync] = useState<SyncStatus | null>(null);
-  const [runtimeError, setRuntimeError] = useState<string | null>(null);
-  const [isSettingUpAi, setIsSettingUpAi] = useState(false);
-
-  const loadRuntimeStatus = useCallback(async () => {
-    setRuntimeError(null);
-    try {
-      const [nextHealth, nextRuntime, nextSync] = await Promise.all([
+  const {
+    data,
+    isLoading,
+    error: queryError,
+    reload: loadRuntimeStatus,
+    setData,
+  } = useApiQuery(
+    async () => {
+      const [health, runtime, sync] = await Promise.all([
         healthApi.getHealth(),
         runtimeApi.getRuntimeStatus(),
         runtimeApi.getSyncStatus(),
       ]);
-      setHealth(nextHealth);
-      setRuntime(nextRuntime);
-      setSync(nextSync);
-    } catch (exception) {
-      setRuntimeError(getErrorMessage(exception, "Unable to load runtime."));
-    }
-  }, []);
+      return { health, runtime, sync };
+    },
+    { fallbackError: "Unable to load runtime." },
+  );
 
-  useEffect(() => {
-    void loadRuntimeStatus();
-  }, [loadRuntimeStatus]);
+  const setupMutation = useApiMutation(
+    async () => {
+      const response = await runtimeApi.setupAiRuntime();
+      await runtimeApi.startAiRuntime();
+      return response;
+    },
+    { fallbackError: "Unable to install local AI runtime." },
+  );
 
   const setupAiRuntime = useCallback(async () => {
-    setRuntimeError(null);
-    setIsSettingUpAi(true);
-    try {
-      const response = await runtimeApi.setupAiRuntime();
-      setRuntime(response.status);
-      await runtimeApi.startAiRuntime();
+    const response = await setupMutation.mutate();
+    if (response) {
+      setData((prev) => (prev ? { ...prev, runtime: response.status } : null));
       await loadRuntimeStatus();
-    } catch (exception) {
-      setRuntimeError(
-        getErrorMessage(exception, "Unable to install local AI runtime."),
-      );
-    } finally {
-      setIsSettingUpAi(false);
     }
-  }, [loadRuntimeStatus]);
+  }, [loadRuntimeStatus, setData, setupMutation]);
 
   return {
-    health,
-    isSettingUpAi,
+    health: data?.health ?? null,
+    isSettingUpAi: setupMutation.isPending,
     loadRuntimeStatus,
-    runtime,
-    runtimeError,
+    runtime: data?.runtime ?? null,
+    runtimeError: queryError ?? setupMutation.error,
     setupAiRuntime,
-    sync,
+    sync: data?.sync ?? null,
+    isLoading,
   };
 }

@@ -1,66 +1,59 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { AppSettings } from "@entities/settings";
-import type { DiagnosticsStatus } from "@entities/runtime";
 import {
   diagnosticsApi,
-  getErrorMessage,
   getFieldErrors,
   settingsApi,
 } from "@shared/api";
+import { useApiMutation, useApiQuery } from "@shared/lib/hooks";
 import { useTheme } from "@shared/theme/theme-provider";
 
 export function useSettingsForm() {
   const { theme, setTheme } = useTheme();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [draft, setDraft] = useState<AppSettings | null>(null);
-  const [diagnostics, setDiagnostics] = useState<DiagnosticsStatus | null>(
-    null,
-  );
   const [themeModalOpen, setThemeModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
-  const load = useCallback(async () => {
-    setError(null);
-    setFieldErrors({});
-    setIsLoading(true);
-    try {
+  const {
+    data,
+    isLoading,
+    error: queryError,
+    reload: load,
+  } = useApiQuery(
+    async () => {
       const [nextSettings, nextDiagnostics] = await Promise.all([
         settingsApi.getSettings(),
         diagnosticsApi.getDiagnostics(),
       ]);
-      setSettings(nextSettings);
-      setDraft(nextSettings);
-      setDiagnostics(nextDiagnostics);
-    } catch (exception) {
-      setError(getErrorMessage(exception, "Unable to load settings."));
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      return { settings: nextSettings, diagnostics: nextDiagnostics };
+    },
+    { fallbackError: "Unable to load settings." },
+  );
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (data) {
+      setSettings(data.settings);
+      setDraft(data.settings);
+    }
+  }, [data]);
+
+  const saveMutation = useApiMutation(
+    (nextSettings: AppSettings) => settingsApi.saveSettings(nextSettings),
+    { fallbackError: "Unable to save settings." },
+  );
 
   async function saveSettings() {
     if (!draft) {
       return;
     }
 
-    setError(null);
     setFieldErrors({});
-    setIsSaving(true);
-    try {
-      await settingsApi.saveSettings(draft);
+    const success = await saveMutation.mutate(draft);
+    if (success !== null) {
       setSettings(draft);
-    } catch (exception) {
-      setError(getErrorMessage(exception, "Unable to save settings."));
-      setFieldErrors(getFieldErrors(exception));
-    } finally {
-      setIsSaving(false);
+    } else if (saveMutation.rawError) {
+      setFieldErrors(getFieldErrors(saveMutation.rawError));
     }
   }
 
@@ -69,13 +62,13 @@ export function useSettingsForm() {
   }
 
   return {
-    diagnostics,
+    diagnostics: data?.diagnostics ?? null,
     draft,
-    error,
+    error: queryError ?? saveMutation.error,
     fieldErrors,
     isDirty: JSON.stringify(settings) !== JSON.stringify(draft),
     isLoading,
-    isSaving,
+    isSaving: saveMutation.isPending,
     load,
     resetSettings,
     saveSettings,

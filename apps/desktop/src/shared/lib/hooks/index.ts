@@ -1,5 +1,5 @@
-export { useAsyncData } from "./useAsyncData";
+export { useApiQuery } from "./useApiQuery";
+export { useApiMutation } from "./useApiMutation";
 export { useCursorPage } from "./useCursorPage";
 export { useDebouncedValue } from "./useDebouncedValue";
 export { useLocalStorage } from "./useLocalStorage";
-export { useMutation } from "./useMutation";
