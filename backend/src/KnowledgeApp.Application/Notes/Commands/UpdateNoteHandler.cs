@@ -30,6 +30,14 @@ public sealed class UpdateNoteHandler(
 
         note.Title = request.Title.Trim();
         note.Markdown = request.Markdown;
+        note.Tags.Clear();
+        if (request.Tags != null)
+        {
+            foreach (var tag in request.Tags)
+            {
+                note.Tags.Add(new Domain.Entities.NoteTag { Key = tag.Key, Value = tag.Value });
+            }
+        }
         await noteRepository.UpdateAsync(note, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success();

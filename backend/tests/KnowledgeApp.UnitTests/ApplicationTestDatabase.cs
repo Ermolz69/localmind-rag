@@ -25,7 +25,7 @@ internal sealed class ApplicationTestDatabase : IAsyncDisposable
             .Options;
         AppDbContext? context = new AppDbContext(options);
         await context.Database.EnsureCreatedAsync();
-        return new ApplicationTestDatabase(connection, context);
+        return new ApplicationTestDatabase((SqliteConnection)connection, context);
     }
 
     public async ValueTask DisposeAsync()

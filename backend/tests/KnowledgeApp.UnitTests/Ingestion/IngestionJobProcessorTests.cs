@@ -456,7 +456,7 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
                 .Options;
             AppDbContext? context = new AppDbContext(options);
             await context.Database.EnsureCreatedAsync();
-            return new TestDatabase(connection, context);
+            return new TestDatabase((SqliteConnection)connection, context);
         }
 
         public async ValueTask DisposeAsync()

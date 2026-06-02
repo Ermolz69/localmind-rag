@@ -64,6 +64,7 @@ public sealed class ContentSearchHandler(
             terms.ToArray(),
             request.BucketId,
             request.DocumentId,
+            request.Tags,
             MaxCandidateCount,
             cancellationToken);
 
@@ -89,6 +90,7 @@ public sealed class ContentSearchHandler(
             terms.ToArray(),
             request.BucketId,
             request.NoteId,
+            request.Tags,
             MaxCandidateCount,
             cancellationToken);
 

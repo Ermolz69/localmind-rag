@@ -8,6 +8,7 @@ namespace KnowledgeApp.Contracts.Notes;
 /// <param name="SyncStatus">Current synchronization status code.</param>
 /// <param name="CreatedAt">UTC creation timestamp.</param>
 /// <param name="UpdatedAt">UTC timestamp of the latest update, when available.</param>
+/// <param name="Tags">Optional metadata tags.</param>
 public sealed record NoteDto(
     Guid Id,
     Guid? BucketId,
@@ -15,4 +16,5 @@ public sealed record NoteDto(
     string Markdown,
     int SyncStatus,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? UpdatedAt);
+    DateTimeOffset? UpdatedAt,
+    IReadOnlyDictionary<string, string>? Tags = null);

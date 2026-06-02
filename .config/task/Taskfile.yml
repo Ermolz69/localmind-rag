@@ -157,6 +157,10 @@ tasks:
         check:docker,
       ]
 
+  check:format:
+    desc: Verifies backend and frontend formatting
+    deps: [check:backend:format, check:frontend:format]
+
   check:backend:format:
     desc: Verifies backend C# formatting
     cmds:

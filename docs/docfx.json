@@ -5,15 +5,11 @@
       "src": [
         {
           "src": "../backend/src/KnowledgeApp.Contracts",
-          "files": [
-            "KnowledgeApp.Contracts.csproj"
-          ]
+          "files": ["KnowledgeApp.Contracts.csproj"]
         },
         {
           "src": "../backend/src/KnowledgeApp.LocalApi",
-          "files": [
-            "KnowledgeApp.LocalApi.csproj"
-          ]
+          "files": ["KnowledgeApp.LocalApi.csproj"]
         }
       ],
       "dest": "auto-generated/dotnet-api",
@@ -30,19 +26,15 @@
           "product/**/*.md",
           "architecture/**/*.md",
           "development/**/*.md",
+          "api/**/*.md",
           "auto-generated/dotnet-api/**/*.yml"
         ],
-        "exclude": [
-          "auto-generated/openapi/**"
-        ]
+        "exclude": ["auto-generated/openapi/**"]
       }
     ],
     "resource": [
       {
-        "files": [
-          "api/**",
-          "auto-generated/openapi/openapi.json"
-        ]
+        "files": ["api/**/*.html", "auto-generated/openapi/openapi.json"]
       }
     ],
     "dest": "../artifacts/docs/site",
@@ -52,14 +44,9 @@
       "_disableContribution": true,
       "_disableBreadcrumb": false
     },
-    "template": [
-      "default",
-      "modern"
-    ],
+    "template": ["default", "modern"],
     "markdownEngineProperties": {
-      "markdigExtensions": [
-        "diagrams"
-      ]
+      "markdigExtensions": ["diagrams"]
     }
   }
 }

@@ -2,7 +2,7 @@ using KnowledgeApp.Contracts.Rag;
 
 namespace KnowledgeApp.Application.Abstractions;
 
-public sealed record VectorSearchOptions(int Limit = 8, Guid? BucketId = null, Guid? DocumentId = null);
+public sealed record VectorSearchOptions(int Limit = 8, Guid? BucketId = null, Guid? DocumentId = null, IReadOnlyDictionary<string, string>? Tags = null);
 
 public interface IVectorSearchService
 {

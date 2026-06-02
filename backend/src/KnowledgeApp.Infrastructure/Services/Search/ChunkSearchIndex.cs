@@ -11,6 +11,7 @@ public sealed class ChunkSearchIndex(AppDbContext dbContext) : IChunkSearchIndex
         string[] terms,
         Guid? bucketId,
         Guid? documentId,
+        IReadOnlyDictionary<string, string>? tags,
         int maxCount,
         CancellationToken cancellationToken = default)
     {
@@ -34,6 +35,16 @@ public sealed class ChunkSearchIndex(AppDbContext dbContext) : IChunkSearchIndex
         if (documentId.HasValue)
         {
             query = query.Where(candidate => candidate.Document.Id == documentId.Value);
+        }
+
+        if (tags is { Count: > 0 })
+        {
+            foreach (var tag in tags)
+            {
+                query = query.Where(candidate =>
+                    dbContext.DocumentTags.Any(dt => dt.DocumentId == candidate.Document.Id && dt.Key == tag.Key && dt.Value == tag.Value) ||
+                    dbContext.DocumentChunkTags.Any(ct => ct.DocumentChunkId == candidate.Chunk.Id && ct.Key == tag.Key && ct.Value == tag.Value));
+            }
         }
 
         foreach (string term in terms)
@@ -63,6 +74,7 @@ public sealed class ChunkSearchIndex(AppDbContext dbContext) : IChunkSearchIndex
         string[] terms,
         Guid? bucketId,
         Guid? noteId,
+        IReadOnlyDictionary<string, string>? tags,
         int maxCount,
         CancellationToken cancellationToken = default)
     {
@@ -78,6 +90,15 @@ public sealed class ChunkSearchIndex(AppDbContext dbContext) : IChunkSearchIndex
         if (noteId.HasValue)
         {
             query = query.Where(note => note.Id == noteId.Value);
+        }
+
+        if (tags is { Count: > 0 })
+        {
+            foreach (var tag in tags)
+            {
+                query = query.Where(note =>
+                    dbContext.NoteTags.Any(nt => nt.NoteId == note.Id && nt.Key == tag.Key && nt.Value == tag.Value));
+            }
         }
 
         foreach (string term in terms)

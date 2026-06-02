@@ -23,6 +23,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<SyncState> SyncStates => Set<SyncState>();
     public DbSet<SemanticCacheEntry> SemanticCacheEntries => Set<SemanticCacheEntry>();
     public DbSet<OperationLog> OperationLogs => Set<OperationLog>();
+    public DbSet<DocumentTag> DocumentTags => Set<DocumentTag>();
+    public DbSet<DocumentChunkTag> DocumentChunkTags => Set<DocumentChunkTag>();
+    public DbSet<NoteTag> NoteTags => Set<NoteTag>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
