@@ -64,7 +64,7 @@ public sealed class ExactVectorSearchService(AppDbContext dbContext) : IVectorSe
         {
             foreach (var tag in tags)
             {
-                rowsQuery = rowsQuery.Where(x => 
+                rowsQuery = rowsQuery.Where(x =>
                     dbContext.DocumentTags.Any(dt => dt.DocumentId == x.DocumentId && dt.Key == tag.Key && dt.Value == tag.Value) ||
                     dbContext.DocumentChunkTags.Any(ct => ct.DocumentChunkId == x.ChunkId && ct.Key == tag.Key && ct.Value == tag.Value));
             }

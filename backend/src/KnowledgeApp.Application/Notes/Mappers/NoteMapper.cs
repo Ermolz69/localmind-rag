@@ -7,8 +7,8 @@ public static class NoteMapper
 {
     public static NoteDto ToDto(Note note)
     {
-        var tags = note.Tags?.Count > 0 
-            ? (IReadOnlyDictionary<string, string>)note.Tags.ToDictionary(t => t.Key, t => t.Value) 
+        var tags = note.Tags?.Count > 0
+            ? (IReadOnlyDictionary<string, string>)note.Tags.ToDictionary(t => t.Key, t => t.Value)
             : null;
 
         return new NoteDto(

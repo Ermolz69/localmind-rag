@@ -51,7 +51,7 @@ public sealed class PptxTextExtractor : IDocumentTextExtractor
                 }
 
                 SlidePart? slidePart = (SlidePart)presentationPart.GetPartById(relationshipId);
-                string? slideText = ExtractSlideText(slidePart).Trim();
+                string? slideText = ExtractSlideText((SlidePart)slidePart).Trim();
                 if (slideText.Length > 0)
                 {
                     slides.Add(new DocumentTextSegment(slideText, slideNumber, $"Slide {slideNumber}", "PptxSlide"));

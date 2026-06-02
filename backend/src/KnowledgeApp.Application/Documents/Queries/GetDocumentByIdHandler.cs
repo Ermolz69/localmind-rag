@@ -26,8 +26,8 @@ public sealed class GetDocumentByIdHandler(
             .Select(job => job.ErrorMessage)
             .FirstOrDefault();
 
-        var tags = document.Tags?.Count > 0 
-            ? (IReadOnlyDictionary<string, string>)document.Tags.ToDictionary(t => t.Key, t => t.Value) 
+        var tags = document.Tags?.Count > 0
+            ? (IReadOnlyDictionary<string, string>)document.Tags.ToDictionary(t => t.Key, t => t.Value)
             : null;
 
         return Result<DocumentDto>.Success(new DocumentDto(

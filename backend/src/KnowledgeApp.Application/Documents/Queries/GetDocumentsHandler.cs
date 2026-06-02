@@ -126,8 +126,8 @@ public sealed class GetDocumentsHandler(
             .Select(job => job.ErrorMessage)
             .FirstOrDefault();
 
-        var tags = document.Tags?.Count > 0 
-            ? (IReadOnlyDictionary<string, string>)document.Tags.ToDictionary(t => t.Key, t => t.Value) 
+        var tags = document.Tags?.Count > 0
+            ? (IReadOnlyDictionary<string, string>)document.Tags.ToDictionary(t => t.Key, t => t.Value)
             : null;
 
         return new DocumentDto(document.Id, document.Name, document.Status.ToString(), document.CreatedAt, lastError, tags);
