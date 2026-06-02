@@ -1,10 +1,24 @@
-import { CheckCircle2, FolderPlus, RefreshCw } from "lucide-react";
+import { FolderPlus, RefreshCw, Pencil, Trash2 } from "lucide-react";
 import { useBuckets } from "@features/bucket-management";
 import { cn } from "@shared/lib/cn";
-import { Button, EmptyState, ErrorBanner, Input, PageHeader } from "@shared/ui";
+import {
+  Button,
+  EmptyState,
+  ErrorBanner,
+  Input,
+  PageHeader,
+  ConfirmDialog,
+  Modal,
+} from "@shared/ui";
+import { useState } from "react";
 
 export function BucketsPage() {
   const bucketsPage = useBuckets();
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [editBucketId, setEditBucketId] = useState<string | null>(null);
+  const [editBucketName, setEditBucketName] = useState("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteBucketId, setDeleteBucketId] = useState("");
 
   return (
     <section className="space-y-5">
@@ -35,7 +49,10 @@ export function BucketsPage() {
               }
             }}
           />
-          <Button onClick={() => void bucketsPage.createBucket()}>
+          <Button
+            onClick={() => void bucketsPage.createBucket()}
+            className="!h-11 px-4"
+          >
             <FolderPlus size={16} aria-hidden />
             New bucket
           </Button>
@@ -56,31 +73,120 @@ export function BucketsPage() {
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {bucketsPage.buckets.map((bucket) => (
-            <button
-              key={bucket.id}
-              className={cn(
-                "rounded-md border border-border bg-card p-4 text-left transition hover:bg-muted",
-                bucketsPage.selectedBucketId === bucket.id &&
-                  "bg-primary text-primary-foreground hover:bg-primary",
-              )}
-              onClick={() => bucketsPage.setSelectedBucketId(bucket.id)}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="truncate text-sm font-semibold">
-                  {bucket.name}
-                </h2>
-                {bucketsPage.selectedBucketId === bucket.id ? (
-                  <CheckCircle2 size={17} aria-hidden />
-                ) : null}
+          {bucketsPage.buckets.map((bucket) => {
+            const isSelected = bucketsPage.selectedBucketId === bucket.id;
+            const bucketWithCount = bucket as typeof bucket & {
+              documentCount?: number;
+            };
+            const documentCount = bucketWithCount.documentCount;
+            return (
+              <div
+                key={bucket.id}
+                className={cn(
+                  "rounded-md border border-border bg-card p-4 text-left transition hover:bg-muted cursor-pointer",
+                  isSelected && "bg-primary text-primary-foreground hover:bg-primary",
+                )}
+                onClick={() => bucketsPage.setSelectedBucketId(bucket.id)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <h2 className="truncate text-sm font-semibold">{bucket.name}</h2>
+                    <p className={cn("mt-2 text-xs", isSelected ? "text-primary-foreground/90" : "text-muted-foreground")}>
+                      {bucket.syncStatus}
+                      {" "}
+                      {documentCount !== undefined ? (
+                        <span className={isSelected ? "text-white" : "text-muted-foreground"}>
+                          · {documentCount} documents
+                        </span>
+                      ) : null}
+                    </p>
+                  </div>
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 rounded-md p-1 transition-colors",
+                      isSelected
+                        ? "bg-primary/10 ring-1 ring-primary/20"
+                        : "hover:bg-muted/50",
+                    )}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Button
+                      variant="ghost"
+                      className={cn(
+                        "h-9 w-9 p-0",
+                        "rounded-md",
+                        isSelected
+                          ? "text-primary-foreground hover:bg-primary/20"
+                          : "text-muted-foreground hover:bg-muted",
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditBucketId(bucket.id);
+                        setEditBucketName(bucket.name);
+                        setRenameModalOpen(true);
+                      }}
+                    >
+                      <Pencil size={16} aria-hidden />
+                    </Button>
+
+                      <Button
+                        variant="ghost"
+                        className="h-9 w-9 p-0 rounded-md text-rose-400 bg-transparent hover:bg-transparent hover:text-rose-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteBucketId(bucket.id);
+                          setDeleteConfirmOpen(true);
+                        }}
+                      >
+                        <Trash2 size={16} aria-hidden />
+                      </Button>
+                  </div>
+                </div>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {bucket.syncStatus}
-              </p>
-            </button>
-          ))}
+            );
+          })}
         </div>
       )}
+
+      <Modal
+        title="Rename bucket"
+        description="Update the bucket name."
+        open={renameModalOpen}
+        onClose={() => setRenameModalOpen(false)}
+      >
+        <div className="flex gap-2">
+          <Input
+            value={editBucketName}
+            onChange={(e) => setEditBucketName(e.target.value)}
+          />
+          <Button
+            className="!h-11 px-4"
+            onClick={async () => {
+              if (editBucketId) {
+                await bucketsPage.renameBucket(editBucketId, editBucketName);
+                setRenameModalOpen(false);
+              }
+            }}
+          >
+            Save
+          </Button>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title="Delete bucket"
+        description="Deleting a bucket will remove its local record. This cannot be undone."
+        confirmLabel="Delete"
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={async () => {
+          if (deleteBucketId) {
+            await bucketsPage.deleteBucket(deleteBucketId);
+            setDeleteConfirmOpen(false);
+            setDeleteBucketId("");
+          }
+        }}
+      />
     </section>
   );
 }

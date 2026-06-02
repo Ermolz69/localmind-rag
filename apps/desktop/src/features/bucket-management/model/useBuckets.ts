@@ -41,9 +41,37 @@ export function useBuckets() {
     }
   }
 
+  async function renameBucket(id: string, newName: string) {
+    const nextName = newName.trim();
+    if (!nextName) return;
+
+    setError(null);
+    try {
+      await bucketsApi.updateBucket(id, { name: nextName });
+      await loadBuckets();
+      setSelectedBucketId(id);
+    } catch (exception) {
+      setError(getErrorMessage(exception, "Failed to rename bucket."));
+    }
+  }
+
+  async function deleteBucket(id: string) {
+    setError(null);
+    try {
+      await bucketsApi.deleteBucket(id);
+      // if deleted bucket was selected, clear selection or pick first
+      setSelectedBucketId((prev) => (prev === id ? "" : prev));
+      await loadBuckets();
+    } catch (exception) {
+      setError(getErrorMessage(exception, "Failed to delete bucket."));
+    }
+  }
+
   return {
     buckets,
     createBucket,
+    renameBucket,
+    deleteBucket,
     error,
     isLoading,
     loadBuckets,
