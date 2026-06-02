@@ -2,11 +2,35 @@ name: Check
 
 on:
   push:
+    paths:
+      - "backend/**"
+      - "apps/desktop/**"
+      - "infra/**"
+      - ".config/task/**"
+      - ".dockerignore"
+      - "backend/.dockerignore"
+      - "apps/desktop/.dockerignore"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/check.yml"
   pull_request:
+    paths:
+      - "backend/**"
+      - "apps/desktop/**"
+      - "infra/**"
+      - ".config/task/**"
+      - ".dockerignore"
+      - "backend/.dockerignore"
+      - "apps/desktop/.dockerignore"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/check.yml"
   workflow_dispatch:
 
 concurrency:
-  group: check-${{ github.ref }}
+  group: check-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -84,6 +108,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Restore backend
         run: task -t .config/task/Taskfile.yml setup:backend
@@ -111,6 +136,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Restore backend
         run: task -t .config/task/Taskfile.yml setup:backend
@@ -139,6 +165,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Restore backend
         run: task -t .config/task/Taskfile.yml setup:backend
@@ -208,6 +235,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Restore backend
         run: task -t .config/task/Taskfile.yml setup:backend
@@ -276,6 +304,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Restore backend
         run: task -t .config/task/Taskfile.yml setup:backend
@@ -345,6 +374,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Restore backend
         run: task -t .config/task/Taskfile.yml setup:backend
@@ -398,6 +428,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: task -t .config/task/Taskfile.yml setup:frontend
@@ -431,6 +462,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: task -t .config/task/Taskfile.yml setup:frontend
@@ -464,6 +496,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: task -t .config/task/Taskfile.yml setup:frontend
@@ -499,6 +532,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: task -t .config/task/Taskfile.yml setup:frontend
@@ -521,6 +555,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check hardcoded colors
         run: task -t .config/task/Taskfile.yml check:colors
@@ -540,6 +575,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate remote compose file
         run: task -t .config/task/Taskfile.yml check:docker

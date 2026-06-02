@@ -2,11 +2,19 @@ name: OpenAPI compatibility
 
 on:
   push:
+    paths:
+      - "backend/**"
+      - ".config/task/**"
+      - ".github/workflows/openapi.yml"
   pull_request:
+    paths:
+      - "backend/**"
+      - ".config/task/**"
+      - ".github/workflows/openapi.yml"
   workflow_dispatch:
 
 concurrency:
-  group: openapi-${{ github.ref }}
+  group: openapi-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -73,6 +81,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate revision OpenAPI
         run: >

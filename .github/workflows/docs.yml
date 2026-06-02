@@ -2,11 +2,35 @@ name: Docs
 
 on:
   push:
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "AGENTS.md"
+      - "GEMINI.md"
+      - "backend/**"
+      - "apps/desktop/**"
+      - ".config/task/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/docs.yml"
   pull_request:
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "AGENTS.md"
+      - "GEMINI.md"
+      - "backend/**"
+      - "apps/desktop/**"
+      - ".config/task/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 concurrency:
-  group: docs-${{ github.ref }}
+  group: docs-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -98,6 +122,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Restore backend
         run: task -t .config/task/Taskfile.yml setup:backend
