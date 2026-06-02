@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace KnowledgeApp.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260602154410_AddMetadataTags")]
+    [Migration("20260602161119_AddMetadataTags")]
     partial class AddMetadataTags
     {
         /// <inheritdoc />
@@ -796,7 +796,7 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("KnowledgeApp.Domain.Entities.DocumentTag", b =>
                 {
                     b.HasOne("KnowledgeApp.Domain.Entities.Document", null)
-                        .WithMany()
+                        .WithMany("Tags")
                         .HasForeignKey("DocumentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -805,10 +805,20 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("KnowledgeApp.Domain.Entities.NoteTag", b =>
                 {
                     b.HasOne("KnowledgeApp.Domain.Entities.Note", null)
-                        .WithMany()
+                        .WithMany("Tags")
                         .HasForeignKey("NoteId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.Document", b =>
+                {
+                    b.Navigation("Tags");
+                });
+
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.Note", b =>
+                {
+                    b.Navigation("Tags");
                 });
 #pragma warning restore 612, 618
         }

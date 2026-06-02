@@ -13,7 +13,7 @@ public sealed class DocumentTagConfiguration : IEntityTypeConfiguration<Document
         builder.HasIndex(tag => new { tag.Key, tag.Value });
 
         builder.HasOne<Document>()
-               .WithMany()
+               .WithMany(d => d.Tags)
                .HasForeignKey(tag => tag.DocumentId)
                .OnDelete(DeleteBehavior.Cascade);
     }

@@ -13,7 +13,7 @@ public sealed class NoteTagConfiguration : IEntityTypeConfiguration<NoteTag>
         builder.HasIndex(tag => new { tag.Key, tag.Value });
 
         builder.HasOne<Note>()
-               .WithMany()
+               .WithMany(n => n.Tags)
                .HasForeignKey(tag => tag.NoteId)
                .OnDelete(DeleteBehavior.Cascade);
     }
