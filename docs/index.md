@@ -9,3 +9,5 @@ Generated OpenAPI and .NET API artifacts are produced under `docs/auto-generated
 - [Architecture](architecture/README.md)
 - [Development](development/setup.md)
 - [OpenAPI](api/openapi.html)
+- [.NET API](api/dotnet-api.md)
+- [UI documentation](api/storybook.md)

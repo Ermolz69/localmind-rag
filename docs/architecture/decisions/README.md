@@ -13,3 +13,4 @@ Architecture Decision Records explain why LocalMind is built this way. Each ADR 
 - [0007 AI runtime provider abstraction](./0007-ai-runtime-provider-abstraction.md)
 - [0008 Ingestion job lifecycle](./0008-ingestion-job-lifecycle.md)
 - [0009 LocalApi local security](./0009-localapi-local-security.md)
+- [0010 Offline-first sync outbox](./0010-offline-first-sync-outbox.md)
