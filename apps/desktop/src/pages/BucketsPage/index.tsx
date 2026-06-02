@@ -83,19 +83,32 @@ export function BucketsPage() {
               <div
                 key={bucket.id}
                 className={cn(
-                  "rounded-md border border-border bg-card p-4 text-left transition hover:bg-muted cursor-pointer",
-                  isSelected && "bg-primary text-primary-foreground hover:bg-primary",
+                  "cursor-pointer rounded-md border border-border bg-card p-4 text-left transition hover:bg-muted",
+                  isSelected &&
+                    "bg-primary text-primary-foreground hover:bg-primary",
                 )}
                 onClick={() => bucketsPage.setSelectedBucketId(bucket.id)}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
-                    <h2 className="truncate text-sm font-semibold">{bucket.name}</h2>
-                    <p className={cn("mt-2 text-xs", isSelected ? "text-primary-foreground/90" : "text-muted-foreground")}>
-                      {bucket.syncStatus}
-                      {" "}
+                    <h2 className="truncate text-sm font-semibold">
+                      {bucket.name}
+                    </h2>
+                    <p
+                      className={cn(
+                        "mt-2 text-xs",
+                        isSelected
+                          ? "text-primary-foreground/90"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {bucket.syncStatus}{" "}
                       {documentCount !== undefined ? (
-                        <span className={isSelected ? "text-white" : "text-muted-foreground"}>
+                        <span
+                          className={
+                            isSelected ? "text-white" : "text-muted-foreground"
+                          }
+                        >
                           · {documentCount} documents
                         </span>
                       ) : null}
@@ -129,17 +142,17 @@ export function BucketsPage() {
                       <Pencil size={16} aria-hidden />
                     </Button>
 
-                      <Button
-                        variant="ghost"
-                        className="h-9 w-9 p-0 rounded-md text-rose-400 bg-transparent hover:bg-transparent hover:text-rose-500"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteBucketId(bucket.id);
-                          setDeleteConfirmOpen(true);
-                        }}
-                      >
-                        <Trash2 size={16} aria-hidden />
-                      </Button>
+                    <Button
+                      variant="ghost"
+                      className="h-9 w-9 rounded-md bg-transparent p-0 text-rose-400 hover:bg-transparent hover:text-rose-500"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteBucketId(bucket.id);
+                        setDeleteConfirmOpen(true);
+                      }}
+                    >
+                      <Trash2 size={16} aria-hidden />
+                    </Button>
                   </div>
                 </div>
               </div>

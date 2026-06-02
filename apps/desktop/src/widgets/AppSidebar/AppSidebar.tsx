@@ -77,7 +77,7 @@ export function AppSidebar() {
             isExpanded ? "justify-start px-2" : "justify-center px-0",
           )}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground leading-none">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold leading-none text-primary-foreground">
             L
           </div>
           <div

@@ -3,41 +3,45 @@ import { ChatThread, MessageComposer } from "@features/chat-message-send";
 import { ConversationList } from "@features/conversation-management";
 import { ConfirmDialog, EmptyState, ErrorBanner } from "@shared/ui";
 import { SourcePanel } from "@widgets/SourcePanel/SourcePanel";
+import { cn } from "@shared/lib/cn";
 import { useChatPageViewModel } from "./model/useChatPageViewModel";
 
 export function ChatPage() {
   const chat = useChatPageViewModel();
 
   return (
-    <section
-      className={
-        chat.isSidebarOpen
-          ? "grid h-[calc(100vh-6rem)] min-h-[500px] grid-cols-[260px_1fr_320px] gap-4"
-          : "grid h-[calc(100vh-6rem)] min-h-[500px] grid-cols-[1fr_320px] gap-4"
-      }
-    >
-      {chat.isSidebarOpen ? (
-        <ConversationList
-          conversations={chat.conversations}
-          messageCounts={chat.messageCounts}
-          selectedConversationId={chat.selectedConversationId}
-          newConversationTitle={chat.newConversationTitle}
-          isLoading={chat.isLoadingConversations}
-          isCreating={chat.isCreatingConversation}
-          hasMore={chat.hasMoreChats}
-          isLoadingMore={chat.isLoadingMoreChats}
-          onTitleChange={chat.setNewConversationTitle}
-          onCreate={(title) => {
-            void chat.createConversation(title);
-            chat.setNewConversationTitle("");
-          }}
-          onSelect={chat.selectConversation}
-          onDelete={chat.setDeleteTargetId}
-          onLoadMore={() => void chat.loadMoreChats()}
-        />
-      ) : null}
+    <section className="flex h-[calc(100vh-6rem)] min-h-[500px] w-full gap-4 overflow-hidden">
+      <div
+        className={cn(
+          "flex shrink-0 flex-col overflow-hidden transition-all duration-300 ease-in-out",
+          chat.isSidebarOpen
+            ? "w-[260px] opacity-100"
+            : "pointer-events-none w-0 opacity-0",
+        )}
+      >
+        <div className="flex h-full w-[260px] flex-col overflow-hidden">
+          <ConversationList
+            conversations={chat.conversations}
+            messageCounts={chat.messageCounts}
+            selectedConversationId={chat.selectedConversationId}
+            newConversationTitle={chat.newConversationTitle}
+            isLoading={chat.isLoadingConversations}
+            isCreating={chat.isCreatingConversation}
+            hasMore={chat.hasMoreChats}
+            isLoadingMore={chat.isLoadingMoreChats}
+            onTitleChange={chat.setNewConversationTitle}
+            onCreate={(title) => {
+              void chat.createConversation(title);
+              chat.setNewConversationTitle("");
+            }}
+            onSelect={chat.selectConversation}
+            onDelete={chat.setDeleteTargetId}
+            onLoadMore={() => void chat.loadMoreChats()}
+          />
+        </div>
+      </div>
 
-      <div className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-card">
         <ErrorBanner message={chat.conversationError} />
         <ChatThread
           conversation={chat.selectedConversation}
@@ -68,7 +72,7 @@ export function ChatPage() {
         />
       </div>
 
-      <aside className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card">
+      <aside className="flex min-h-0 w-[260px] shrink-0 flex-col overflow-hidden rounded-md border border-border bg-card">
         <div className="border-b border-border p-4">
           <h2 className="text-sm font-semibold">Sources</h2>
           <p className="mt-1 text-sm text-muted-foreground">
