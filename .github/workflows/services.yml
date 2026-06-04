@@ -1,0 +1,365 @@
+name: Services
+
+on:
+  push:
+    paths:
+      - "services/**"
+      - ".config/task/**"
+      - ".github/workflows/services.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  pull_request:
+    paths:
+      - "services/**"
+      - ".config/task/**"
+      - ".github/workflows/services.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: services-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NODE_VERSION: 24
+  PNPM_VERSION: 10.0.0
+  SERVICES_ARTIFACTS_DIR: artifacts/services
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: read
+
+jobs:
+  changes:
+    name: Detect changed service areas
+    runs-on: ubuntu-latest
+    outputs:
+      auth: ${{ steps.filter.outputs.auth }}
+      file: ${{ steps.filter.outputs.file }}
+      sync: ${{ steps.filter.outputs.sync }}
+      gateway: ${{ steps.filter.outputs.gateway }}
+      services_common: ${{ steps.filter.outputs.services_common }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Filter changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            auth:
+              - 'services/auth-service/**'
+            file:
+              - 'services/file-service/**'
+            sync:
+              - 'services/sync-service/**'
+            gateway:
+              - 'services/api-gateway/**'
+            services_common:
+              - '.config/task/**'
+              - '.github/workflows/services.yml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+
+  auth-service:
+    name: Auth service
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.auth == 'true' || needs.changes.outputs.services_common == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm --filter auth-service exec eslint "{src,apps,libs,test}/**/*.ts"
+
+      - name: Build
+        run: pnpm --filter auth-service build
+
+      - name: Run tests with coverage
+        run: |
+          mkdir -p "${{ env.SERVICES_ARTIFACTS_DIR }}/test-results/auth-service"
+          pnpm --filter auth-service test:cov -- --json --outputFile ../../${{ env.SERVICES_ARTIFACTS_DIR }}/test-results/auth-service/jest-results.json
+
+      - name: Add coverage summary
+        if: always()
+        run: |
+          echo "## Auth service coverage" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f services/auth-service/coverage/lcov.info ]; then
+            echo "- Coverage artifact: auth-service-coverage" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Coverage report was not generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-service-test-results
+          path: ${{ env.SERVICES_ARTIFACTS_DIR }}/test-results/auth-service
+          if-no-files-found: warn
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-service-coverage
+          path: services/auth-service/coverage
+          if-no-files-found: warn
+
+  file-service:
+    name: File service
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.file == 'true' || needs.changes.outputs.services_common == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run tests with coverage
+        working-directory: services/file-service
+        run: ./gradlew test jacocoTestReport
+
+      - name: Add coverage summary
+        if: always()
+        run: |
+          echo "## File service coverage" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f services/file-service/build/reports/jacoco/test/html/index.html ]; then
+            echo "- Coverage artifact: file-service-coverage" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Coverage report was not generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: file-service-test-results
+          path: services/file-service/build/test-results/test
+          if-no-files-found: warn
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: file-service-coverage
+          path: services/file-service/build/reports/jacoco/test
+          if-no-files-found: warn
+
+  sync-service:
+    name: Sync service
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.sync == 'true' || needs.changes.outputs.services_common == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: services/sync-service/global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-sync-${{ hashFiles('services/sync-service/**/*.csproj', 'services/sync-service/Directory.Packages.props', 'services/sync-service/global.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-sync-
+
+      - name: Restore
+        working-directory: services/sync-service
+        run: dotnet restore LocalMind.Sync.slnx
+
+      - name: Build
+        working-directory: services/sync-service
+        run: dotnet build LocalMind.Sync.slnx --no-restore
+
+      - name: Test with coverage
+        working-directory: services/sync-service
+        run: >
+          dotnet test LocalMind.Sync.slnx
+          --no-build
+          --logger "trx"
+          --results-directory "../../${{ env.SERVICES_ARTIFACTS_DIR }}/test-results/sync-service"
+          --collect:"XPlat Code Coverage"
+          --
+          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+      - name: Install ReportGenerator
+        if: always()
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Generate coverage report
+        if: always()
+        run: >
+          reportgenerator
+          "-reports:${{ env.SERVICES_ARTIFACTS_DIR }}/test-results/sync-service/**/coverage.cobertura.xml"
+          "-targetdir:${{ env.SERVICES_ARTIFACTS_DIR }}/coverage/sync-service"
+          "-reporttypes:Html;Cobertura;MarkdownSummaryGithub"
+          "-assemblyfilters:+LocalMind.Sync.*;-*.Tests"
+
+      - name: Add coverage summary
+        if: always()
+        run: |
+          echo "## Sync service coverage" >> "$GITHUB_STEP_SUMMARY"
+          summary="${{ env.SERVICES_ARTIFACTS_DIR }}/coverage/sync-service/SummaryGithub.md"
+          if [ -f "$summary" ]; then
+            cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Coverage summary was not generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-service-test-results
+          path: ${{ env.SERVICES_ARTIFACTS_DIR }}/test-results/sync-service
+          if-no-files-found: warn
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-service-coverage
+          path: ${{ env.SERVICES_ARTIFACTS_DIR }}/coverage/sync-service
+          if-no-files-found: warn
+
+  api-gateway:
+    name: API gateway
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.gateway == 'true' || needs.changes.outputs.services_common == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: services/api-gateway/global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-gateway-${{ hashFiles('services/api-gateway/**/*.csproj', 'services/api-gateway/global.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-gateway-
+
+      - name: Restore
+        working-directory: services/api-gateway
+        run: dotnet restore LocalMind.ApiGateway.slnx
+
+      - name: Build
+        working-directory: services/api-gateway
+        run: dotnet build LocalMind.ApiGateway.slnx --no-restore
+
+      - name: Run tests if configured
+        id: gateway-tests
+        working-directory: services/api-gateway
+        run: |
+          mkdir -p "../../${{ env.SERVICES_ARTIFACTS_DIR }}/test-results/api-gateway"
+          if find tests -name "*.csproj" -print -quit 2>/dev/null | grep -q .; then
+            dotnet test LocalMind.ApiGateway.slnx --no-build --logger "trx" --results-directory "../../${{ env.SERVICES_ARTIFACTS_DIR }}/test-results/api-gateway"
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No tests configured yet." | tee "../../${{ env.SERVICES_ARTIFACTS_DIR }}/test-results/api-gateway/README.txt"
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Add gateway summary
+        if: always()
+        run: |
+          echo "## API gateway" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.gateway-tests.outputs.configured }}" = "true" ]; then
+            echo "- Tests executed. Artifact: api-gateway-test-results" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- No tests configured yet." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-gateway-test-results
+          path: ${{ env.SERVICES_ARTIFACTS_DIR }}/test-results/api-gateway
+          if-no-files-found: warn
+
+  services-summary:
+    name: Services summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - changes
+      - auth-service
+      - file-service
+      - sync-service
+      - api-gateway
+
+    steps:
+      - name: Write summary
+        run: |
+          echo "## Services workflow summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Changed areas" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Area | Changed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| auth | ${{ needs.changes.outputs.auth }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| file | ${{ needs.changes.outputs.file }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| sync | ${{ needs.changes.outputs.sync }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| gateway | ${{ needs.changes.outputs.gateway }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| services_common | ${{ needs.changes.outputs.services_common }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Job results" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Job | Result | Main artifacts |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| auth-service | ${{ needs.auth-service.result }} | auth-service-test-results, auth-service-coverage |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| file-service | ${{ needs.file-service.result }} | file-service-test-results, file-service-coverage |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| sync-service | ${{ needs.sync-service.result }} | sync-service-test-results, sync-service-coverage |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| api-gateway | ${{ needs.api-gateway.result }} | api-gateway-test-results |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if required service job failed
+        if: contains(join(needs.*.result, ','), 'failure') || contains(join(needs.*.result, ','), 'cancelled')
+        run: exit 1

@@ -49,9 +49,7 @@ public class FileService {
     validateUpload(command);
 
     UUID fileId = UUID.randomUUID();
-    String sanitizedName = FileNameSanitizer.sanitize(command.originalName());
-    String objectKey = StorageObjectKey.forFile(fileId, sanitizedName, clock);
-    MessageDigest digest = sha256Digest();
+    String objectKey = StorageObjectKey.forFile(fileId, command.originalName(), clock);
 
     StoredObject storedObject =
         storageService.store(
@@ -59,20 +57,18 @@ public class FileService {
                 objectKey,
                 normalizeContentType(command.contentType()),
                 command.sizeBytes(),
-                new DigestInputStream(command.content(), digest)));
+                command.content()));
 
-    String checksum = HexFormat.of().formatHex(digest.digest());
     OffsetDateTime now = OffsetDateTime.now(clock);
     FileMetadata metadata =
         FileMetadata.stored(
             fileId,
+            command.ownerUserId(),
+            command.folderId(),
             command.originalName(),
-            sanitizedName,
-            normalizeContentType(command.contentType()),
-            command.sizeBytes(),
-            storedObject.bucket(),
             storedObject.objectKey(),
-            checksum,
+            command.sizeBytes(),
+            normalizeContentType(command.contentType()),
             now);
 
     try {
@@ -86,22 +82,22 @@ public class FileService {
 
   @Transactional(readOnly = true)
   public FileDetails getDetails(UUID fileId) {
-    return toDetails(activeFileOrThrow(fileId));
+    return toDetails(fileOrThrow(fileId));
   }
 
   @Transactional(readOnly = true)
   public FileDownload download(UUID fileId) {
-    FileMetadata metadata = activeFileOrThrow(fileId);
+    FileMetadata metadata = fileOrThrow(fileId);
     DownloadedObject downloadedObject = storageService.open(metadata.storageObjectKey());
     return new FileDownload(
-        metadata.sanitizedName(), metadata.contentType(), metadata.sizeBytes(), downloadedObject.content());
+        metadata.originalName(), metadata.contentType(), metadata.sizeBytes(), downloadedObject.content());
   }
 
   @Transactional
   public void delete(UUID fileId) {
-    FileMetadata metadata = activeFileOrThrow(fileId);
+    FileMetadata metadata = fileOrThrow(fileId);
     storageService.delete(metadata.storageObjectKey());
-    metadataRepository.save(metadata.deleted(OffsetDateTime.now(clock)));
+    metadataRepository.deleteById(metadata.id());
   }
 
   private void validateUpload(UploadFileCommand command) {
@@ -115,78 +111,42 @@ public class FileService {
           HttpStatus.PAYLOAD_TOO_LARGE,
           "Uploaded file exceeds configured size limit");
     }
-
-    String sanitizedName = FileNameSanitizer.sanitize(command.originalName());
-    String extension =
-        FileExtension.fromFileName(sanitizedName)
-            .orElseThrow(
-                () ->
-                    new AppException(
-                        ErrorCode.UNSUPPORTED_FILE_EXTENSION,
-                        HttpStatus.BAD_REQUEST,
-                        "Uploaded file extension is not supported"));
-
-    if (!validationProperties.isAllowedExtension(extension)) {
-      throw new AppException(
-          ErrorCode.UNSUPPORTED_FILE_EXTENSION,
-          HttpStatus.BAD_REQUEST,
-          "Uploaded file extension is not supported");
-    }
   }
 
-  private FileMetadata activeFileOrThrow(UUID fileId) {
-    FileMetadata metadata =
-        metadataRepository
+  private FileMetadata fileOrThrow(UUID fileId) {
+    return metadataRepository
             .findById(fileId)
             .orElseThrow(
                 () ->
                     new AppException(ErrorCode.FILE_NOT_FOUND, HttpStatus.NOT_FOUND, "File was not found"));
-
-    if (metadata.status() == FileStatus.DELETED) {
-      throw new AppException(ErrorCode.FILE_NOT_FOUND, HttpStatus.NOT_FOUND, "File was not found");
-    }
-
-    return metadata;
-  }
-
-  private MessageDigest sha256Digest() {
-    try {
-      return MessageDigest.getInstance("SHA-256");
-    } catch (Exception exception) {
-      throw new IllegalStateException("SHA-256 digest is not available", exception);
-    }
   }
 
   private String normalizeContentType(String contentType) {
     if (contentType == null || contentType.isBlank()) {
       return DEFAULT_CONTENT_TYPE;
     }
-
     return contentType;
   }
 
   private FileUploadResult toUploadResult(FileMetadata metadata) {
     return new FileUploadResult(
         metadata.id(),
+        metadata.ownerUserId(),
+        metadata.folderId(),
         metadata.originalName(),
-        metadata.sanitizedName(),
         metadata.contentType(),
         metadata.sizeBytes(),
-        metadata.checksumSha256(),
-        metadata.status().name(),
         metadata.createdAt());
   }
 
   private FileDetails toDetails(FileMetadata metadata) {
     return new FileDetails(
         metadata.id(),
+        metadata.ownerUserId(),
+        metadata.folderId(),
         metadata.originalName(),
-        metadata.sanitizedName(),
         metadata.contentType(),
         metadata.sizeBytes(),
-        metadata.checksumSha256(),
-        metadata.status().name(),
-        metadata.createdAt(),
-        metadata.updatedAt());
+        metadata.createdAt());
   }
 }

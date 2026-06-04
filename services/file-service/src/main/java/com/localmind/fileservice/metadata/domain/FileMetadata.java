@@ -1,57 +1,35 @@
 package com.localmind.fileservice.metadata.domain;
 
-import com.localmind.fileservice.files.domain.FileStatus;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record FileMetadata(
     UUID id,
+    String ownerUserId,
+    UUID folderId,
     String originalName,
-    String sanitizedName,
-    String contentType,
-    long sizeBytes,
-    String storageBucket,
     String storageObjectKey,
-    String checksumSha256,
-    FileStatus status,
-    OffsetDateTime createdAt,
-    OffsetDateTime updatedAt) {
+    long sizeBytes,
+    String contentType,
+    OffsetDateTime createdAt) {
+    
   public static FileMetadata stored(
       UUID id,
+      String ownerUserId,
+      UUID folderId,
       String originalName,
-      String sanitizedName,
-      String contentType,
-      long sizeBytes,
-      String storageBucket,
       String storageObjectKey,
-      String checksumSha256,
+      long sizeBytes,
+      String contentType,
       OffsetDateTime now) {
     return new FileMetadata(
         id,
+        ownerUserId,
+        folderId,
         originalName,
-        sanitizedName,
-        contentType,
-        sizeBytes,
-        storageBucket,
         storageObjectKey,
-        checksumSha256,
-        FileStatus.STORED,
-        now,
-        now);
-  }
-
-  public FileMetadata deleted(OffsetDateTime now) {
-    return new FileMetadata(
-        id,
-        originalName,
-        sanitizedName,
-        contentType,
         sizeBytes,
-        storageBucket,
-        storageObjectKey,
-        checksumSha256,
-        FileStatus.DELETED,
-        createdAt,
+        contentType,
         now);
   }
 }

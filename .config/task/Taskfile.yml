@@ -1,5 +1,10 @@
 version: "3"
 
+includes:
+  services:
+    taskfile: ./Services.Taskfile.yml
+    dir: ../..
+
 vars:
   ROOT_DIR: "{{.TASKFILE_DIR}}/../.."
   CONFIGURATION: "Release"

@@ -8,4 +8,6 @@ public interface FileMetadataRepository {
   FileMetadata save(FileMetadata metadata);
 
   Optional<FileMetadata> findById(UUID id);
+
+  void deleteById(UUID id);
 }

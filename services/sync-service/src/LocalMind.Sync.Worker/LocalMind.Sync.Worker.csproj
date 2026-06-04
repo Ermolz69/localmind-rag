@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MassTransit" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\LocalMind.Sync.Contracts\LocalMind.Sync.Contracts.csproj" />
+    <ProjectReference Include="..\LocalMind.Sync.Application\LocalMind.Sync.Application.csproj" />
+    <ProjectReference Include="..\LocalMind.Sync.Infrastructure\LocalMind.Sync.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

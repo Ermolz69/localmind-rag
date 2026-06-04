@@ -40,11 +40,10 @@ class FileServiceTest {
     FileUploadResult result =
         fileService.upload(
             new UploadFileCommand(
-                "Notes.PDF", "application/pdf", 5, new ByteArrayInputStream("hello".getBytes())));
+                "user123", null, "Notes.PDF", "application/pdf", 5, new ByteArrayInputStream("hello".getBytes())));
 
-    assertThat(result.sanitizedName()).isEqualTo("notes.pdf");
-    assertThat(result.checksumSha256())
-        .isEqualTo("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+    assertThat(result.originalName()).isEqualTo("Notes.PDF");
+    assertThat(result.ownerUserId()).isEqualTo("user123");
     assertThat(metadataRepository.findById(result.id())).isPresent();
     assertThat(storageService.lastCommand.objectKey()).contains(result.id().toString());
   }
@@ -55,6 +54,8 @@ class FileServiceTest {
             () ->
                 fileService.upload(
                     new UploadFileCommand(
+                        "user123",
+                        null,
                         "script.exe",
                         "application/octet-stream",
                         1,
@@ -76,6 +77,11 @@ class FileServiceTest {
     @Override
     public Optional<FileMetadata> findById(UUID id) {
       return Optional.ofNullable(storage.get(id));
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+      storage.remove(id);
     }
   }
 
