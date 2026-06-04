@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Ingestion.IncrementalIndexing;
 using KnowledgeApp.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,7 +13,9 @@ public static partial class DependencyInjection
         services.AddScoped<IIngestionJobRepository, IngestionJobRepository>();
         services.AddScoped<IIngestionJobProcessor, IngestionJobProcessor>();
         services.AddScoped<QueuedIngestionJobDispatcher>();
+
         services.AddHostedService<QueuedIngestionHostedService>();
+
         services.AddSingleton<RawTextExtractor>();
         services.AddSingleton<HtmlTextExtractor>();
         services.AddSingleton<PdfTextExtractor>();
@@ -20,6 +23,7 @@ public static partial class DependencyInjection
         services.AddSingleton<PptxTextExtractor>();
         services.AddSingleton<IDocumentTextExtractorFactory, DocumentTextExtractorFactory>();
         services.AddSingleton<IDocumentChunker, SimpleDocumentChunker>();
+        services.AddSingleton<IContentHashService, Sha256ContentHashService>();
 
         return services;
     }
