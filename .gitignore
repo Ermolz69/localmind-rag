@@ -53,6 +53,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Java / Gradle
+.gradle/
+build/
+
 # Tauri / Rust
 target/
 apps/desktop/src-tauri/target/
