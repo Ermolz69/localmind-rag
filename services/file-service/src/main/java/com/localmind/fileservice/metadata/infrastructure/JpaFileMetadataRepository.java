@@ -23,4 +23,9 @@ public class JpaFileMetadataRepository implements FileMetadataRepository {
   public Optional<FileMetadata> findById(UUID id) {
     return repository.findById(id).map(FileMetadataMapper::toDomain);
   }
+
+  @Override
+  public void deleteById(UUID id) {
+    repository.deleteById(id);
+  }
 }

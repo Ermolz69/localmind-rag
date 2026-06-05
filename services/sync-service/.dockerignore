@@ -1,0 +1,12 @@
+.dockerignore
+.gitignore
+.git
+.vs
+.vscode
+.idea
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+*.log
+*.user
+*.md

@@ -9,6 +9,8 @@
       href: product/requirements/technical-specification.md
     - name: Concept and MVP
       href: product/requirements/concept-and-mvp.md
+    - name: User journey map
+      href: product/user-journey-map.md
     - name: Functional requirements
       href: product/requirements/functional-requirements.md
     - name: Non-functional requirements

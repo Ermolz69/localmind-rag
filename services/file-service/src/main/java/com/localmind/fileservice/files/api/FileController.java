@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,14 +33,17 @@ public class FileController {
   }
 
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public ResponseEntity<ApiResponse<FileUploadResponse>> upload(@RequestPart("file") MultipartFile file)
+  public ResponseEntity<ApiResponse<FileUploadResponse>> upload(
+      @RequestPart("file") MultipartFile file,
+      @RequestParam("ownerUserId") String ownerUserId,
+      @RequestParam(value = "folderId", required = false) UUID folderId)
       throws Exception {
     try (InputStream content = file.getInputStream()) {
       FileUploadResponse response =
           FileApiMapper.toResponse(
               fileService.upload(
                   new UploadFileCommand(
-                      file.getOriginalFilename(), file.getContentType(), file.getSize(), content)));
+                      ownerUserId, folderId, file.getOriginalFilename(), file.getContentType(), file.getSize(), content)));
 
       return ResponseEntity.status(201).body(ApiResponse.success(response, requestId()));
     }

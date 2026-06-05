@@ -5,10 +5,9 @@ import java.util.UUID;
 
 public record FileUploadResult(
     UUID id,
+    String ownerUserId,
+    UUID folderId,
     String originalName,
-    String sanitizedName,
     String contentType,
     long sizeBytes,
-    String checksumSha256,
-    String status,
     OffsetDateTime createdAt) {}
