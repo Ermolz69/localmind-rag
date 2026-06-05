@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { getErrorMessage } from "@shared/api";
 
 export interface ApiMutationOptions {
@@ -15,6 +15,12 @@ export function useApiMutation<TArgs extends unknown[], TResult>(
   const [error, setError] = useState<string | null>(null);
   const [rawError, setRawError] = useState<unknown | null>(null);
 
+  const mutationFnRef = useRef(mutationFn);
+  mutationFnRef.current = mutationFn;
+
+  const fallbackErrorRef = useRef(fallbackError);
+  fallbackErrorRef.current = fallbackError;
+
   const execute = useCallback(
     async (...args: TArgs) => {
       setError(null);
@@ -22,16 +28,16 @@ export function useApiMutation<TArgs extends unknown[], TResult>(
       setIsPending(true);
 
       try {
-        return await mutationFn(...args);
+        return await mutationFnRef.current(...args);
       } catch (exception) {
         setRawError(exception);
-        setError(getErrorMessage(exception, fallbackError));
+        setError(getErrorMessage(exception, fallbackErrorRef.current));
         return null;
       } finally {
         setIsPending(false);
       }
     },
-    [fallbackError, mutationFn],
+    [],
   );
 
   const reset = useCallback(() => {

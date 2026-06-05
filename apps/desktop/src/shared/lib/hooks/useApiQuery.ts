@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getErrorMessage } from "@shared/api";
 
 export interface ApiQueryOptions<T> {
@@ -18,33 +18,36 @@ export function useApiQuery<T>(
   } = options;
 
   const [data, setData] = useState<T | null>(initialData as T | null);
-  const [isLoading, setIsLoading] = useState(enabled);
+  const [isLoading, setIsLoading] = useState(enabled && !initialData);
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rawError, setRawError] = useState<unknown | null>(null);
+
+  // Use refs to avoid re-creating the execute function when these change
+  const queryFnRef = useRef(queryFn);
+  queryFnRef.current = queryFn;
+  
+  const fallbackErrorRef = useRef(fallbackError);
+  fallbackErrorRef.current = fallbackError;
 
   const execute = useCallback(async () => {
     setError(null);
     setRawError(null);
     setIsFetching(true);
 
-    if (!data) {
-      setIsLoading(true);
-    }
-
     try {
-      const result = await queryFn();
+      const result = await queryFnRef.current();
       setData(result);
       return result;
     } catch (exception) {
       setRawError(exception);
-      setError(getErrorMessage(exception, fallbackError));
+      setError(getErrorMessage(exception, fallbackErrorRef.current));
       return null;
     } finally {
       setIsLoading(false);
       setIsFetching(false);
     }
-  }, [data, fallbackError, queryFn]);
+  }, []); // Stable execute function
 
   useEffect(() => {
     if (enabled) {
