@@ -1,25 +1,11 @@
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.RegularExpressions;
-using DocumentFormat.OpenXml.Packaging;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Diagnostics;
+using KnowledgeApp.Application.Ingestion.IncrementalIndexing;
 using KnowledgeApp.Contracts.Documents;
-using KnowledgeApp.Contracts.Rag;
-using KnowledgeApp.Contracts.Runtime;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
-using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using UglyToad.PdfPig;
-using A = DocumentFormat.OpenXml.Drawing;
-using PresentationSlideId = DocumentFormat.OpenXml.Presentation.SlideId;
-using SlideText = DocumentFormat.OpenXml.Drawing.Text;
-using WordParagraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
-using WordText = DocumentFormat.OpenXml.Wordprocessing.Text;
 
 namespace KnowledgeApp.Infrastructure.Services;
 
@@ -29,6 +15,8 @@ public sealed class IngestionJobProcessor(
     IDocumentTextExtractorFactory extractorFactory,
     IDocumentChunker chunker,
     IDocumentEmbeddingService documentEmbeddingService,
+    IContentHashService contentHashService,
+    IIncrementalChunkPlanner incrementalChunkPlanner,
     IDateTimeProvider dateTimeProvider,
     IAppDiagnosticLogger? diagnostics = null) : IIngestionJobProcessor
 {
@@ -41,19 +29,23 @@ public sealed class IngestionJobProcessor(
 
         DateTimeOffset now = dateTimeProvider.UtcNow;
         IngestionJob? job = await ingestionJobs.ClaimForProcessingAsync(jobId, operationId, now, cancellationToken);
+
         if (job is null)
         {
             IngestionJob? existingJob = await ingestionJobs.GetAsync(jobId, cancellationToken);
+
             diagnostics?.LogStep(
                 operationId,
                 existingJob is null ? DiagnosticNames.Steps.JobNotFound : DiagnosticNames.Steps.JobSkipped,
                 existingJob is null
                     ? null
                     : new Dictionary<string, object?> { [DiagnosticNames.Properties.Status] = existingJob.Status.ToString() });
+
             return;
         }
 
         Document? document = await dbContext.Documents.FindAsync([job.DocumentId], cancellationToken);
+
         if (document is null)
         {
             await ingestionJobs.MarkFailedAsync(
@@ -62,11 +54,13 @@ public sealed class IngestionJobProcessor(
                 "Document was not found.",
                 dateTimeProvider.UtcNow,
                 cancellationToken);
+
             diagnostics?.LogStep(operationId, DiagnosticNames.Steps.DocumentNotFound);
             return;
         }
 
         document.Status = DocumentStatus.Processing;
+
         dbContext.OperationLogs.Add(new OperationLog
         {
             OperationType = "Ingestion.Start",
@@ -75,6 +69,7 @@ public sealed class IngestionJobProcessor(
             Message = $"Started processing ingestion job for document '{document.Id}'",
             TraceId = operationId.ToString()
         });
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         try
@@ -95,6 +90,7 @@ public sealed class IngestionJobProcessor(
                 30,
                 dateTimeProvider.UtcNow,
                 cancellationToken);
+
             if (await StopIfCancelledAsync(jobId, document, cancellationToken))
             {
                 return;
@@ -102,22 +98,22 @@ public sealed class IngestionJobProcessor(
 
             string? extension = Path.GetExtension(documentFile.FileName);
             IDocumentTextExtractor? extractor = extractorFactory.GetExtractor(documentFile.FileType, extension, null);
-            DocumentTextExtractionResult? extraction = await extractor.ExtractAsync(documentFile.LocalPath, cancellationToken);
+
+            if (extractor is null)
+            {
+                throw new InvalidOperationException("Document file type is not supported.");
+            }
+
+            DocumentTextExtractionResult extraction = await extractor.ExtractAsync(documentFile.LocalPath, cancellationToken);
+
             diagnostics?.LogStep(
                 operationId,
                 DiagnosticNames.Steps.TextExtracted,
                 new Dictionary<string, object?>
                 {
                     [DiagnosticNames.Properties.DocumentId] = document.Id,
-                    [DiagnosticNames.Properties.SegmentsCount] = extraction.Segments.Count,
+                    [DiagnosticNames.Properties.SegmentsCount] = extraction.Segments.Count
                 });
-            DocumentChunk[]? existingChunks = await dbContext.DocumentChunks
-                .Where(x => x.DocumentId == document.Id)
-                .ToArrayAsync(cancellationToken);
-            Guid[]? existingChunkIds = existingChunks.Select(x => x.Id).ToArray();
-            DocumentEmbedding[]? existingEmbeddings = await dbContext.DocumentEmbeddings
-                .Where(x => existingChunkIds.Contains(x.DocumentChunkId))
-                .ToArrayAsync(cancellationToken);
 
             await ingestionJobs.UpdateStepAsync(
                 jobId,
@@ -126,35 +122,47 @@ public sealed class IngestionJobProcessor(
                 50,
                 dateTimeProvider.UtcNow,
                 cancellationToken);
+
             if (await StopIfCancelledAsync(jobId, document, cancellationToken))
             {
                 return;
             }
 
-            dbContext.DocumentEmbeddings.RemoveRange(existingEmbeddings);
-            dbContext.DocumentChunks.RemoveRange(existingChunks);
-            List<DocumentChunk>? newChunks = new List<DocumentChunk>();
-            foreach (DocumentTextSegment segment in extraction.Segments)
-            {
-                foreach (string chunkText in chunker.Split(segment.Text))
-                {
-                    newChunks.Add(new DocumentChunk
-                    {
-                        CreatedAt = dateTimeProvider.UtcNow,
-                        DocumentId = document.Id,
-                        Index = newChunks.Count,
-                        PageNumber = segment.PageNumber,
-                        Text = chunkText,
-                    });
-                }
-            }
+            List<ChunkCandidate> incomingChunks = BuildChunkCandidates(extraction);
 
-            if (newChunks.Count == 0)
+            if (incomingChunks.Count == 0)
             {
                 throw new InvalidOperationException("No extractable text was found in the document.");
             }
 
-            dbContext.DocumentChunks.AddRange(newChunks);
+            DocumentChunk[] existingChunks = await dbContext.DocumentChunks
+                .Where(x => x.DocumentId == document.Id)
+                .OrderBy(x => x.Index)
+                .ToArrayAsync(cancellationToken);
+
+            Guid[] existingChunkIds = existingChunks
+                .Select(x => x.Id)
+                .ToArray();
+
+            DocumentEmbedding[] existingEmbeddings = await dbContext.DocumentEmbeddings
+                .Where(x => existingChunkIds.Contains(x.DocumentChunkId))
+                .ToArrayAsync(cancellationToken);
+
+            ChunkDiffPlan diffPlan = incrementalChunkPlanner.BuildPlan(incomingChunks, existingChunks);
+
+            List<DocumentChunk> newChunks = diffPlan.NewChunks
+                .Select(candidate => new DocumentChunk
+                {
+                    CreatedAt = dateTimeProvider.UtcNow,
+                    DocumentId = document.Id,
+                    Index = candidate.Index,
+                    PageNumber = candidate.PageNumber,
+                    Text = candidate.Text,
+                    TextHash = candidate.TextHash,
+                    ChunkVersion = candidate.ChunkVersion
+                })
+                .ToList();
+
             await ingestionJobs.UpdateStepAsync(
                 jobId,
                 IngestionJobStatus.Embedding,
@@ -162,28 +170,45 @@ public sealed class IngestionJobProcessor(
                 75,
                 dateTimeProvider.UtcNow,
                 cancellationToken);
-            if (await StopIfCancelledAsync(jobId, document, cancellationToken))
-            {
-                return;
-            }
-
-            IReadOnlyList<DocumentEmbedding>? newEmbeddings = await documentEmbeddingService.GenerateAsync(newChunks, cancellationToken);
-            dbContext.DocumentEmbeddings.AddRange(newEmbeddings);
-            diagnostics?.LogStep(
-                operationId,
-                DiagnosticNames.Steps.ChunksAndEmbeddingsCreated,
-                new Dictionary<string, object?>
-                {
-                    [DiagnosticNames.Properties.ChunksCount] = newChunks.Count,
-                    [DiagnosticNames.Properties.EmbeddingsCount] = newEmbeddings.Count,
-                });
 
             if (await StopIfCancelledAsync(jobId, document, cancellationToken))
             {
                 return;
             }
 
+            EmbeddingCreationResult embeddingCreationResult = await CreateEmbeddingsForNewChunksAsync(
+                newChunks,
+                document.Id,
+                cancellationToken);
+
+            if (await StopIfCancelledAsync(jobId, document, cancellationToken))
+            {
+                return;
+            }
+
+            ApplyReusedChunkUpdates(diffPlan.ReusedChunks);
+
+            HashSet<Guid> deletedChunkIds = diffPlan.DeletedChunks
+                .Select(chunk => chunk.Id)
+                .ToHashSet();
+
+            DocumentEmbedding[] deletedEmbeddings = existingEmbeddings
+                .Where(embedding => deletedChunkIds.Contains(embedding.DocumentChunkId))
+                .ToArray();
+
+            dbContext.DocumentEmbeddings.RemoveRange(deletedEmbeddings);
+            dbContext.DocumentChunks.RemoveRange(diffPlan.DeletedChunks);
+
+            dbContext.DocumentChunks.AddRange(newChunks);
+            dbContext.DocumentEmbeddings.AddRange(embeddingCreationResult.Embeddings);
+
+            document.IndexedContentHash = contentHashService.ComputeDocumentHash(
+                incomingChunks.Select(chunk => chunk.TextHash),
+                IndexingVersions.CurrentDocumentIndexVersion);
+
+            document.IndexVersion = IndexingVersions.CurrentDocumentIndexVersion;
             document.Status = DocumentStatus.Indexed;
+
             dbContext.OperationLogs.Add(new OperationLog
             {
                 OperationType = "Ingestion.Success",
@@ -192,6 +217,21 @@ public sealed class IngestionJobProcessor(
                 Message = $"Ingestion job for document '{document.Id}' completed successfully",
                 TraceId = operationId.ToString()
             });
+
+            diagnostics?.LogStep(
+                operationId,
+                DiagnosticNames.Steps.ChunksAndEmbeddingsCreated,
+                new Dictionary<string, object?>
+                {
+                    [DiagnosticNames.Properties.ChunksCount] = incomingChunks.Count,
+                    [DiagnosticNames.Properties.EmbeddingsCount] = embeddingCreationResult.Embeddings.Count,
+                    ["reusedChunksCount"] = diffPlan.ReusedChunks.Count,
+                    ["newChunksCount"] = newChunks.Count,
+                    ["deletedChunksCount"] = diffPlan.DeletedChunks.Count,
+                    ["generatedEmbeddingsCount"] = embeddingCreationResult.GeneratedEmbeddingsCount,
+                    ["crossDocumentReusedEmbeddingsCount"] = embeddingCreationResult.CrossDocumentReusedEmbeddingsCount
+                });
+
             await dbContext.SaveChangesAsync(cancellationToken);
             await ingestionJobs.MarkIndexedAsync(jobId, dateTimeProvider.UtcNow, cancellationToken);
         }
@@ -199,6 +239,7 @@ public sealed class IngestionJobProcessor(
         {
             document.Status = DocumentStatus.Queued;
             await dbContext.SaveChangesAsync(CancellationToken.None);
+
             await ingestionJobs.UpdateStepAsync(
                 jobId,
                 IngestionJobStatus.Pending,
@@ -206,18 +247,22 @@ public sealed class IngestionJobProcessor(
                 0,
                 dateTimeProvider.UtcNow,
                 CancellationToken.None);
+
             throw;
         }
         catch (Exception exception)
         {
             string sanitizedError = SanitizeIngestionError(exception);
+
             await ingestionJobs.MarkFailedAsync(
                 jobId,
                 "INGESTION_JOB_FAILED",
                 sanitizedError,
                 dateTimeProvider.UtcNow,
                 cancellationToken);
+
             document.Status = DocumentStatus.Failed;
+
             dbContext.OperationLogs.Add(new OperationLog
             {
                 OperationType = "Ingestion.Failure",
@@ -226,31 +271,171 @@ public sealed class IngestionJobProcessor(
                 Message = $"Ingestion job for document '{document.Id}' failed: {sanitizedError}",
                 TraceId = operationId.ToString()
             });
+
             diagnostics?.LogFailure(operationId, exception);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
         IngestionJob? finishedJob = await ingestionJobs.GetAsync(jobId, cancellationToken);
+
         diagnostics?.LogStep(
             operationId,
             DiagnosticNames.Steps.JobFinished,
             new Dictionary<string, object?>
             {
                 [DiagnosticNames.Properties.Status] = finishedJob?.Status.ToString(),
-                [DiagnosticNames.Properties.DocumentStatus] = document.Status.ToString(),
+                [DiagnosticNames.Properties.DocumentStatus] = document.Status.ToString()
             });
+    }
+
+    private List<ChunkCandidate> BuildChunkCandidates(DocumentTextExtractionResult extraction)
+    {
+        List<ChunkCandidate> candidates = [];
+
+        foreach (DocumentTextSegment segment in extraction.Segments)
+        {
+            foreach (string chunkText in chunker.Split(segment.Text))
+            {
+                string textHash = contentHashService.ComputeChunkHash(chunkText);
+
+                candidates.Add(new ChunkCandidate(
+                    Index: candidates.Count,
+                    PageNumber: segment.PageNumber,
+                    Text: chunkText,
+                    TextHash: textHash,
+                    ChunkVersion: IndexingVersions.CurrentChunkVersion));
+            }
+        }
+
+        return candidates;
+    }
+
+    private async Task<EmbeddingCreationResult> CreateEmbeddingsForNewChunksAsync(
+        IReadOnlyList<DocumentChunk> newChunks,
+        Guid currentDocumentId,
+        CancellationToken cancellationToken)
+    {
+        if (newChunks.Count == 0)
+        {
+            return new EmbeddingCreationResult([], 0, 0);
+        }
+
+        Dictionary<string, DocumentEmbedding> reusableEmbeddingsByTextHash =
+            await LoadReusableEmbeddingsByTextHashAsync(newChunks, currentDocumentId, cancellationToken);
+
+        List<DocumentEmbedding> copiedEmbeddings = [];
+        List<DocumentChunk> chunksWithoutReusableEmbeddings = [];
+
+        foreach (DocumentChunk newChunk in newChunks)
+        {
+            if (reusableEmbeddingsByTextHash.TryGetValue(newChunk.TextHash, out DocumentEmbedding? reusableEmbedding))
+            {
+                copiedEmbeddings.Add(CopyEmbeddingForChunk(reusableEmbedding, newChunk.Id));
+                continue;
+            }
+
+            chunksWithoutReusableEmbeddings.Add(newChunk);
+        }
+
+        IReadOnlyList<DocumentEmbedding> generatedEmbeddings = chunksWithoutReusableEmbeddings.Count == 0
+            ? []
+            : await documentEmbeddingService.GenerateAsync(chunksWithoutReusableEmbeddings, cancellationToken);
+
+        List<DocumentEmbedding> allEmbeddings = new List<DocumentEmbedding>(
+            copiedEmbeddings.Count + generatedEmbeddings.Count);
+
+        allEmbeddings.AddRange(copiedEmbeddings);
+        allEmbeddings.AddRange(generatedEmbeddings);
+
+        return new EmbeddingCreationResult(
+            allEmbeddings,
+            generatedEmbeddings.Count,
+            copiedEmbeddings.Count);
+    }
+
+    private async Task<Dictionary<string, DocumentEmbedding>> LoadReusableEmbeddingsByTextHashAsync(
+        IReadOnlyList<DocumentChunk> newChunks,
+        Guid currentDocumentId,
+        CancellationToken cancellationToken)
+    {
+        string modelName = documentEmbeddingService.ModelName;
+
+        if (string.IsNullOrWhiteSpace(modelName))
+        {
+            return [];
+        }
+
+        string[] textHashes = newChunks
+            .Select(chunk => chunk.TextHash)
+            .Where(textHash => !string.IsNullOrWhiteSpace(textHash))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (textHashes.Length == 0)
+        {
+            return [];
+        }
+
+        List<ReusableEmbeddingProjection> reusableEmbeddings = await (
+            from chunk in dbContext.DocumentChunks.AsNoTracking()
+            join embedding in dbContext.DocumentEmbeddings.AsNoTracking()
+                on chunk.Id equals embedding.DocumentChunkId
+            where chunk.DocumentId != currentDocumentId
+                && chunk.ChunkVersion == IndexingVersions.CurrentChunkVersion
+                && textHashes.Contains(chunk.TextHash)
+                && embedding.ModelName == modelName
+            select new ReusableEmbeddingProjection(chunk.TextHash, embedding))
+            .ToListAsync(cancellationToken);
+
+        return reusableEmbeddings
+            .GroupBy(item => item.TextHash, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .OrderBy(item => item.Embedding.CreatedAt)
+                    .First()
+                    .Embedding,
+                StringComparer.Ordinal);
+    }
+
+    private DocumentEmbedding CopyEmbeddingForChunk(DocumentEmbedding sourceEmbedding, Guid targetChunkId)
+    {
+        return new DocumentEmbedding
+        {
+            CreatedAt = dateTimeProvider.UtcNow,
+            DocumentChunkId = targetChunkId,
+            ModelName = sourceEmbedding.ModelName,
+            Dimension = sourceEmbedding.Dimension,
+            Embedding = sourceEmbedding.Embedding.ToArray()
+        };
+    }
+
+    private static void ApplyReusedChunkUpdates(IReadOnlyList<ChunkReuseMatch> reusedChunks)
+    {
+        foreach (ChunkReuseMatch reusedChunk in reusedChunks)
+        {
+            reusedChunk.ExistingChunk.Index = reusedChunk.Candidate.Index;
+            reusedChunk.ExistingChunk.PageNumber = reusedChunk.Candidate.PageNumber;
+            reusedChunk.ExistingChunk.Text = reusedChunk.Candidate.Text;
+            reusedChunk.ExistingChunk.TextHash = reusedChunk.Candidate.TextHash;
+            reusedChunk.ExistingChunk.ChunkVersion = reusedChunk.Candidate.ChunkVersion;
+        }
     }
 
     private async Task<bool> StopIfCancelledAsync(Guid jobId, Document document, CancellationToken cancellationToken)
     {
         IngestionJob? currentJob = await ingestionJobs.GetAsync(jobId, cancellationToken);
+
         if (currentJob?.Status != IngestionJobStatus.Cancelled)
         {
             return false;
         }
 
         dbContext.ChangeTracker.Clear();
+
         Document? currentDocument = await dbContext.Documents.FindAsync([document.Id], cancellationToken);
+
         if (currentDocument is not null)
         {
             currentDocument.Status = DocumentStatus.Queued;
@@ -264,14 +449,25 @@ public sealed class IngestionJobProcessor(
     private static string SanitizeIngestionError(Exception exception)
     {
         string message = exception.Message;
+
         if (string.IsNullOrWhiteSpace(message))
         {
             return "Document ingestion failed.";
         }
 
         string[] safeTerms = ["PDF", "DOCX", "PPTX", "extractable text", "Document file"];
+
         return safeTerms.Any(term => message.Contains(term, StringComparison.OrdinalIgnoreCase))
             ? message
             : "Document ingestion failed.";
     }
+
+    private sealed record EmbeddingCreationResult(
+        IReadOnlyList<DocumentEmbedding> Embeddings,
+        int GeneratedEmbeddingsCount,
+        int CrossDocumentReusedEmbeddingsCount);
+
+    private sealed record ReusableEmbeddingProjection(
+        string TextHash,
+        DocumentEmbedding Embedding);
 }

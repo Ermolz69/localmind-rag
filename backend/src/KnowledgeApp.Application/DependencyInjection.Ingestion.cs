@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Ingestion;
+using KnowledgeApp.Application.Ingestion.IncrementalIndexing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace KnowledgeApp.Application;
@@ -12,6 +13,8 @@ public static partial class DependencyInjection
         services.AddScoped<GetIngestionJobHandler>();
         services.AddScoped<RetryIngestionJobHandler>();
         services.AddScoped<CancelIngestionJobHandler>();
+
+        services.AddSingleton<IIncrementalChunkPlanner, IncrementalChunkPlanner>();
 
         return services;
     }

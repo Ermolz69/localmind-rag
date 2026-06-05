@@ -3,6 +3,7 @@ using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Ingestion.IncrementalIndexing;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
@@ -276,12 +277,24 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
     private static IngestionJobProcessor CreateProcessor(TestDatabase database)
     {
         RawTextExtractor? rawExtractor = new RawTextExtractor();
+
         return new IngestionJobProcessor(
             database.Context,
             new IngestionJobRepository(database.Context),
-            new DocumentTextExtractorFactory(rawExtractor, new HtmlTextExtractor(), new PdfTextExtractor(new NoOpOcrEngine(), Options.Create(new OcrOptions { Enabled = false })), new DocxTextExtractor(), new PptxTextExtractor()),
+            new DocumentTextExtractorFactory(
+                rawExtractor,
+                new HtmlTextExtractor(),
+                new PdfTextExtractor(
+                    new NoOpOcrEngine(),
+                    Options.Create(new OcrOptions { Enabled = false })),
+                new DocxTextExtractor(),
+                new PptxTextExtractor()),
             new SimpleDocumentChunker(),
-            new DocumentEmbeddingService(new StubEmbeddingGenerator(), new FixedDateTimeProvider()),
+            new DocumentEmbeddingService(
+                new StubEmbeddingGenerator(),
+                new FixedDateTimeProvider()),
+            new Sha256ContentHashService(),
+            new IncrementalChunkPlanner(),
             new FixedDateTimeProvider());
     }
 

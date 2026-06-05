@@ -6,10 +6,20 @@ namespace KnowledgeApp.Domain.Entities;
 public sealed class Document : Entity
 {
     public Guid? BucketId { get; set; }
+
     public string Name { get; set; } = string.Empty;
+
+    public string? IndexedContentHash { get; set; }
+
+    public int IndexVersion { get; set; }
+
     public DocumentStatus Status { get; set; } = DocumentStatus.Uploaded;
+
     public SyncStatus SyncStatus { get; set; } = SyncStatus.LocalOnly;
+
     public Guid? LocalDeviceId { get; set; }
+
     public DateTimeOffset? DeletedAt { get; set; }
+
     public ICollection<DocumentTag> Tags { get; set; } = [];
 }
