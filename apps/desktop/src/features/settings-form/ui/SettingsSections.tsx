@@ -1,22 +1,72 @@
-import type { AppSettings } from "@entities/settings";
+import type {
+  AppSettings,
+  WatchedFolder,
+  WatchedFolderStatusResponse,
+} from "@entities/settings";
 import type { ReactNode } from "react";
-import { Input } from "@shared/ui";
-import { Select } from "@shared/ui";
+import { Input, Select } from "@shared/ui";
 
 type SettingsSectionsProps = {
   draft: AppSettings;
+  watchedFolderStatus?: WatchedFolderStatusResponse | null;
   onChange: (settings: AppSettings) => void;
 };
 
-export function SettingsSections({ draft, onChange }: SettingsSectionsProps) {
+export function SettingsSections({
+  draft,
+  watchedFolderStatus,
+  onChange,
+}: SettingsSectionsProps) {
+  function updateWatchedFolder(index: number, nextFolder: WatchedFolder) {
+    const folders = [...draft.watchedFolders.folders];
+    folders[index] = nextFolder;
+
+    onChange({
+      ...draft,
+      watchedFolders: {
+        ...draft.watchedFolders,
+        folders,
+      },
+    });
+  }
+
+  function removeWatchedFolder(index: number) {
+    onChange({
+      ...draft,
+      watchedFolders: {
+        ...draft.watchedFolders,
+        folders: draft.watchedFolders.folders.filter(
+          (_, itemIndex) => itemIndex !== index,
+        ),
+      },
+    });
+  }
+
+  function addWatchedFolder() {
+    onChange({
+      ...draft,
+      watchedFolders: {
+        ...draft.watchedFolders,
+        folders: [
+          ...draft.watchedFolders.folders,
+          {
+            path: "",
+            enabled: true,
+            includeSubdirectories: false,
+          },
+        ],
+      },
+    });
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Section
         id="runtime-paths"
         title="Runtime paths"
-        description="Portable folders and local database locations used by the desktop runtime."
+        description="Local folders used by the desktop backend."
       >
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <TextField
             label="Data path"
             value={draft.runtimePaths.dataPath}
@@ -73,9 +123,9 @@ export function SettingsSections({ draft, onChange }: SettingsSectionsProps) {
       <Section
         id="ai"
         title="AI"
-        description="Provider, models, and local runtime executable settings."
+        description="Runtime provider and model settings used for chat and embeddings."
       >
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <TextField
             label="Provider"
             value={draft.ai.provider}
@@ -117,11 +167,11 @@ export function SettingsSections({ draft, onChange }: SettingsSectionsProps) {
       <Section
         id="sync"
         title="Sync"
-        description="Cloud sync toggles stay optional, so local offline work remains independent."
+        description="Remote synchronization behavior."
       >
-        <div className="grid gap-4 lg:grid-cols-2">
-          <label className="flex flex-col gap-2 text-sm">
-            <span className="font-medium">Sync enabled</span>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium text-foreground">
+            <span>Sync enabled</span>
             <Select
               value={String(draft.sync.enabled)}
               onChange={(event) =>
@@ -138,8 +188,9 @@ export function SettingsSections({ draft, onChange }: SettingsSectionsProps) {
               <option value="true">Enabled</option>
             </Select>
           </label>
-          <label className="flex flex-col gap-2 text-sm">
-            <span className="font-medium">Auto sync</span>
+
+          <label className="space-y-1 text-sm font-medium text-foreground">
+            <span>Auto sync</span>
             <Select
               value={String(draft.sync.autoSync)}
               onChange={(event) =>
@@ -158,6 +209,168 @@ export function SettingsSections({ draft, onChange }: SettingsSectionsProps) {
           </label>
         </div>
       </Section>
+
+      <Section
+        id="watched-folders"
+        title="Watched folders"
+        description="Automatically create ingestion jobs when files are created, updated, or deleted in selected folders."
+      >
+        <div className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="space-y-1 text-sm font-medium text-foreground">
+              <span>Auto-ingestion</span>
+              <Select
+                value={String(draft.watchedFolders.enabled)}
+                onChange={(event) =>
+                  onChange({
+                    ...draft,
+                    watchedFolders: {
+                      ...draft.watchedFolders,
+                      enabled: event.target.value === "true",
+                    },
+                  })
+                }
+              >
+                <option value="false">Disabled</option>
+                <option value="true">Enabled</option>
+              </Select>
+            </label>
+
+            <label className="space-y-1 text-sm font-medium text-foreground">
+              <span>Debounce milliseconds</span>
+              <Input
+                min={250}
+                max={60000}
+                type="number"
+                value={draft.watchedFolders.debounceMilliseconds}
+                onChange={(event) =>
+                  onChange({
+                    ...draft,
+                    watchedFolders: {
+                      ...draft.watchedFolders,
+                      debounceMilliseconds: Number(event.target.value),
+                    },
+                  })
+                }
+              />
+            </label>
+
+            <label className="space-y-1 text-sm font-medium text-foreground">
+              <span>Delete policy</span>
+              <Select
+                value={draft.watchedFolders.deletePolicy}
+                onChange={(event) =>
+                  onChange({
+                    ...draft,
+                    watchedFolders: {
+                      ...draft.watchedFolders,
+                      deletePolicy: event.target.value,
+                    },
+                  })
+                }
+              >
+                <option value="MarkDeleted">Mark deleted</option>
+              </Select>
+            </label>
+          </div>
+
+          <div className="space-y-3">
+            {draft.watchedFolders.folders.map((folder, index) => {
+              const status = watchedFolderStatus?.folders.find(
+                (item) => item.path === folder.path,
+              );
+
+              return (
+                <div
+                  className="rounded-lg border border-border bg-card/50 p-3"
+                  key={`watched-folder-${index}`}
+                >
+                  <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
+                    <TextField
+                      label="Folder path"
+                      value={folder.path}
+                      onChange={(path) =>
+                        updateWatchedFolder(index, { ...folder, path })
+                      }
+                    />
+
+                    <label className="space-y-1 text-sm font-medium text-foreground">
+                      <span>Enabled</span>
+                      <Select
+                        value={String(folder.enabled)}
+                        onChange={(event) =>
+                          updateWatchedFolder(index, {
+                            ...folder,
+                            enabled: event.target.value === "true",
+                          })
+                        }
+                      >
+                        <option value="false">Disabled</option>
+                        <option value="true">Enabled</option>
+                      </Select>
+                    </label>
+
+                    <label className="space-y-1 text-sm font-medium text-foreground">
+                      <span>Subfolders</span>
+                      <Select
+                        value={String(folder.includeSubdirectories)}
+                        onChange={(event) =>
+                          updateWatchedFolder(index, {
+                            ...folder,
+                            includeSubdirectories:
+                              event.target.value === "true",
+                          })
+                        }
+                      >
+                        <option value="false">Disabled</option>
+                        <option value="true">Enabled</option>
+                      </Select>
+                    </label>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>Exists: {status?.exists ? "yes" : "unknown"}</span>
+                    <span>
+                      Watching: {status?.isWatching ? "active" : "inactive"}
+                    </span>
+                    <span>Pending: {status?.pendingEvents ?? 0}</span>
+                    {status?.lastEventAt ? (
+                      <span>Last event: {status.lastEventAt}</span>
+                    ) : null}
+                    {status?.lastError ? (
+                      <span className="text-destructive">
+                        Error: {status.lastError}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <button
+                    className="text-destructive mt-3 text-sm font-medium hover:underline"
+                    type="button"
+                    onClick={() => removeWatchedFolder(index)}
+                  >
+                    Remove folder
+                  </button>
+                </div>
+              );
+            })}
+
+            <button
+              className="rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted"
+              type="button"
+              onClick={addWatchedFolder}
+            >
+              Add watched folder
+            </button>
+          </div>
+
+          {watchedFolderStatus?.lastError ? (
+            <p className="text-destructive text-sm">
+              Watcher error: {watchedFolderStatus.lastError}
+            </p>
+          ) : null}
+        </div>
+      </Section>
     </div>
   );
 }
@@ -174,19 +387,10 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section
-      id={id}
-      className="scroll-mt-6 space-y-5 rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6"
-    >
-      <div>
-        <h2 className="text-base font-semibold text-card-foreground">
-          {title}
-        </h2>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          {description}
-        </p>
-      </div>
-      {children}
+    <section className="rounded-xl border border-border bg-card p-5" id={id}>
+      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
@@ -201,8 +405,8 @@ function TextField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex flex-col gap-2 text-sm">
-      <span className="font-medium">{label}</span>
+    <label className="space-y-1 text-sm font-medium text-foreground">
+      <span>{label}</span>
       <Input value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );

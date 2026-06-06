@@ -1,0 +1,397 @@
+using System.Security.Cryptography;
+using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Ingestion.WatchedFolders;
+using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Domain.Enums;
+using KnowledgeApp.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+
+namespace KnowledgeApp.Infrastructure.Services.WatchedFolders;
+
+public sealed class WatchedFileIngestionService(
+    AppDbContext dbContext,
+    IDateTimeProvider dateTimeProvider) : IWatchedFileIngestionService
+{
+    private const int ReadRetryCount = 5;
+    private static readonly TimeSpan ReadRetryDelay = TimeSpan.FromMilliseconds(200);
+
+    public async Task HandleCreatedOrChangedAsync(
+        string filePath,
+        string watchedFolderPath,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || string.IsNullOrWhiteSpace(watchedFolderPath))
+        {
+            return;
+        }
+
+        FileType fileType = ResolveFileType(filePath);
+
+        if (fileType == FileType.Unknown)
+        {
+            return;
+        }
+
+        string normalizedFilePath;
+        string normalizedWatchedFolderPath;
+
+        try
+        {
+            normalizedFilePath = NormalizePath(filePath);
+            normalizedWatchedFolderPath = NormalizePath(watchedFolderPath);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        if (!IsFileInsideFolder(normalizedFilePath, normalizedWatchedFolderPath))
+        {
+            return;
+        }
+
+        FileSnapshot? fileSnapshot = await TryReadFileSnapshotAsync(filePath, cancellationToken);
+
+        if (fileSnapshot is null)
+        {
+            return;
+        }
+
+        DateTimeOffset now = dateTimeProvider.UtcNow;
+        DateTime nowUtc = now.UtcDateTime;
+
+        WatchedFileLink? existingLink = await dbContext.WatchedFileLinks
+            .FirstOrDefaultAsync(link => link.NormalizedFilePath == normalizedFilePath, cancellationToken);
+
+        if (existingLink is null)
+        {
+            await CreateDocumentForWatchedFileAsync(
+                filePath,
+                normalizedFilePath,
+                normalizedWatchedFolderPath,
+                fileSnapshot,
+                fileType,
+                nowUtc,
+                cancellationToken);
+
+            return;
+        }
+
+        if (string.Equals(existingLink.LastContentHash, fileSnapshot.ContentHash, StringComparison.Ordinal))
+        {
+            existingLink.FilePath = Path.GetFullPath(filePath);
+            existingLink.WatchedFolderPath = Path.GetFullPath(watchedFolderPath);
+            existingLink.LastSeenAt = now;
+            existingLink.DeletedAt = null;
+            existingLink.UpdatedAt = nowUtc;
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        await UpdateDocumentForWatchedFileAsync(
+            existingLink,
+            filePath,
+            watchedFolderPath,
+            fileSnapshot,
+            fileType,
+            nowUtc,
+            cancellationToken);
+    }
+
+    public async Task HandleDeletedAsync(
+        string filePath,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return;
+        }
+
+        string normalizedFilePath;
+
+        try
+        {
+            normalizedFilePath = NormalizePath(filePath);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        WatchedFileLink? link = await dbContext.WatchedFileLinks
+            .FirstOrDefaultAsync(link => link.NormalizedFilePath == normalizedFilePath, cancellationToken);
+
+        if (link is null)
+        {
+            return;
+        }
+
+        DateTimeOffset now = dateTimeProvider.UtcNow;
+        DateTime nowUtc = now.UtcDateTime;
+
+        link.DeletedAt = now;
+        link.LastSeenAt = now;
+        link.UpdatedAt = nowUtc;
+
+        Document? document = await dbContext.Documents
+            .FirstOrDefaultAsync(document => document.Id == link.DocumentId, cancellationToken);
+
+        if (document is not null)
+        {
+            document.DeletedAt = now;
+            document.Status = DocumentStatus.Deleted;
+            document.SyncStatus = SyncStatus.DeletedLocal;
+            document.UpdatedAt = nowUtc;
+
+            dbContext.OperationLogs.Add(new OperationLog
+            {
+                CreatedAt = nowUtc,
+                OperationType = "WatchedFolder.FileDeleted",
+                EntityType = "Document",
+                EntityId = document.Id.ToString(),
+                Message = $"Marked watched document '{document.Name}' as deleted",
+                MetadataJson = "{}"
+            });
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task CreateDocumentForWatchedFileAsync(
+        string filePath,
+        string normalizedFilePath,
+        string normalizedWatchedFolderPath,
+        FileSnapshot fileSnapshot,
+        FileType fileType,
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
+    {
+        string fullFilePath = Path.GetFullPath(filePath);
+
+        Document document = new Document
+        {
+            CreatedAt = nowUtc,
+            Name = Path.GetFileName(fullFilePath),
+            Status = DocumentStatus.Queued,
+            SyncStatus = SyncStatus.LocalOnly
+        };
+
+        DocumentFile documentFile = new DocumentFile
+        {
+            CreatedAt = nowUtc,
+            DocumentId = document.Id,
+            FileName = Path.GetFileName(fullFilePath),
+            FileType = fileType,
+            LocalPath = fullFilePath,
+            ContentHash = fileSnapshot.ContentHash,
+            SizeBytes = fileSnapshot.SizeBytes
+        };
+
+        WatchedFileLink link = new WatchedFileLink
+        {
+            CreatedAt = nowUtc,
+            DocumentId = document.Id,
+            WatchedFolderPath = normalizedWatchedFolderPath,
+            FilePath = fullFilePath,
+            NormalizedFilePath = normalizedFilePath,
+            LastContentHash = fileSnapshot.ContentHash,
+            LastSeenAt = new DateTimeOffset(nowUtc, TimeSpan.Zero)
+        };
+
+        IngestionJob job = new IngestionJob
+        {
+            CreatedAt = nowUtc,
+            DocumentId = document.Id,
+            Status = IngestionJobStatus.Pending,
+            CurrentStep = "Pending",
+            ProgressPercent = 0
+        };
+
+        dbContext.Documents.Add(document);
+        dbContext.DocumentFiles.Add(documentFile);
+        dbContext.WatchedFileLinks.Add(link);
+        dbContext.IngestionJobs.Add(job);
+
+        dbContext.OperationLogs.Add(new OperationLog
+        {
+            CreatedAt = nowUtc,
+            OperationType = "WatchedFolder.FileCreated",
+            EntityType = "Document",
+            EntityId = document.Id.ToString(),
+            Message = $"Created ingestion job for watched file '{document.Name}'",
+            MetadataJson = "{}"
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task UpdateDocumentForWatchedFileAsync(
+        WatchedFileLink link,
+        string filePath,
+        string watchedFolderPath,
+        FileSnapshot fileSnapshot,
+        FileType fileType,
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
+    {
+        string fullFilePath = Path.GetFullPath(filePath);
+
+        Document? document = await dbContext.Documents
+            .FirstOrDefaultAsync(document => document.Id == link.DocumentId, cancellationToken);
+
+        if (document is null)
+        {
+            return;
+        }
+
+        DocumentFile? documentFile = await dbContext.DocumentFiles
+            .FirstOrDefaultAsync(file => file.DocumentId == document.Id, cancellationToken);
+
+        if (documentFile is null)
+        {
+            documentFile = new DocumentFile
+            {
+                CreatedAt = nowUtc,
+                DocumentId = document.Id
+            };
+
+            dbContext.DocumentFiles.Add(documentFile);
+        }
+
+        DateTimeOffset nowOffset = new DateTimeOffset(nowUtc, TimeSpan.Zero);
+
+        document.Name = Path.GetFileName(fullFilePath);
+        document.Status = DocumentStatus.Queued;
+        document.SyncStatus = SyncStatus.LocalOnly;
+        document.DeletedAt = null;
+        document.UpdatedAt = nowUtc;
+
+        documentFile.FileName = Path.GetFileName(fullFilePath);
+        documentFile.FileType = fileType;
+        documentFile.LocalPath = fullFilePath;
+        documentFile.ContentHash = fileSnapshot.ContentHash;
+        documentFile.SizeBytes = fileSnapshot.SizeBytes;
+        documentFile.UpdatedAt = nowUtc;
+
+        link.FilePath = fullFilePath;
+        link.WatchedFolderPath = Path.GetFullPath(watchedFolderPath);
+        link.LastContentHash = fileSnapshot.ContentHash;
+        link.LastSeenAt = nowOffset;
+        link.DeletedAt = null;
+        link.UpdatedAt = nowUtc;
+
+        IngestionJob job = new IngestionJob
+        {
+            CreatedAt = nowUtc,
+            DocumentId = document.Id,
+            Status = IngestionJobStatus.Pending,
+            CurrentStep = "Pending",
+            ProgressPercent = 0
+        };
+
+        dbContext.IngestionJobs.Add(job);
+
+        dbContext.OperationLogs.Add(new OperationLog
+        {
+            CreatedAt = nowUtc,
+            OperationType = "WatchedFolder.FileChanged",
+            EntityType = "Document",
+            EntityId = document.Id.ToString(),
+            Message = $"Created reindex job for watched file '{document.Name}'",
+            MetadataJson = "{}"
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task<FileSnapshot?> TryReadFileSnapshotAsync(
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        for (int attempt = 1; attempt <= ReadRetryCount; attempt++)
+        {
+            try
+            {
+                if (!File.Exists(filePath))
+                {
+                    return null;
+                }
+
+                FileInfo fileInfo = new FileInfo(filePath);
+
+                if (fileInfo.Length > int.MaxValue)
+                {
+                    return null;
+                }
+
+                await using FileStream stream = new FileStream(
+                    filePath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete);
+
+                using SHA256 sha256 = SHA256.Create();
+                byte[] hash = await sha256.ComputeHashAsync(stream, cancellationToken);
+
+                return new FileSnapshot(
+                    ContentHash: Convert.ToHexString(hash).ToLowerInvariant(),
+                    SizeBytes: Convert.ToInt32(fileInfo.Length));
+            }
+            catch (IOException) when (attempt < ReadRetryCount)
+            {
+                await Task.Delay(ReadRetryDelay, cancellationToken);
+            }
+            catch (UnauthorizedAccessException) when (attempt < ReadRetryCount)
+            {
+                await Task.Delay(ReadRetryDelay, cancellationToken);
+            }
+        }
+
+        return null;
+    }
+
+    private static FileType ResolveFileType(string filePath)
+    {
+        string extension = Path.GetExtension(filePath);
+
+        return extension.ToLowerInvariant() switch
+        {
+            ".pdf" => FileType.Pdf,
+            ".docx" => FileType.Docx,
+            ".pptx" => FileType.Pptx,
+            ".md" => FileType.Markdown,
+            ".markdown" => FileType.Markdown,
+            ".txt" => FileType.PlainText,
+            ".html" => FileType.Html,
+            ".htm" => FileType.Html,
+            _ => FileType.Unknown
+        };
+    }
+
+    private static string NormalizePath(string path)
+    {
+        string fullPath = Path.GetFullPath(path.Trim())
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        return OperatingSystem.IsWindows()
+            ? fullPath.ToUpperInvariant()
+            : fullPath;
+    }
+
+    private static bool IsFileInsideFolder(string normalizedFilePath, string normalizedFolderPath)
+    {
+        return normalizedFilePath.StartsWith(
+            normalizedFolderPath + Path.DirectorySeparatorChar,
+            PathComparison);
+    }
+
+    private static StringComparison PathComparison =>
+        OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+    private sealed record FileSnapshot(
+        string ContentHash,
+        int SizeBytes);
+}

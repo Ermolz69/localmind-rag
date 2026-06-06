@@ -2,7 +2,6 @@ using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Options;
-
 using Microsoft.Extensions.Options;
 
 namespace KnowledgeApp.Infrastructure.Settings;
@@ -36,6 +35,11 @@ public sealed class SettingsDefaultsProvider(
                 storage.FilesPath,
                 vectorIndex.IndexPath,
                 storage.LogsPath),
-            Sync: new SyncSettingsDto(false, false));
+            Sync: new SyncSettingsDto(false, false),
+            WatchedFolders: new WatchedFoldersSettingsDto(
+                Enabled: false,
+                DebounceMilliseconds: 1000,
+                DeletePolicy: "MarkDeleted",
+                Folders: []));
     }
 }
