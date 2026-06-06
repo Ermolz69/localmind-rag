@@ -54,7 +54,12 @@ public sealed class SettingsValidator(IWatchedFolderPathValidator watchedFolderP
         Dictionary<string, string[]> errors,
         AppSettingsDto request)
     {
-        WatchedFoldersSettingsDto watchedFolders = request.WatchedFolders;
+        WatchedFoldersSettingsDto? watchedFolders = request.WatchedFolders;
+
+        if (watchedFolders is null)
+        {
+            return;
+        }
 
         if (watchedFolders.DebounceMilliseconds is < MinDebounceMilliseconds or > MaxDebounceMilliseconds)
         {

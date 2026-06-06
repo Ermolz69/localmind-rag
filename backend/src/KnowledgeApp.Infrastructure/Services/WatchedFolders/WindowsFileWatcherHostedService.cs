@@ -84,7 +84,7 @@ public sealed class WindowsFileWatcherHostedService(
 
         AppSettingsDto settings = await settingsService.GetAsync(cancellationToken);
 
-        currentSettings = settings.WatchedFolders;
+        currentSettings = settings.WatchedFolders ?? CreateDisabledWatchedFolderSettings();
 
         ApplyWatcherSettings(currentSettings);
     }
@@ -346,6 +346,15 @@ public sealed class WindowsFileWatcherHostedService(
         OperatingSystem.IsWindows()
             ? StringComparer.OrdinalIgnoreCase
             : StringComparer.Ordinal;
+
+    private static WatchedFoldersSettingsDto CreateDisabledWatchedFolderSettings()
+    {
+        return new WatchedFoldersSettingsDto(
+            Enabled: false,
+            DebounceMilliseconds: 1000,
+            DeletePolicy: "MarkDeleted",
+            Folders: []);
+    }
 
     private sealed record WatcherRegistration(
         string FolderPath,

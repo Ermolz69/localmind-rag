@@ -11,4 +11,4 @@ public sealed record AppSettingsDto(
     AiSettingsDto Ai,
     RuntimePathsSettingsDto RuntimePaths,
     SyncSettingsDto Sync,
-    WatchedFoldersSettingsDto WatchedFolders);
+    WatchedFoldersSettingsDto? WatchedFolders = null);

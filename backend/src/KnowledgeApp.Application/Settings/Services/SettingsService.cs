@@ -47,7 +47,7 @@ public sealed class SettingsService(
                 Enabled: GetBool(
                     storedSettings,
                     SettingsKeys.WatchedFoldersEnabled,
-                    defaults.WatchedFolders.Enabled),
+                    defaults.WatchedFolders!.Enabled),
                 DebounceMilliseconds: GetInt(
                     storedSettings,
                     SettingsKeys.WatchedFoldersDebounceMilliseconds,
@@ -64,7 +64,9 @@ public sealed class SettingsService(
 
     public async Task<Result> UpdateAsync(AppSettingsDto request, CancellationToken cancellationToken = default)
     {
-        Result validation = validator.Validate(request);
+        AppSettingsDto normalizedRequest = NormalizeRequest(request);
+
+        Result validation = validator.Validate(normalizedRequest);
 
         if (!validation.IsSuccess)
         {
@@ -75,33 +77,33 @@ public sealed class SettingsService(
             .Where(x => SettingsKeys.KnownKeys.Contains(x.Key))
             .ToDictionaryAsync(x => x.Key, x => x, cancellationToken);
 
-        Upsert(storedSettings, SettingsKeys.Theme, request.Appearance.Theme);
+        Upsert(storedSettings, SettingsKeys.Theme, normalizedRequest.Appearance.Theme);
 
-        Upsert(storedSettings, SettingsKeys.AiProvider, request.Ai.Provider);
-        Upsert(storedSettings, SettingsKeys.AiChatModel, request.Ai.ChatModel);
-        Upsert(storedSettings, SettingsKeys.AiEmbeddingModel, request.Ai.EmbeddingModel);
-        Upsert(storedSettings, SettingsKeys.AiRuntimePath, request.Ai.RuntimePath);
-        Upsert(storedSettings, SettingsKeys.AiModelsPath, request.Ai.ModelsPath);
+        Upsert(storedSettings, SettingsKeys.AiProvider, normalizedRequest.Ai.Provider);
+        Upsert(storedSettings, SettingsKeys.AiChatModel, normalizedRequest.Ai.ChatModel);
+        Upsert(storedSettings, SettingsKeys.AiEmbeddingModel, normalizedRequest.Ai.EmbeddingModel);
+        Upsert(storedSettings, SettingsKeys.AiRuntimePath, normalizedRequest.Ai.RuntimePath);
+        Upsert(storedSettings, SettingsKeys.AiModelsPath, normalizedRequest.Ai.ModelsPath);
 
-        Upsert(storedSettings, SettingsKeys.RuntimeDataPath, request.RuntimePaths.DataPath);
-        Upsert(storedSettings, SettingsKeys.RuntimeDatabasePath, request.RuntimePaths.DatabasePath);
-        Upsert(storedSettings, SettingsKeys.RuntimeFilesPath, request.RuntimePaths.FilesPath);
-        Upsert(storedSettings, SettingsKeys.RuntimeIndexPath, request.RuntimePaths.IndexPath);
-        Upsert(storedSettings, SettingsKeys.RuntimeLogsPath, request.RuntimePaths.LogsPath);
+        Upsert(storedSettings, SettingsKeys.RuntimeDataPath, normalizedRequest.RuntimePaths.DataPath);
+        Upsert(storedSettings, SettingsKeys.RuntimeDatabasePath, normalizedRequest.RuntimePaths.DatabasePath);
+        Upsert(storedSettings, SettingsKeys.RuntimeFilesPath, normalizedRequest.RuntimePaths.FilesPath);
+        Upsert(storedSettings, SettingsKeys.RuntimeIndexPath, normalizedRequest.RuntimePaths.IndexPath);
+        Upsert(storedSettings, SettingsKeys.RuntimeLogsPath, normalizedRequest.RuntimePaths.LogsPath);
 
-        Upsert(storedSettings, SettingsKeys.SyncEnabled, request.Sync.Enabled.ToString());
-        Upsert(storedSettings, SettingsKeys.SyncAutoSync, request.Sync.AutoSync.ToString());
+        Upsert(storedSettings, SettingsKeys.SyncEnabled, normalizedRequest.Sync.Enabled.ToString());
+        Upsert(storedSettings, SettingsKeys.SyncAutoSync, normalizedRequest.Sync.AutoSync.ToString());
 
-        Upsert(storedSettings, SettingsKeys.WatchedFoldersEnabled, request.WatchedFolders.Enabled.ToString());
+        Upsert(storedSettings, SettingsKeys.WatchedFoldersEnabled, normalizedRequest.WatchedFolders!.Enabled.ToString());
         Upsert(
             storedSettings,
             SettingsKeys.WatchedFoldersDebounceMilliseconds,
-            request.WatchedFolders.DebounceMilliseconds.ToString());
-        Upsert(storedSettings, SettingsKeys.WatchedFoldersDeletePolicy, request.WatchedFolders.DeletePolicy);
+            normalizedRequest.WatchedFolders.DebounceMilliseconds.ToString());
+        Upsert(storedSettings, SettingsKeys.WatchedFoldersDeletePolicy, normalizedRequest.WatchedFolders.DeletePolicy);
         Upsert(
             storedSettings,
             SettingsKeys.WatchedFoldersFoldersJson,
-            JsonSerializer.Serialize(request.WatchedFolders.Folders, JsonOptions));
+            JsonSerializer.Serialize(normalizedRequest.WatchedFolders.Folders, JsonOptions));
 
         await operationLogRepository.AddAsync(new OperationLog
         {
@@ -115,6 +117,16 @@ public sealed class SettingsService(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
+    }
+
+    private AppSettingsDto NormalizeRequest(AppSettingsDto request)
+    {
+        AppSettingsDto defaults = defaultsProvider.GetDefaults();
+
+        return request with
+        {
+            WatchedFolders = request.WatchedFolders ?? defaults.WatchedFolders
+        };
     }
 
     private static string GetString(IReadOnlyDictionary<string, string> settings, string key, string fallback)
@@ -166,7 +178,7 @@ public sealed class SettingsService(
         if (storedSettings.TryGetValue(key, out AppSetting? setting))
         {
             setting.Value = value;
-            setting.UpdatedAt = dateTimeProvider.UtcNow;
+            setting.UpdatedAt = dateTimeProvider.UtcNow.UtcDateTime;
             return;
         }
 
@@ -174,7 +186,7 @@ public sealed class SettingsService(
         {
             Key = key,
             Value = value,
-            CreatedAt = dateTimeProvider.UtcNow,
+            CreatedAt = dateTimeProvider.UtcNow.UtcDateTime,
         });
     }
 }

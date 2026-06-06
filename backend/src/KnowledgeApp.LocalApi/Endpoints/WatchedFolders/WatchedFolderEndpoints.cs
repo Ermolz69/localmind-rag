@@ -1,6 +1,7 @@
 using KnowledgeApp.Application.Ingestion.WatchedFolders;
 using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Common;
+using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Contracts.WatchedFolders;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
@@ -15,9 +16,12 @@ public static class WatchedFolderEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            Contracts.Settings.AppSettingsDto settings = await settingsService.GetAsync(cancellationToken);
+            AppSettingsDto settings = await settingsService.GetAsync(cancellationToken);
 
-            WatchedFolderStatusResponse status = statusStore.GetStatus(settings.WatchedFolders);
+            WatchedFoldersSettingsDto watchedFolders =
+                settings.WatchedFolders ?? CreateDisabledWatchedFolderSettings();
+
+            WatchedFolderStatusResponse status = statusStore.GetStatus(watchedFolders);
 
             return ApiResults.Ok(status, context);
         })
@@ -28,5 +32,14 @@ public static class WatchedFolderEndpoints
         .Produces<ApiResponse<WatchedFolderStatusResponse>>();
 
         return app;
+    }
+
+    private static WatchedFoldersSettingsDto CreateDisabledWatchedFolderSettings()
+    {
+        return new WatchedFoldersSettingsDto(
+            Enabled: false,
+            DebounceMilliseconds: 1000,
+            DeletePolicy: "MarkDeleted",
+            Folders: []);
     }
 }

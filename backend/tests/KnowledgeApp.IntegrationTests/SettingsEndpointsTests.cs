@@ -29,8 +29,11 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
         Assert.NotNull(settings.Ai);
         Assert.NotNull(settings.RuntimePaths);
         Assert.NotNull(settings.Sync);
-        Assert.NotNull(settings.WatchedFolders);
-        Assert.NotNull(settings.WatchedFolders.Folders);
+
+        WatchedFoldersSettingsDto watchedFolders = Assert.IsType<WatchedFoldersSettingsDto>(
+            settings.WatchedFolders);
+
+        Assert.NotNull(watchedFolders.Folders);
 
         Assert.False(string.IsNullOrWhiteSpace(settings.Appearance.Theme));
         Assert.False(string.IsNullOrWhiteSpace(settings.Ai.Provider));
@@ -38,8 +41,8 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
         Assert.False(string.IsNullOrWhiteSpace(settings.Ai.EmbeddingModel));
         Assert.False(string.IsNullOrWhiteSpace(settings.RuntimePaths.DatabasePath));
 
-        Assert.InRange(settings.WatchedFolders.DebounceMilliseconds, 250, 60000);
-        Assert.Equal("MarkDeleted", settings.WatchedFolders.DeletePolicy);
+        Assert.InRange(watchedFolders.DebounceMilliseconds, 250, 60000);
+        Assert.Equal("MarkDeleted", watchedFolders.DeletePolicy);
     }
 
     [Fact]
@@ -98,13 +101,16 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
             Assert.True(saved.Sync.Enabled);
             Assert.False(saved.Sync.AutoSync);
 
-            Assert.True(saved.WatchedFolders.Enabled);
-            Assert.Equal(1500, saved.WatchedFolders.DebounceMilliseconds);
-            Assert.Equal("MarkDeleted", saved.WatchedFolders.DeletePolicy);
-            Assert.Single(saved.WatchedFolders.Folders);
-            Assert.Equal(watchedPath, saved.WatchedFolders.Folders[0].Path);
-            Assert.True(saved.WatchedFolders.Folders[0].Enabled);
-            Assert.False(saved.WatchedFolders.Folders[0].IncludeSubdirectories);
+            WatchedFoldersSettingsDto savedWatchedFolders = Assert.IsType<WatchedFoldersSettingsDto>(
+                saved.WatchedFolders);
+
+            Assert.True(savedWatchedFolders.Enabled);
+            Assert.Equal(1500, savedWatchedFolders.DebounceMilliseconds);
+            Assert.Equal("MarkDeleted", savedWatchedFolders.DeletePolicy);
+            Assert.Single(savedWatchedFolders.Folders);
+            Assert.Equal(watchedPath, savedWatchedFolders.Folders[0].Path);
+            Assert.True(savedWatchedFolders.Folders[0].Enabled);
+            Assert.False(savedWatchedFolders.Folders[0].IncludeSubdirectories);
 
             await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
 
@@ -147,6 +153,46 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
                 }
             }
         }
+    }
+
+    [Fact]
+    public async Task PutSettings_Should_Save_Default_WatchedFolders_When_Request_Omits_Them()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        AppSettingsDto request = new AppSettingsDto(
+            Appearance: new AppearanceSettingsDto("Dark"),
+            Ai: new AiSettingsDto(
+                Provider: "Ollama",
+                ChatModel: "llama3.2",
+                EmbeddingModel: "nomic-embed-text",
+                RuntimePath: "runtime/ai/bin/ollama.exe",
+                ModelsPath: "runtime/ai/models"),
+            RuntimePaths: new RuntimePathsSettingsDto(
+                DataPath: "runtime/app/data",
+                DatabasePath: "runtime/app/data/knowledge-app.db",
+                FilesPath: "runtime/app/files",
+                IndexPath: "runtime/app/indexes",
+                LogsPath: "runtime/app/logs"),
+            Sync: new SyncSettingsDto(
+                Enabled: true,
+                AutoSync: false));
+
+        using HttpResponseMessage response = await client.PutAsJsonAsync("/api/v1/settings", request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        AppSettingsDto? saved = await client.GetApiDataAsync<AppSettingsDto>("/api/v1/settings");
+
+        Assert.NotNull(saved);
+
+        WatchedFoldersSettingsDto savedWatchedFolders = Assert.IsType<WatchedFoldersSettingsDto>(
+            saved.WatchedFolders);
+
+        Assert.False(savedWatchedFolders.Enabled);
+        Assert.Equal(1000, savedWatchedFolders.DebounceMilliseconds);
+        Assert.Equal("MarkDeleted", savedWatchedFolders.DeletePolicy);
+        Assert.Empty(savedWatchedFolders.Folders);
     }
 
     [Fact]
