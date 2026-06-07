@@ -30,7 +30,7 @@ public sealed class WatchedFolderReconciliationService(
             string normalizedWatchedFolderPath = NormalizePath(folder.Path);
 
             Dictionary<string, WatchedFileLink> existingLinks = await dbContext.WatchedFileLinks
-                .Where(link => link.WatchedFolderPath == normalizedWatchedFolderPath)
+                .Where(link => link.NormalizedWatchedFolderPath == normalizedWatchedFolderPath)
                 .ToDictionaryAsync(link => link.NormalizedFilePath, cancellationToken);
 
             EnumerationOptions options = new EnumerationOptions
@@ -39,8 +39,18 @@ public sealed class WatchedFolderReconciliationService(
                 RecurseSubdirectories = folder.IncludeSubdirectories
             };
 
-            IEnumerable<string> diskFiles = Directory.EnumerateFiles(folder.Path, "*.*", options)
-                .Where(IsSupportedFileType);
+            List<string> diskFiles;
+            try
+            {
+                diskFiles = Directory.EnumerateFiles(folder.Path, "*.*", options)
+                    .Where(IsSupportedFileType)
+                    .ToList();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+            {
+                logger.LogWarning(ex, "Watched folder became inaccessible during reconciliation: {FolderPath}", folder.Path);
+                return;
+            }
 
             DateTimeOffset now = dateTimeProvider.UtcNow;
 

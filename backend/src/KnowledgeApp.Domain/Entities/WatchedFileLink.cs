@@ -8,6 +8,8 @@ public sealed class WatchedFileLink : Entity
 
     public string WatchedFolderPath { get; set; } = string.Empty;
 
+    public string NormalizedWatchedFolderPath { get; set; } = string.Empty;
+
     public string FilePath { get; set; } = string.Empty;
 
     public string NormalizedFilePath { get; set; } = string.Empty;

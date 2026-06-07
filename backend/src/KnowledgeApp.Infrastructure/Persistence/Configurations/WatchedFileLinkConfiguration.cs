@@ -14,6 +14,10 @@ public sealed class WatchedFileLinkConfiguration : IEntityTypeConfiguration<Watc
             .IsRequired()
             .HasMaxLength(1024);
 
+        builder.Property(link => link.NormalizedWatchedFolderPath)
+            .IsRequired()
+            .HasMaxLength(1024);
+
         builder.Property(link => link.FilePath)
             .IsRequired()
             .HasMaxLength(1024);
@@ -29,6 +33,8 @@ public sealed class WatchedFileLinkConfiguration : IEntityTypeConfiguration<Watc
         builder.HasIndex(link => link.DocumentId);
 
         builder.HasIndex(link => link.WatchedFolderPath);
+
+        builder.HasIndex(link => link.NormalizedWatchedFolderPath);
 
         builder.HasIndex(link => link.NormalizedFilePath)
             .IsUnique();

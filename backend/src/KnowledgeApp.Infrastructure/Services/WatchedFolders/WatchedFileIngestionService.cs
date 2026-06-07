@@ -81,6 +81,7 @@ public sealed class WatchedFileIngestionService(
         {
             existingLink.FilePath = Path.GetFullPath(filePath);
             existingLink.WatchedFolderPath = Path.GetFullPath(watchedFolderPath);
+            existingLink.NormalizedWatchedFolderPath = normalizedWatchedFolderPath;
             existingLink.LastSeenAt = now;
             existingLink.DeletedAt = null;
             existingLink.UpdatedAt = nowUtc;
@@ -93,6 +94,7 @@ public sealed class WatchedFileIngestionService(
             existingLink,
             filePath,
             watchedFolderPath,
+            normalizedWatchedFolderPath,
             fileSnapshot,
             fileType,
             nowUtc,
@@ -192,7 +194,8 @@ public sealed class WatchedFileIngestionService(
         {
             CreatedAt = nowUtc,
             DocumentId = document.Id,
-            WatchedFolderPath = normalizedWatchedFolderPath,
+            WatchedFolderPath = Path.GetFullPath(Path.GetDirectoryName(filePath)!),
+            NormalizedWatchedFolderPath = normalizedWatchedFolderPath,
             FilePath = fullFilePath,
             NormalizedFilePath = normalizedFilePath,
             LastContentHash = fileSnapshot.ContentHash,
@@ -230,6 +233,7 @@ public sealed class WatchedFileIngestionService(
         WatchedFileLink link,
         string filePath,
         string watchedFolderPath,
+        string normalizedWatchedFolderPath,
         FileSnapshot fileSnapshot,
         FileType fileType,
         DateTime nowUtc,
@@ -276,6 +280,7 @@ public sealed class WatchedFileIngestionService(
 
         link.FilePath = fullFilePath;
         link.WatchedFolderPath = Path.GetFullPath(watchedFolderPath);
+        link.NormalizedWatchedFolderPath = normalizedWatchedFolderPath;
         link.LastContentHash = fileSnapshot.ContentHash;
         link.LastSeenAt = nowOffset;
         link.DeletedAt = null;

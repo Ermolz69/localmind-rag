@@ -77,6 +77,7 @@ public sealed class WatchedFolderReconciliationServiceTests : IAsyncLifetime
         database.Context.WatchedFileLinks.Add(new WatchedFileLink
         {
             WatchedFolderPath = NormalizePath(tempDirectory),
+            NormalizedWatchedFolderPath = NormalizePath(tempDirectory),
             FilePath = filePath,
             NormalizedFilePath = NormalizePath(filePath),
             LastSeenAt = new DateTimeOffset(2026, 1, 1, 9, 0, 0, TimeSpan.Zero) // Last seen BEFORE the file write time
@@ -103,6 +104,7 @@ public sealed class WatchedFolderReconciliationServiceTests : IAsyncLifetime
         database.Context.WatchedFileLinks.Add(new WatchedFileLink
         {
             WatchedFolderPath = NormalizePath(tempDirectory),
+            NormalizedWatchedFolderPath = NormalizePath(tempDirectory),
             FilePath = filePath,
             NormalizedFilePath = NormalizePath(filePath),
             LastSeenAt = new DateTimeOffset(2026, 1, 1, 9, 0, 0, TimeSpan.Zero) // Last seen AFTER the file write time
@@ -125,6 +127,7 @@ public sealed class WatchedFolderReconciliationServiceTests : IAsyncLifetime
         database.Context.WatchedFileLinks.Add(new WatchedFileLink
         {
             WatchedFolderPath = NormalizePath(tempDirectory),
+            NormalizedWatchedFolderPath = NormalizePath(tempDirectory),
             FilePath = filePath,
             NormalizedFilePath = NormalizePath(filePath),
             LastSeenAt = new DateTimeOffset(2026, 1, 1, 9, 0, 0, TimeSpan.Zero)
@@ -148,6 +151,7 @@ public sealed class WatchedFolderReconciliationServiceTests : IAsyncLifetime
         database.Context.WatchedFileLinks.Add(new WatchedFileLink
         {
             WatchedFolderPath = NormalizePath(tempDirectory),
+            NormalizedWatchedFolderPath = NormalizePath(tempDirectory),
             FilePath = filePath,
             NormalizedFilePath = NormalizePath(filePath),
             LastSeenAt = new DateTimeOffset(2026, 1, 1, 9, 0, 0, TimeSpan.Zero),
@@ -175,6 +179,7 @@ public sealed class WatchedFolderReconciliationServiceTests : IAsyncLifetime
         database.Context.WatchedFileLinks.Add(new WatchedFileLink
         {
             WatchedFolderPath = NormalizePath(tempDirectory), // The parent watched folder
+            NormalizedWatchedFolderPath = NormalizePath(tempDirectory),
             FilePath = filePath,
             NormalizedFilePath = NormalizePath(filePath),
             LastSeenAt = new DateTimeOffset(2026, 1, 1, 9, 0, 0, TimeSpan.Zero)
@@ -190,6 +195,32 @@ public sealed class WatchedFolderReconciliationServiceTests : IAsyncLifetime
         Assert.Contains(debounceBuffer.Changes, c =>
             c.FilePath == filePath &&
             c.ChangeType == WatchedFileChangeType.Deleted);
+    }
+
+    [Fact]
+    public async Task ReconcileFolderAsync_Should_NotEnqueueDeletedFiles_WhenFolderDoesNotExist()
+    {
+        // 1. Create a path that does NOT exist
+        string missingDirectory = Path.Combine(tempDirectory, "missing");
+        string filePath = Path.Combine(missingDirectory, "doc.txt");
+
+        // 2. Add an existing link to DB
+        database.Context.WatchedFileLinks.Add(new WatchedFileLink
+        {
+            WatchedFolderPath = NormalizePath(missingDirectory),
+            NormalizedWatchedFolderPath = NormalizePath(missingDirectory),
+            FilePath = filePath,
+            NormalizedFilePath = NormalizePath(filePath),
+            LastSeenAt = new DateTimeOffset(2026, 1, 1, 9, 0, 0, TimeSpan.Zero)
+        });
+        await database.Context.SaveChangesAsync();
+
+        // 3. Attempt reconciliation
+        WatchedFolderDto folder = new WatchedFolderDto(missingDirectory, true, false);
+        await service.ReconcileFolderAsync(folder);
+
+        // 4. Assert that NO changes were enqueued (specifically, NO Deleted change)
+        Assert.Empty(debounceBuffer.Changes);
     }
 
     private static string NormalizePath(string path)
