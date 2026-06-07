@@ -196,9 +196,10 @@ public sealed class WindowsFileWatcherHostedService(
             statusStore.SetFolderWatching(folder.Path, isWatching: true);
 
             using IServiceScope scope = scopeFactory.CreateScope();
-            IWatchedFolderInitialScanService scanService =
-                scope.ServiceProvider.GetRequiredService<IWatchedFolderInitialScanService>();
-            scanService.EnqueueInitialFiles(folder);
+            IWatchedFolderReconciliationService reconciliationService =
+                scope.ServiceProvider.GetRequiredService<IWatchedFolderReconciliationService>();
+
+            _ = Task.Run(() => reconciliationService.ReconcileFolderAsync(folder));
         }
         catch (Exception exception)
         {
