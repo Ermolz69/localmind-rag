@@ -3,8 +3,9 @@ import type {
   WatchedFolder,
   WatchedFolderStatusResponse,
 } from "@entities/settings";
-import type { ReactNode } from "react";
-import { Input, Select } from "@shared/ui";
+import { useState, type ReactNode } from "react";
+import { Input, Select, Button, ConfirmDialog } from "@shared/ui";
+import { watchedFoldersApi } from "@shared/api";
 
 type SettingsSectionsProps = {
   draft: AppSettings;
@@ -17,6 +18,25 @@ export function SettingsSections({
   watchedFolderStatus,
   onChange,
 }: SettingsSectionsProps) {
+  const [isCleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
+
+  async function handleCleanup() {
+    setIsCleaning(true);
+    try {
+      const response = await watchedFoldersApi.cleanup();
+      alert(
+        `Cleaned ${response.cleanedCount} deleted watched documents from LocalMind.`,
+      );
+    } catch (error) {
+      console.error(error);
+      alert("Failed to clean up watched documents.");
+    } finally {
+      setIsCleaning(false);
+      setCleanupConfirmOpen(false);
+    }
+  }
+
   function updateWatchedFolder(index: number, nextFolder: WatchedFolder) {
     const folders = [...draft.watchedFolders.folders];
     folders[index] = nextFolder;
@@ -369,8 +389,27 @@ export function SettingsSections({
               Watcher error: {watchedFolderStatus.lastError}
             </p>
           ) : null}
+
+          <div className="pt-2">
+            <Button
+              variant="secondary"
+              onClick={() => setCleanupConfirmOpen(true)}
+            >
+              Cleanup deleted files
+            </Button>
+          </div>
         </div>
       </Section>
+
+      <ConfirmDialog
+        open={isCleanupConfirmOpen}
+        title="Cleanup deleted watched files?"
+        description="This will permanently remove internal application data for files that have been deleted from your watched folders. Original physical files will not be affected."
+        confirmLabel="Cleanup"
+        isPending={isCleaning}
+        onConfirm={handleCleanup}
+        onClose={() => setCleanupConfirmOpen(false)}
+      />
     </div>
   );
 }

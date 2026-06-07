@@ -44,6 +44,10 @@ export type WatchedFolder = {
   includeSubdirectories: boolean;
 };
 
+export type WatchedFolderCleanupResponse = {
+  cleanedCount: number;
+};
+
 export type WatchedFolderStatusResponse = {
   enabled: boolean;
   debounceMilliseconds: number;

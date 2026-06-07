@@ -7,5 +7,6 @@ export type {
   WatchedFolder,
   WatchedFolderStatus,
   WatchedFolderStatusResponse,
+  WatchedFolderCleanupResponse,
   WatchedFoldersSettings,
 } from "./model/types";

@@ -13,6 +13,7 @@ public static partial class DependencyInjection
         services.AddScoped<GetIngestionJobHandler>();
         services.AddScoped<RetryIngestionJobHandler>();
         services.AddScoped<CancelIngestionJobHandler>();
+        services.AddScoped<KnowledgeApp.Application.Ingestion.WatchedFolders.Commands.CleanupWatchedFoldersHandler>();
 
         services.AddSingleton<IIncrementalChunkPlanner, IncrementalChunkPlanner>();
 
