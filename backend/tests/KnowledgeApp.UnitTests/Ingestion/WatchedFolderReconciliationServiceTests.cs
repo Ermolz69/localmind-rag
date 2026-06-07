@@ -223,6 +223,92 @@ public sealed class WatchedFolderReconciliationServiceTests : IAsyncLifetime
         Assert.Empty(debounceBuffer.Changes);
     }
 
+    [Fact]
+    public async Task ReconcileFolderAsync_Should_NotEnqueueNewFile_WhenIncludeSubdirectoriesIsFalse()
+    {
+        string subDirectory = Path.Combine(tempDirectory, "sub");
+        Directory.CreateDirectory(subDirectory);
+        string filePath = Path.Combine(subDirectory, "new_nested.txt");
+        await File.WriteAllTextAsync(filePath, "content");
+
+        WatchedFolderDto folder = new WatchedFolderDto(tempDirectory, IncludeSubdirectories: false, Enabled: true);
+
+        await service.ReconcileFolderAsync(folder);
+
+        Assert.DoesNotContain(debounceBuffer.Changes, c => c.FilePath == filePath);
+    }
+
+    [Fact]
+    public async Task ReconcileFolderAsync_Should_EnqueueNewFile_WhenIncludeSubdirectoriesIsTrue()
+    {
+        string subDirectory = Path.Combine(tempDirectory, "sub");
+        Directory.CreateDirectory(subDirectory);
+        string filePath = Path.Combine(subDirectory, "new_nested.txt");
+        await File.WriteAllTextAsync(filePath, "content");
+
+        WatchedFolderDto folder = new WatchedFolderDto(tempDirectory, IncludeSubdirectories: true, Enabled: true);
+
+        await service.ReconcileFolderAsync(folder);
+
+        Assert.Contains(debounceBuffer.Changes, c =>
+            c.FilePath == filePath &&
+            c.ChangeType == WatchedFileChangeType.CreatedOrChanged);
+    }
+
+    [Fact]
+    public async Task ReconcileFolderAsync_Should_IgnoreUnsupportedExtensions()
+    {
+        string filePath = Path.Combine(tempDirectory, "app.exe");
+        await File.WriteAllTextAsync(filePath, "MZ...");
+
+        WatchedFolderDto folder = new WatchedFolderDto(tempDirectory, IncludeSubdirectories: true, Enabled: true);
+
+        await service.ReconcileFolderAsync(folder);
+
+        Assert.DoesNotContain(debounceBuffer.Changes, c => c.FilePath == filePath);
+    }
+
+    [Fact]
+    public async Task ReconcileFolderAsync_Should_EnqueueDeletedFile_OnlyForMatchingWatchedFolder()
+    {
+        string folderA = Path.Combine(tempDirectory, "folderA");
+        string folderB = Path.Combine(tempDirectory, "folderB");
+        Directory.CreateDirectory(folderA);
+        Directory.CreateDirectory(folderB);
+
+        string deletedFileA = Path.Combine(folderA, "docA.txt");
+        string deletedFileB = Path.Combine(folderB, "docB.txt");
+
+        // Links for both folders in DB, but files don't actually exist
+        database.Context.WatchedFileLinks.AddRange(
+            new WatchedFileLink
+            {
+                WatchedFolderPath = NormalizePath(folderA),
+                NormalizedWatchedFolderPath = NormalizePath(folderA),
+                FilePath = deletedFileA,
+                NormalizedFilePath = NormalizePath(deletedFileA),
+                LastSeenAt = new DateTimeOffset(2026, 1, 1, 9, 0, 0, TimeSpan.Zero)
+            },
+            new WatchedFileLink
+            {
+                WatchedFolderPath = NormalizePath(folderB),
+                NormalizedWatchedFolderPath = NormalizePath(folderB),
+                FilePath = deletedFileB,
+                NormalizedFilePath = NormalizePath(deletedFileB),
+                LastSeenAt = new DateTimeOffset(2026, 1, 1, 9, 0, 0, TimeSpan.Zero)
+            }
+        );
+        await database.Context.SaveChangesAsync();
+
+        // Reconcile ONLY Folder A
+        WatchedFolderDto targetFolder = new WatchedFolderDto(folderA, IncludeSubdirectories: true, Enabled: true);
+        await service.ReconcileFolderAsync(targetFolder);
+
+        // Only Folder A's missing file should be enqueued
+        Assert.Contains(debounceBuffer.Changes, c => c.FilePath == deletedFileA && c.ChangeType == WatchedFileChangeType.Deleted);
+        Assert.DoesNotContain(debounceBuffer.Changes, c => c.FilePath == deletedFileB);
+    }
+
     private static string NormalizePath(string path)
     {
         string fullPath = Path.GetFullPath(path.Trim())
