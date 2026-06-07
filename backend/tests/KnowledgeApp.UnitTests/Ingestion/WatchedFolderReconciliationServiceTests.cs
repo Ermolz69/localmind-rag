@@ -162,6 +162,36 @@ public sealed class WatchedFolderReconciliationServiceTests : IAsyncLifetime
         Assert.DoesNotContain(debounceBuffer.Changes, c => c.FilePath == filePath);
     }
 
+    [Fact]
+    public async Task ReconcileFolderAsync_Should_EnqueueDeletedFile_WhenIncludeSubdirectoriesIsFalse()
+    {
+        // 1. Create a subdirectory and a file inside it
+        string subDirectory = Path.Combine(tempDirectory, "sub");
+        Directory.CreateDirectory(subDirectory);
+        string filePath = Path.Combine(subDirectory, "subdir-file.txt");
+        await File.WriteAllTextAsync(filePath, "content in subdir");
+
+        // 2. Add it to the DB as an existing link (simulating it was previously ingested when IncludeSubdirectories was true)
+        database.Context.WatchedFileLinks.Add(new WatchedFileLink
+        {
+            WatchedFolderPath = NormalizePath(tempDirectory), // The parent watched folder
+            FilePath = filePath,
+            NormalizedFilePath = NormalizePath(filePath),
+            LastSeenAt = new DateTimeOffset(2026, 1, 1, 9, 0, 0, TimeSpan.Zero)
+        });
+        await database.Context.SaveChangesAsync();
+
+        // 3. Reconcile with IncludeSubdirectories = FALSE
+        WatchedFolderDto folder = new WatchedFolderDto(tempDirectory, IncludeSubdirectories: false, Enabled: true);
+
+        await service.ReconcileFolderAsync(folder);
+
+        // 4. The file in the subdirectory should be marked as Deleted because Directory.EnumerateFiles skips it
+        Assert.Contains(debounceBuffer.Changes, c =>
+            c.FilePath == filePath &&
+            c.ChangeType == WatchedFileChangeType.Deleted);
+    }
+
     private static string NormalizePath(string path)
     {
         string fullPath = Path.GetFullPath(path.Trim())
