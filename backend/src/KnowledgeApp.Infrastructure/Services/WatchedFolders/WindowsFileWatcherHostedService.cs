@@ -194,6 +194,11 @@ public sealed class WindowsFileWatcherHostedService(
             watchers[folderKey] = new WatcherRegistration(folder.Path, watcher);
 
             statusStore.SetFolderWatching(folder.Path, isWatching: true);
+
+            using IServiceScope scope = scopeFactory.CreateScope();
+            IWatchedFolderInitialScanService scanService =
+                scope.ServiceProvider.GetRequiredService<IWatchedFolderInitialScanService>();
+            scanService.EnqueueInitialFiles(folder);
         }
         catch (Exception exception)
         {

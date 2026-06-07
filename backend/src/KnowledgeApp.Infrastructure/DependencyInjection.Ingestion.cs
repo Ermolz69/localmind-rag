@@ -16,6 +16,7 @@ public static partial class DependencyInjection
         services.AddScoped<IIngestionJobProcessor, IngestionJobProcessor>();
         services.AddScoped<QueuedIngestionJobDispatcher>();
         services.AddScoped<IWatchedFileIngestionService, WatchedFileIngestionService>();
+        services.AddSingleton<IWatchedFolderInitialScanService, WatchedFolderInitialScanService>();
 
         services.AddHostedService<QueuedIngestionHostedService>();
         services.AddHostedService<WindowsFileWatcherHostedService>();
