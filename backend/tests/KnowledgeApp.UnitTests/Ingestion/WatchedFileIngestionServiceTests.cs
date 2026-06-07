@@ -20,7 +20,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
 
         await File.WriteAllTextAsync(filePath, "Initial watched file content.");
 
-        WatchedFileIngestionService service = CreateService(database);
+        var (service, provider) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(filePath, watchedFolderPath);
 
@@ -58,7 +58,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
 
         await File.WriteAllTextAsync(filePath, "Initial watched file content.");
 
-        WatchedFileIngestionService service = CreateService(database);
+        var (service, provider) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(filePath, watchedFolderPath);
 
@@ -95,9 +95,15 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
 
         await File.WriteAllTextAsync(filePath, "Same watched file content.");
 
-        WatchedFileIngestionService service = CreateService(database);
+        var (service, provider) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(filePath, watchedFolderPath);
+
+        Domain.Entities.WatchedFileLink link1 = await database.Context.WatchedFileLinks.SingleAsync();
+        DateTimeOffset firstSeenAt = link1.LastSeenAt!.Value;
+
+        provider.UtcNow = provider.UtcNow.AddMinutes(5);
+
         await service.HandleCreatedOrChangedAsync(filePath, watchedFolderPath);
 
         int documentCount = await database.Context.Documents.CountAsync();
@@ -109,6 +115,9 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
         Assert.Equal(1, fileCount);
         Assert.Equal(1, linkCount);
         Assert.Equal(1, jobCount);
+
+        Domain.Entities.WatchedFileLink link2 = await database.Context.WatchedFileLinks.SingleAsync();
+        Assert.True(link2.LastSeenAt > firstSeenAt, "LastSeenAt should be updated even if ContentHash didn't change.");
     }
 
     [Fact]
@@ -120,7 +129,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
 
         await File.WriteAllTextAsync(filePath, "Initial watched file content.");
 
-        WatchedFileIngestionService service = CreateService(database);
+        var (service, provider) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(filePath, watchedFolderPath);
 
@@ -150,7 +159,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
 
         await File.WriteAllTextAsync(filePath, "Unsupported file content.");
 
-        WatchedFileIngestionService service = CreateService(database);
+        var (service, provider) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(filePath, watchedFolderPath);
 
@@ -195,11 +204,14 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
         await Task.CompletedTask;
     }
 
-    private WatchedFileIngestionService CreateService(TestDatabase database)
+    private (WatchedFileIngestionService Service, MutableDateTimeProvider DateTimeProvider) CreateService(TestDatabase database)
     {
-        return new WatchedFileIngestionService(
+        var provider = new MutableDateTimeProvider();
+        var service = new WatchedFileIngestionService(
             database.Context,
-            new FixedDateTimeProvider());
+            provider);
+
+        return (service, provider);
     }
 
     private string CreateTempDirectory()
@@ -226,9 +238,9 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
             : fullPath;
     }
 
-    private sealed class FixedDateTimeProvider : IDateTimeProvider
+    private sealed class MutableDateTimeProvider : IDateTimeProvider
     {
-        public DateTimeOffset UtcNow { get; } = new(2026, 6, 4, 12, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset UtcNow { get; set; } = new(2026, 6, 4, 12, 0, 0, TimeSpan.Zero);
     }
 
     private sealed class TestDatabase : IAsyncDisposable
