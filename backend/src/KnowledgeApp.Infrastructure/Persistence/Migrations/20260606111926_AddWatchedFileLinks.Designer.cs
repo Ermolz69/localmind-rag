@@ -3,6 +3,7 @@ using System;
 using KnowledgeApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace KnowledgeApp.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260606111926_AddWatchedFileLinks")]
+    partial class AddWatchedFileLinks
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
@@ -844,11 +847,6 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("NormalizedWatchedFolderPath")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("TEXT");
 
@@ -863,8 +861,6 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("NormalizedFilePath")
                         .IsUnique();
-
-                    b.HasIndex("NormalizedWatchedFolderPath");
 
                     b.HasIndex("WatchedFolderPath");
 

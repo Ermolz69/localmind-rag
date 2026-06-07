@@ -1,5 +1,7 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Ingestion.IncrementalIndexing;
+using KnowledgeApp.Application.Ingestion.WatchedFolders;
+using KnowledgeApp.Infrastructure.Services.WatchedFolders;
 using KnowledgeApp.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,8 +15,12 @@ public static partial class DependencyInjection
         services.AddScoped<IIngestionJobRepository, IngestionJobRepository>();
         services.AddScoped<IIngestionJobProcessor, IngestionJobProcessor>();
         services.AddScoped<QueuedIngestionJobDispatcher>();
+        services.AddScoped<IWatchedFileIngestionService, WatchedFileIngestionService>();
+        services.AddScoped<IWatchedFolderReconciliationService, WatchedFolderReconciliationService>();
+        services.AddScoped<IWatchedFolderCleanupService, WatchedFolderCleanupService>();
 
         services.AddHostedService<QueuedIngestionHostedService>();
+        services.AddHostedService<WindowsFileWatcherHostedService>();
 
         services.AddSingleton<RawTextExtractor>();
         services.AddSingleton<HtmlTextExtractor>();
@@ -24,6 +30,7 @@ public static partial class DependencyInjection
         services.AddSingleton<IDocumentTextExtractorFactory, DocumentTextExtractorFactory>();
         services.AddSingleton<IDocumentChunker, SimpleDocumentChunker>();
         services.AddSingleton<IContentHashService, Sha256ContentHashService>();
+        services.AddSingleton<IFileWatcherDebounceBuffer, FileWatcherDebounceBuffer>();
 
         return services;
     }

@@ -22,3 +22,4 @@ export { notesApi } from "./notes";
 export { runtimeApi } from "./runtime";
 export { searchApi } from "./search";
 export { settingsApi } from "./settings";
+export { watchedFoldersApi } from "./watched-folders";

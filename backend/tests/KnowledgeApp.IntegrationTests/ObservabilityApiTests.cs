@@ -42,10 +42,10 @@ public sealed class ObservabilityApiTests
             Appearance: new AppearanceSettingsDto("Broken"),
             Ai: new AiSettingsDto("Unknown", "", "", "", ""),
             RuntimePaths: new RuntimePathsSettingsDto("", "", "", "", ""),
-            Sync: new SyncSettingsDto(false, false));
+            Sync: new SyncSettingsDto(false, false),
+            WatchedFolders: CreateDefaultWatchedFoldersSettings());
 
-        using HttpResponseMessage response =
-            await client.PutAsJsonAsync("/api/v1/settings", request);
+        using HttpResponseMessage response = await client.PutAsJsonAsync("/api/v1/settings", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -61,8 +61,7 @@ public sealed class ObservabilityApiTests
         using ObservabilityTestContext context = CreateContext();
         using HttpClient client = context.Factory.CreateClient();
 
-        ConversationDto conversation =
-            await ApiScenarioHelpers.CreateConversationAsync(client);
+        ConversationDto conversation = await ApiScenarioHelpers.CreateConversationAsync(client);
 
         using HttpResponseMessage response = await client.PostAsJsonAsync(
             $"/api/v1/chats/{conversation.Id}/messages",
@@ -104,47 +103,49 @@ public sealed class ObservabilityApiTests
 
     private static ObservabilityTestContext CreateContext(Action<IWebHostBuilder>? configure = null)
     {
-        string root = Path.Combine(
-            Path.GetTempPath(),
-            "localmind-observability",
-            Guid.NewGuid().ToString("N"));
-
+        string root = Path.Combine(Path.GetTempPath(), "localmind-observability", Guid.NewGuid().ToString("N"));
         string logsPath = Path.Combine(root, "logs");
 
         Directory.CreateDirectory(logsPath);
 
         LocalApiTestFactory baseFactory = new();
 
-        WebApplicationFactory<Program> factory =
-            baseFactory.WithWebHostBuilder(builder =>
+        WebApplicationFactory<Program> factory = baseFactory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, configuration) =>
             {
-                builder.ConfigureAppConfiguration((_, configuration) =>
+                Dictionary<string, string?> settings = new()
                 {
-                    Dictionary<string, string?> settings = new()
-                    {
-                        ["Observability:Enabled"] = "true",
-                        ["Observability:Mode"] = "Advanced",
-                        ["Observability:LogsPath"] = logsPath,
-                        ["Observability:MinimumLevel"] = "Information",
-                        ["Observability:EnableDebugTrace"] = "false",
-                    };
+                    ["Observability:Enabled"] = "true",
+                    ["Observability:Mode"] = "Advanced",
+                    ["Observability:LogsPath"] = logsPath,
+                    ["Observability:MinimumLevel"] = "Information",
+                    ["Observability:EnableDebugTrace"] = "false",
+                };
 
-                    configuration.AddInMemoryCollection(settings);
-                });
-
-                configure?.Invoke(builder);
+                configuration.AddInMemoryCollection(settings);
             });
 
+            configure?.Invoke(builder);
+        });
+
         return new ObservabilityTestContext(root, logsPath, baseFactory, factory);
+    }
+
+    private static WatchedFoldersSettingsDto CreateDefaultWatchedFoldersSettings()
+    {
+        return new WatchedFoldersSettingsDto(
+            Enabled: false,
+            DebounceMilliseconds: 1000,
+            DeletePolicy: "MarkDeleted",
+            Folders: []);
     }
 
     private sealed class FailingEmbeddingGenerator : IEmbeddingGenerator
     {
         public string ModelName => "failing-test-model";
 
-        public Task<float[]> GenerateAsync(
-            string text,
-            CancellationToken cancellationToken = default)
+        public Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Synthetic embedding failure.");
         }
@@ -186,12 +187,7 @@ public sealed class ObservabilityApiTests
 
         private static string ReadLogFile(string path)
         {
-            using FileStream stream = new(
-                path,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.ReadWrite | FileShare.Delete);
-
+            using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             using StreamReader reader = new(stream);
 
             return reader.ReadToEnd();
