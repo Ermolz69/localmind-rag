@@ -160,6 +160,145 @@ public sealed class WatchedFileIngestionService(
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task HandleRenamedAsync(
+        string oldFilePath,
+        string newFilePath,
+        string watchedFolderPath,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(oldFilePath) || string.IsNullOrWhiteSpace(newFilePath) || string.IsNullOrWhiteSpace(watchedFolderPath))
+        {
+            return;
+        }
+
+        FileType newFileType = ResolveFileType(newFilePath);
+
+        if (newFileType == FileType.Unknown)
+        {
+            await HandleDeletedAsync(oldFilePath, cancellationToken);
+            return;
+        }
+
+        string normalizedOldFilePath;
+        string normalizedNewFilePath;
+        string normalizedWatchedFolderPath;
+
+        try
+        {
+            normalizedOldFilePath = NormalizePath(oldFilePath);
+            normalizedNewFilePath = NormalizePath(newFilePath);
+            normalizedWatchedFolderPath = NormalizePath(watchedFolderPath);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        if (!IsFileInsideFolder(normalizedNewFilePath, normalizedWatchedFolderPath))
+        {
+            return;
+        }
+
+        WatchedFileLink? existingLink = await dbContext.WatchedFileLinks
+            .FirstOrDefaultAsync(link => link.NormalizedFilePath == normalizedOldFilePath, cancellationToken);
+
+        if (existingLink is null)
+        {
+            await HandleCreatedOrChangedAsync(newFilePath, watchedFolderPath, cancellationToken);
+            return;
+        }
+
+        FileSnapshot? fileSnapshot = await TryReadFileSnapshotAsync(newFilePath, cancellationToken);
+
+        if (fileSnapshot is null)
+        {
+            return;
+        }
+
+        DateTimeOffset now = dateTimeProvider.UtcNow;
+        DateTime nowUtc = now.UtcDateTime;
+
+        if (string.Equals(existingLink.LastContentHash, fileSnapshot.ContentHash, StringComparison.Ordinal))
+        {
+            await UpdateRenamedMetadataAsync(
+                existingLink,
+                newFilePath,
+                watchedFolderPath,
+                normalizedNewFilePath,
+                normalizedWatchedFolderPath,
+                fileSnapshot,
+                newFileType,
+                now,
+                nowUtc,
+                cancellationToken);
+            return;
+        }
+
+        await UpdateDocumentForWatchedFileAsync(
+            existingLink,
+            newFilePath,
+            watchedFolderPath,
+            normalizedWatchedFolderPath,
+            fileSnapshot,
+            newFileType,
+            nowUtc,
+            cancellationToken);
+    }
+
+    private async Task UpdateRenamedMetadataAsync(
+        WatchedFileLink link,
+        string newFilePath,
+        string watchedFolderPath,
+        string normalizedNewFilePath,
+        string normalizedWatchedFolderPath,
+        FileSnapshot fileSnapshot,
+        FileType fileType,
+        DateTimeOffset now,
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
+    {
+        string fullFilePath = Path.GetFullPath(newFilePath);
+
+        link.FilePath = fullFilePath;
+        link.NormalizedFilePath = normalizedNewFilePath;
+        link.WatchedFolderPath = Path.GetFullPath(watchedFolderPath);
+        link.NormalizedWatchedFolderPath = normalizedWatchedFolderPath;
+        link.LastContentHash = fileSnapshot.ContentHash;
+        link.LastSeenAt = now;
+        link.DeletedAt = null;
+        link.UpdatedAt = nowUtc;
+
+        Document? document = await dbContext.Documents
+            .FirstOrDefaultAsync(d => d.Id == link.DocumentId, cancellationToken);
+
+        if (document is not null)
+        {
+            document.Name = Path.GetFileName(fullFilePath);
+            document.DeletedAt = null;
+            document.UpdatedAt = nowUtc;
+
+            if (document.Status == DocumentStatus.Deleted)
+            {
+                document.Status = DocumentStatus.Queued;
+            }
+        }
+
+        DocumentFile? documentFile = await dbContext.DocumentFiles
+            .FirstOrDefaultAsync(f => f.DocumentId == link.DocumentId, cancellationToken);
+
+        if (documentFile is not null)
+        {
+            documentFile.FileName = Path.GetFileName(fullFilePath);
+            documentFile.LocalPath = fullFilePath;
+            documentFile.FileType = fileType;
+            documentFile.ContentHash = fileSnapshot.ContentHash;
+            documentFile.SizeBytes = fileSnapshot.SizeBytes;
+            documentFile.UpdatedAt = nowUtc;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task CreateDocumentForWatchedFileAsync(
         string filePath,
         string normalizedFilePath,
@@ -279,6 +418,7 @@ public sealed class WatchedFileIngestionService(
         documentFile.UpdatedAt = nowUtc;
 
         link.FilePath = fullFilePath;
+        link.NormalizedFilePath = NormalizePath(fullFilePath);
         link.WatchedFolderPath = Path.GetFullPath(watchedFolderPath);
         link.NormalizedWatchedFolderPath = normalizedWatchedFolderPath;
         link.LastContentHash = fileSnapshot.ContentHash;

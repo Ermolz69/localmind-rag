@@ -10,4 +10,10 @@ public interface IWatchedFileIngestionService
     Task HandleDeletedAsync(
         string filePath,
         CancellationToken cancellationToken = default);
+
+    Task HandleRenamedAsync(
+        string oldFilePath,
+        string newFilePath,
+        string watchedFolderPath,
+        CancellationToken cancellationToken = default);
 }

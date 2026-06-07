@@ -169,6 +169,116 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
         Assert.Empty(database.Context.IngestionJobs);
     }
 
+    [Fact]
+    public async Task HandleRenamedAsync_Should_UpdateMetadataWithoutJob_WhenHashDidNotChange()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        string watchedFolderPath = CreateTempDirectory();
+        string oldFilePath = Path.Combine(watchedFolderPath, "old-name.txt");
+        string newFilePath = Path.Combine(watchedFolderPath, "new-name.txt");
+
+        await File.WriteAllTextAsync(oldFilePath, "Content.");
+        var (service, provider) = CreateService(database);
+
+        await service.HandleCreatedOrChangedAsync(oldFilePath, watchedFolderPath);
+
+        Domain.Entities.Document document1 = await database.Context.Documents.SingleAsync();
+        Guid docId = document1.Id;
+
+        // Move the file and keep the same content
+        File.Move(oldFilePath, newFilePath);
+
+        await service.HandleRenamedAsync(oldFilePath, newFilePath, watchedFolderPath);
+
+        int documentCount = await database.Context.Documents.CountAsync();
+        int jobCount = await database.Context.IngestionJobs.CountAsync();
+        Domain.Entities.Document document2 = await database.Context.Documents.SingleAsync();
+        Domain.Entities.DocumentFile documentFile = await database.Context.DocumentFiles.SingleAsync();
+        Domain.Entities.WatchedFileLink link = await database.Context.WatchedFileLinks.SingleAsync();
+
+        Assert.Equal(1, documentCount);
+        Assert.Equal(1, jobCount); // Only the initial job
+        Assert.Equal(docId, document2.Id);
+        Assert.Equal("new-name.txt", document2.Name);
+        Assert.Equal("new-name.txt", documentFile.FileName);
+        Assert.Equal(newFilePath, documentFile.LocalPath);
+        Assert.Equal(newFilePath, link.FilePath);
+        Assert.Equal(NormalizePath(newFilePath), link.NormalizedFilePath);
+    }
+
+    [Fact]
+    public async Task HandleRenamedAsync_Should_UpdateMetadataAndCreateJob_WhenHashChanged()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        string watchedFolderPath = CreateTempDirectory();
+        string oldFilePath = Path.Combine(watchedFolderPath, "old-name.txt");
+        string newFilePath = Path.Combine(watchedFolderPath, "new-name.txt");
+
+        await File.WriteAllTextAsync(oldFilePath, "Old Content.");
+        var (service, provider) = CreateService(database);
+
+        await service.HandleCreatedOrChangedAsync(oldFilePath, watchedFolderPath);
+
+        File.Move(oldFilePath, newFilePath);
+        await File.WriteAllTextAsync(newFilePath, "New Content.");
+
+        await service.HandleRenamedAsync(oldFilePath, newFilePath, watchedFolderPath);
+
+        int jobCount = await database.Context.IngestionJobs.CountAsync();
+        Domain.Entities.Document document = await database.Context.Documents.SingleAsync();
+        Domain.Entities.WatchedFileLink link = await database.Context.WatchedFileLinks.SingleAsync();
+
+        Assert.Equal(2, jobCount); // Initial + Renamed/Changed
+        Assert.Equal("new-name.txt", document.Name);
+        Assert.Equal(newFilePath, link.FilePath);
+    }
+
+    [Fact]
+    public async Task HandleRenamedAsync_Should_DeleteOldDocument_WhenRenamedToUnsupportedType()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        string watchedFolderPath = CreateTempDirectory();
+        string oldFilePath = Path.Combine(watchedFolderPath, "old-name.txt");
+        string newFilePath = Path.Combine(watchedFolderPath, "new-name.exe");
+
+        await File.WriteAllTextAsync(oldFilePath, "Content.");
+        var (service, provider) = CreateService(database);
+
+        await service.HandleCreatedOrChangedAsync(oldFilePath, watchedFolderPath);
+
+        File.Move(oldFilePath, newFilePath);
+
+        await service.HandleRenamedAsync(oldFilePath, newFilePath, watchedFolderPath);
+
+        Domain.Entities.Document document = await database.Context.Documents.SingleAsync();
+        Domain.Entities.WatchedFileLink link = await database.Context.WatchedFileLinks.SingleAsync();
+
+        Assert.Equal(DocumentStatus.Deleted, document.Status);
+        Assert.NotNull(document.DeletedAt);
+        Assert.NotNull(link.DeletedAt);
+    }
+
+    [Fact]
+    public async Task HandleRenamedAsync_Should_CreateNewDocument_WhenOldLinkMissing()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        string watchedFolderPath = CreateTempDirectory();
+        string oldFilePath = Path.Combine(watchedFolderPath, "old-name.txt");
+        string newFilePath = Path.Combine(watchedFolderPath, "new-name.txt");
+
+        await File.WriteAllTextAsync(newFilePath, "Content.");
+        var (service, provider) = CreateService(database);
+
+        // We skip calling HandleCreatedOrChangedAsync for oldFilePath to simulate missing link
+        await service.HandleRenamedAsync(oldFilePath, newFilePath, watchedFolderPath);
+
+        Domain.Entities.Document document = await database.Context.Documents.SingleAsync();
+        Domain.Entities.WatchedFileLink link = await database.Context.WatchedFileLinks.SingleAsync();
+
+        Assert.Equal("new-name.txt", document.Name);
+        Assert.Equal(newFilePath, link.FilePath);
+    }
+
     public async ValueTask DisposeAsync()
     {
         foreach (string path in pathsToDelete.OrderByDescending(path => path.Length))
