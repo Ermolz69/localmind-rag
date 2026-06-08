@@ -5,7 +5,9 @@
   "scripts": {
     "setup": "pnpm install && pnpm setup:ai",
     "prepare": "node -e \"try{require('node:child_process').execFileSync('git',['config','core.hooksPath','.githooks'],{stdio:'inherit'})}catch{}\"",
-    "dev": "concurrently -n localapi,desktop \"dotnet run --project backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj --urls http://127.0.0.1:49321\" \"pnpm --filter desktop dev\"",
+    "dev": "task -t .config/task/Taskfile.yml dev",
+    "dev:frontend": "task -t .config/task/Taskfile.yml dev:frontend",
+    "dev:localapi": "dotnet run --project backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj --urls http://127.0.0.1:49321",
     "check": "task -t .config/task/Taskfile.yml check",
     "docs:build": "task -t .config/task/Taskfile.yml docs:build",
     "package": "task -t .config/task/Taskfile.yml package",

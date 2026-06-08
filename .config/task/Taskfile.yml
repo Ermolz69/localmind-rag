@@ -16,7 +16,7 @@ tasks:
   # === SETUP TASKS ===
   setup:
     desc: Complete developer environment setup
-    deps: [setup:backend, setup:frontend, setup:ai, setup:ocr]
+    deps: [setup:backend, setup:frontend, setup:rust, setup:ai, setup:ocr]
 
   setup:backend:
     desc: Restore backend projects and tools
@@ -28,6 +28,26 @@ tasks:
     desc: Install frontend dependencies
     cmds:
       - cd "{{.ROOT_DIR}}" && pnpm install --frozen-lockfile
+
+  setup:rust:
+    desc: Installs Rust formatter and clippy components
+    cmds:
+      - rustup component add rustfmt clippy
+
+  # === DEVELOPMENT TASKS ===
+  dev:
+    desc: Runs the desktop app through Tauri; Rust supervises LocalApi
+    deps: [dev:desktop]
+
+  dev:desktop:
+    desc: Runs the Tauri desktop app with LocalApi supervision
+    cmds:
+      - cd "{{.ROOT_DIR}}" && pnpm --filter desktop tauri dev
+
+  dev:frontend:
+    desc: Runs only the Vite frontend without the Tauri desktop shell
+    cmds:
+      - cd "{{.ROOT_DIR}}" && pnpm --filter desktop dev
 
   setup:ai:
     desc: Sets up AI runtime and models
@@ -76,6 +96,11 @@ tasks:
     desc: Builds the React desktop UI
     cmds:
       - cd "{{.ROOT_DIR}}" && pnpm --filter desktop build
+
+  build:tauri:
+    desc: Builds the Tauri desktop shell
+    cmds:
+      - cd "{{.ROOT_DIR}}" && pnpm --filter desktop tauri build
 
   # === TEST TASKS ===
   test:
@@ -158,6 +183,7 @@ tasks:
         check:frontend:format,
         check:frontend:lint,
         check:frontend:typecheck,
+        check:rust,
         check:colors,
         check:docker,
       ]
@@ -190,6 +216,28 @@ tasks:
     desc: Validates frontend files for hardcoded color values
     cmds:
       - cd "{{.ROOT_DIR}}" && node scripts/check/check-colors.js
+
+  check:rust:
+    desc: Runs Rust formatting, clippy, and cargo check for the Tauri shell
+    cmds:
+      - task: check:rust:format
+      - task: check:rust:clippy
+      - task: check:rust:check
+
+  check:rust:format:
+    desc: Verifies Rust formatting
+    cmds:
+      - cd "{{.ROOT_DIR}}" && cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
+
+  check:rust:clippy:
+    desc: Lints Rust code with clippy
+    cmds:
+      - cd "{{.ROOT_DIR}}" && cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings
+
+  check:rust:check:
+    desc: Type-checks the Tauri Rust shell
+    cmds:
+      - cd "{{.ROOT_DIR}}" && cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 
   check:docker:
     desc: Validates Docker Compose configuration files

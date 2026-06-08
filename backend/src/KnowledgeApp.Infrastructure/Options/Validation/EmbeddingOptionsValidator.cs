@@ -46,6 +46,11 @@ public sealed class EmbeddingOptionsValidator : IValidateOptions<EmbeddingOption
             failures.Add("Ai:TopK must be greater than zero.");
         }
 
+        if (options.EmbeddingBatchSize <= 0 || options.EmbeddingBatchSize > 128)
+        {
+            failures.Add("Ai:EmbeddingBatchSize must be between 1 and 128.");
+        }
+
         return failures.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(failures);

@@ -53,6 +53,36 @@ public sealed class LlamaCppEmbeddingGeneratorTests
             StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task GenerateBatchAsync_Should_Preserve_Response_Index_Order()
+    {
+        float[] first = Enumerable.Range(0, 1024).Select(value => value / 1024f).ToArray();
+        float[] second = Enumerable.Range(0, 1024).Select(value => (value + 1) / 1024f).ToArray();
+
+        using HttpClient client = new(
+            new JsonResponseHandler(CreateEmbeddingResponse((1, second), (0, first))));
+
+        LlamaCppEmbeddingGenerator generator = CreateGenerator(client);
+
+        IReadOnlyList<float[]> embeddings = await generator.GenerateBatchAsync(["first", "second"]);
+
+        Assert.Equal(first[42], embeddings[0][42]);
+        Assert.Equal(second[42], embeddings[1][42]);
+    }
+
+    [Fact]
+    public async Task GenerateBatchAsync_Should_Reject_Response_Count_Mismatch()
+    {
+        float[] first = Enumerable.Range(0, 1024).Select(value => value / 1024f).ToArray();
+
+        using HttpClient client = new(new JsonResponseHandler(CreateEmbeddingResponse((0, first))));
+
+        LlamaCppEmbeddingGenerator generator = CreateGenerator(client);
+
+        await Assert.ThrowsAsync<ExternalDependencyAppException>(
+            () => generator.GenerateBatchAsync(["first", "second"]));
+    }
+
     private static LlamaCppEmbeddingGenerator CreateGenerator(HttpClient client)
     {
         IOptions<RuntimeOptions> runtimeOptions = Options.Create(new RuntimeOptions
@@ -75,21 +105,33 @@ public sealed class LlamaCppEmbeddingGeneratorTests
 
     private static string CreateEmbeddingResponse(float[] embedding)
     {
-        string values = string.Join(
+        return CreateEmbeddingResponse((0, embedding));
+    }
+
+    private static string CreateEmbeddingResponse(params (int Index, float[] Embedding)[] embeddings)
+    {
+        string data = string.Join(
             ",",
-            embedding.Select(value =>
-                value.ToString(CultureInfo.InvariantCulture)));
+            embeddings.Select(item =>
+            {
+                string values = string.Join(
+                    ",",
+                    item.Embedding.Select(value =>
+                        value.ToString(CultureInfo.InvariantCulture)));
+
+                return $$"""
+                    {
+                      "object": "embedding",
+                      "index": {{item.Index}},
+                      "embedding": [{{values}}]
+                    }
+                    """;
+            }));
 
         return $$"""
             {
               "object": "list",
-              "data": [
-                {
-                  "object": "embedding",
-                  "index": 0,
-                  "embedding": [{{values}}]
-                }
-              ],
+              "data": [{{data}}],
               "model": "bge-m3"
             }
             """;

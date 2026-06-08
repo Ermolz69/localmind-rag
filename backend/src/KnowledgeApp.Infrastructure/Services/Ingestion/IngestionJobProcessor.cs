@@ -163,6 +163,8 @@ public sealed class IngestionJobProcessor(
                 })
                 .ToList();
 
+            List<DocumentChunkTag> newChunkTags = CreateChunkMetadataTags(diffPlan.NewChunks, newChunks);
+
             await ingestionJobs.UpdateStepAsync(
                 jobId,
                 IngestionJobStatus.Embedding,
@@ -200,6 +202,7 @@ public sealed class IngestionJobProcessor(
             dbContext.DocumentChunks.RemoveRange(diffPlan.DeletedChunks);
 
             dbContext.DocumentChunks.AddRange(newChunks);
+            dbContext.DocumentChunkTags.AddRange(newChunkTags);
             dbContext.DocumentEmbeddings.AddRange(embeddingCreationResult.Embeddings);
 
             document.IndexedContentHash = contentHashService.ComputeDocumentHash(
@@ -295,8 +298,9 @@ public sealed class IngestionJobProcessor(
 
         foreach (DocumentTextSegment segment in extraction.Segments)
         {
-            foreach (string chunkText in chunker.Split(segment.Text))
+            foreach (DocumentChunkText chunk in chunker.SplitDetailed(segment.Text))
             {
+                string chunkText = chunk.Text;
                 string textHash = contentHashService.ComputeChunkHash(chunkText);
 
                 candidates.Add(new ChunkCandidate(
@@ -304,11 +308,64 @@ public sealed class IngestionJobProcessor(
                     PageNumber: segment.PageNumber,
                     Text: chunkText,
                     TextHash: textHash,
-                    ChunkVersion: IndexingVersions.CurrentChunkVersion));
+                    ChunkVersion: IndexingVersions.CurrentChunkVersion,
+                    HeadingPath: chunk.HeadingPath,
+                    SourceStartOffset: chunk.SourceStartOffset,
+                    SourceEndOffset: chunk.SourceEndOffset));
             }
         }
 
         return candidates;
+    }
+
+    private List<DocumentChunkTag> CreateChunkMetadataTags(
+        IReadOnlyList<ChunkCandidate> candidates,
+        IReadOnlyList<DocumentChunk> chunks)
+    {
+        List<DocumentChunkTag> tags = [];
+
+        for (int index = 0; index < candidates.Count && index < chunks.Count; index++)
+        {
+            ChunkCandidate candidate = candidates[index];
+            DocumentChunk chunk = chunks[index];
+
+            AddTag(tags, chunk.Id, "documentId", chunk.DocumentId.ToString());
+            AddTag(tags, chunk.Id, "chunkIndex", chunk.Index.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+            if (!string.IsNullOrWhiteSpace(candidate.HeadingPath))
+            {
+                AddTag(tags, chunk.Id, "headingPath", candidate.HeadingPath);
+            }
+
+            if (candidate.SourceStartOffset is not null && candidate.SourceEndOffset is not null)
+            {
+                AddTag(
+                    tags,
+                    chunk.Id,
+                    "sourceSpan",
+                    $"{candidate.SourceStartOffset.Value}:{candidate.SourceEndOffset.Value}");
+            }
+
+            if (chunk.PageNumber is not null)
+            {
+                AddTag(tags, chunk.Id, "pageNumber", chunk.PageNumber.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            AddTag(tags, chunk.Id, "textHash", chunk.TextHash);
+        }
+
+        return tags;
+    }
+
+    private void AddTag(List<DocumentChunkTag> tags, Guid chunkId, string key, string value)
+    {
+        tags.Add(new DocumentChunkTag
+        {
+            CreatedAt = dateTimeProvider.UtcNow,
+            DocumentChunkId = chunkId,
+            Key = key,
+            Value = value
+        });
     }
 
     private async Task<EmbeddingCreationResult> CreateEmbeddingsForNewChunksAsync(

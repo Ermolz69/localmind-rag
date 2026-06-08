@@ -1,4 +1,6 @@
 using KnowledgeApp.Infrastructure.Services;
+using KnowledgeApp.Infrastructure.Options;
+using Microsoft.Extensions.Options;
 
 namespace KnowledgeApp.UnitTests.Ingestion;
 
@@ -36,6 +38,36 @@ public sealed class SimpleDocumentChunkerTests
 
         Assert.Equal(3, chunks.Count);
         Assert.All(chunks, chunk => Assert.InRange(chunk.Length, 1, 1200));
-        Assert.Equal(2500, chunks.Sum(chunk => chunk.Length));
+        Assert.StartsWith(new string('a', 150), chunks[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SplitDetailed_Should_Preserve_Heading_Path()
+    {
+        SimpleDocumentChunker chunker = new();
+        string text = "# Product\n\nIntro paragraph.\n\n## Search\n\nSearch details.";
+
+        IReadOnlyList<KnowledgeApp.Application.Abstractions.DocumentChunkText> chunks =
+            chunker.SplitDetailed(text);
+
+        Assert.Contains(chunks, chunk => chunk.HeadingPath == "Product > Search");
+    }
+
+    [Fact]
+    public void Split_Should_Merge_Small_Paragraphs_To_Target_Size()
+    {
+        SimpleDocumentChunker chunker = new(
+            Options.Create(new ChunkingOptions
+            {
+                TargetChunkCharacters = 45,
+                MaxChunkCharacters = 120,
+                MinChunkCharacters = 20,
+            }));
+
+        IReadOnlyList<string> chunks = chunker.Split("One short paragraph.\n\nTwo short paragraph.\n\nThree short paragraph.");
+
+        Assert.Equal(2, chunks.Count);
+        Assert.Contains("One short paragraph.", chunks[0], StringComparison.Ordinal);
+        Assert.Contains("Two short paragraph.", chunks[0], StringComparison.Ordinal);
     }
 }

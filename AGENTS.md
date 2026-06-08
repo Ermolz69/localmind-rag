@@ -391,6 +391,126 @@ Run the color guard when changing UI styling:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check/check-colors.ps1
 ```
 
+# Tauri Desktop Architecture Rules
+
+Path: `apps/desktop/src-tauri`
+
+## 1. Architecture Boundaries
+
+- React/TypeScript is responsible for UI, screen state, forms, progress display, and API calls.
+- Tauri/Rust is responsible for desktop/system integration:
+  - launching `KnowledgeApp.LocalApi` sidecar;
+  - dynamic loopback port;
+  - health/readiness polling;
+  - LocalApi process supervision;
+  - app paths;
+  - logs;
+  - OS-specific helpers;
+  - file/folder dialogs;
+  - open/reveal files/folders;
+  - emitting events to frontend;
+  - secure storage (future).
+- `KnowledgeApp.LocalApi` is responsible for:
+  - RAG;
+  - indexing;
+  - embeddings;
+  - SQLite;
+  - sync;
+  - AI runtime adapters;
+  - document processing;
+  - backend business logic.
+- **Do not** move RAG, indexing, SQLite, sync, or chat business logic into Rust.
+- **Do not** move desktop lifecycle or process supervision into React.
+
+## 2. Tauri/Rust Structure Rules
+
+- `main.rs` must stay a composition root only (module declarations, `tauri::Builder`, manage state, invoke handler, setup, shutdown hook).
+- `main.rs` must not contain process spawning, health polling, path resolution, or OS-specific logic.
+- LocalApi supervision must live under `local_api/`.
+- OS-specific code must live under `os/`.
+- `app_runtime.rs` contains frontend-facing runtime DTO/composition helpers if needed.
+- Tauri commands must be thin wrappers over supervisor/services.
+- Event names and frontend-facing contracts must be stable and centralized.
+- No fixed `LOCAL_API_URL` when dynamic port is enabled.
+- Frontend must obtain LocalApi `baseUrl`/status from Tauri, not hardcode it.
+
+## 3. LocalApi Supervisor Rules
+
+- Supervisor owns LocalApi lifecycle: `NotStarted`, `Starting`, `Ready`, `Failed`, `Crashed`, `Restarting`, `Stopped`.
+- Status changes must be centralized in supervisor.
+- Every relevant status change should emit `local-api-status-changed`.
+- Health polling must target only `GET /api/v1/health`.
+- Startup backoff must remain: 0ms, 250ms, 500ms, 1s, 2s, 4s, 8s, 8s, unless the architecture document is updated.
+- Long-running operations must not run while holding a `Mutex`.
+- LocalApi must bind to `127.0.0.1`, not `0.0.0.0`.
+- Do not bind LocalApi to `localhost` if the actual binding can resolve unexpectedly; prefer explicit `127.0.0.1`.
+- LocalApi must never be exposed to the LAN/public network from the desktop app.
+- LocalApi child process must be stopped on app/window close.
+- Startup/readiness must be single-flight: parallel frontend/runtime requests must not start multiple LocalApi processes or multiple independent health polling loops.
+
+## 4. Frontend Startup Rules
+
+- Frontend must not immediately call `/diagnostics`, `/runtime/status`, or `/sync/status` before LocalApi is `Ready`.
+- Frontend should wait for Tauri runtime info/status.
+- `http.ts` should remain a normal API client, not the owner of LocalApi lifecycle.
+- `http.ts` must not perform startup readiness polling in the normal flow. It may only contain defensive retry/error handling for already-initialized API calls.
+- Frontend should show startup/failed/crashed states based on Tauri status/events.
+
+## 5. Rust Code Style
+
+- Follow `rustfmt`.
+- No duplicated imports.
+- No unused imports.
+- No wildcard imports outside tests/prelude.
+- No `unsafe` for the supervisor code.
+- Use typed Rust errors internally.
+- Convert errors to frontend-safe DTOs at the Tauri command boundary.
+- Keep `Mutex` guards short.
+- Do not hold `Mutex` during process spawn, health polling, sleep, file IO, or network IO.
+
+## 6. Required Checks
+
+For Rust/Tauri changes, run:
+
+```powershell
+task -t .config/task/Taskfile.yml check:rust
+```
+
+or separately:
+
+```bash
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+```
+
+For desktop frontend changes, run:
+
+```bash
+pnpm --filter desktop typecheck
+pnpm --filter desktop lint
+pnpm --filter desktop build
+```
+
+For backend changes, run relevant `dotnet build`/`dotnet test`.
+
+Do not claim full task `check` passed if `check:docker` was not run. Say explicitly which checks were run.
+
+## 7. Dev Workflow
+
+- Preferred desktop dev startup:
+  - `task -t .config/task/Taskfile.yml dev`
+  - or `pnpm dev`
+- These should launch the Tauri desktop app and let Rust supervise LocalApi.
+- Manual LocalApi startup is only for special debugging: `pnpm dev:localapi`.
+
+## 8. Documentation Rule
+
+- If architecture behavior changes, update:
+  - `docs/architecture/desktop-tauri-supervisor.md`
+  - `AGENTS.md` / relevant agent instructions
+- Keep docs aligned with actual code structure.
+
 # Docs
 
 Path: `docs`

@@ -5,4 +5,7 @@ public sealed record ChunkCandidate(
     int? PageNumber,
     string Text,
     string TextHash,
-    int ChunkVersion);
+    int ChunkVersion,
+    string? HeadingPath = null,
+    int? SourceStartOffset = null,
+    int? SourceEndOffset = null);

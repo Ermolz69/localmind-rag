@@ -40,6 +40,8 @@
       items:
         - name: Ingestion and RAG
           href: architecture/rag-pipeline.md
+        - name: Retrieval and indexing
+          href: architecture/retrieval-indexing-pipeline.md
     - name: Runtime
       href: architecture/local-runtime.md
       items:
@@ -50,6 +52,8 @@
       items:
         - name: Frontend contracts
           href: architecture/frontend-contracts.md
+        - name: Desktop Tauri supervisor
+          href: architecture/desktop-tauri-supervisor.md
     - name: Security & Sync
       href: architecture/security-and-sync.md
       items:

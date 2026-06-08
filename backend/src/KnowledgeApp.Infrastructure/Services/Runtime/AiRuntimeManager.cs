@@ -272,7 +272,27 @@ public sealed class AiRuntimeManager(
             return [];
         }
 
-        EmbeddingRequest payload = new(EmbeddingModelName, text);
+        IReadOnlyList<float[]> embeddings = await GenerateEmbeddingBatchAsync([text], cancellationToken);
+        return embeddings[0];
+    }
+
+    public async Task<IReadOnlyList<float[]>> GenerateEmbeddingBatchAsync(
+        IReadOnlyList<string> texts,
+        CancellationToken cancellationToken = default)
+    {
+        if (texts.Count == 0)
+        {
+            return [];
+        }
+
+        if (texts.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new ExternalDependencyAppException(
+                ErrorCodes.Runtime.AiRuntimeUnavailable,
+                ErrorMessages.Runtime.AiRuntimeUnavailable);
+        }
+
+        EmbeddingRequest payload = new(EmbeddingModelName, texts);
 
         using HttpClient client = new()
         {
@@ -298,16 +318,28 @@ public sealed class AiRuntimeManager(
                 SerializerOptions,
                 cancellationToken);
 
-        float[]? result = body?.Data.FirstOrDefault()?.Embedding;
-
-        if (result is null || result.Length == 0)
+        IReadOnlyList<EmbeddingResponseData>? data = body?.Data;
+        if (data is null || data.Count != texts.Count)
         {
             throw new ExternalDependencyAppException(
                 ErrorCodes.Runtime.AiRuntimeUnavailable,
                 ErrorMessages.Runtime.AiRuntimeUnavailable);
         }
 
-        return result;
+        List<float[]> results = new(data.Count);
+        foreach (EmbeddingResponseData item in data.OrderBy(item => item.Index))
+        {
+            if (item.Index < 0 || item.Index >= texts.Count || item.Embedding.Length == 0)
+            {
+                throw new ExternalDependencyAppException(
+                    ErrorCodes.Runtime.AiRuntimeUnavailable,
+                    ErrorMessages.Runtime.AiRuntimeUnavailable);
+            }
+
+            results.Add(item.Embedding);
+        }
+
+        return results;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -795,12 +827,13 @@ public sealed class AiRuntimeManager(
 
     private sealed record EmbeddingRequest(
         [property: JsonPropertyName("model")] string Model,
-        [property: JsonPropertyName("input")] string Input);
+        [property: JsonPropertyName("input")] IReadOnlyList<string> Input);
 
     private sealed record EmbeddingResponse(
         [property: JsonPropertyName("data")] IReadOnlyList<EmbeddingResponseData> Data);
 
     private sealed record EmbeddingResponseData(
+        [property: JsonPropertyName("index")] int Index,
         [property: JsonPropertyName("embedding")] float[] Embedding);
 
     private sealed record ChatCompletionRequest(
