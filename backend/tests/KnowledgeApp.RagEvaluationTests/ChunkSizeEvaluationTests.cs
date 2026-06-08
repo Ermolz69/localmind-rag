@@ -16,8 +16,8 @@ public class ChunkSizeEvaluationTests
 
         var options = new ChunkingOptions();
 
-        Assert.Equal(1200, options.TargetChunkCharacters);
-        Assert.Equal(1600, options.MaxChunkCharacters);
-        Assert.Equal(150, options.OverlapCharacters);
+        Assert.Equal(420, options.Default.TargetTokens);
+        Assert.Equal(700, options.Default.MaxTokens);
+        Assert.Equal(80, options.Default.OverlapTokens);
     }
 }

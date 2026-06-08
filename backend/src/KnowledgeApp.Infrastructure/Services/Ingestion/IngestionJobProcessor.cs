@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Abstractions.Ingestion;
 using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Application.Ingestion.IncrementalIndexing;
 using KnowledgeApp.Contracts.Documents;
@@ -158,7 +159,16 @@ public sealed class IngestionJobProcessor(
                     Index = candidate.Index,
                     PageNumber = candidate.PageNumber,
                     Text = candidate.Text,
-                    TextHash = candidate.TextHash,
+                    HeadingPath = candidate.HeadingPath,
+                    SectionTitle = candidate.SectionTitle,
+                    ChunkType = candidate.ChunkType,
+                    SourceStartOffset = candidate.SourceStartOffset,
+                    SourceEndOffset = candidate.SourceEndOffset,
+                    TokenCount = candidate.TokenCount,
+                    TokenizerId = candidate.TokenizerId,
+                    ChunkingAlgorithmId = candidate.ChunkingAlgorithmId,
+                    ChunkIdentityHash = candidate.ChunkIdentityHash,
+                    EmbeddingTextHash = candidate.EmbeddingTextHash,
                     ChunkVersion = candidate.ChunkVersion
                 })
                 .ToList();
@@ -206,7 +216,7 @@ public sealed class IngestionJobProcessor(
             dbContext.DocumentEmbeddings.AddRange(embeddingCreationResult.Embeddings);
 
             document.IndexedContentHash = contentHashService.ComputeDocumentHash(
-                incomingChunks.Select(chunk => chunk.TextHash),
+                incomingChunks.Select(chunk => chunk.EmbeddingTextHash),
                 IndexingVersions.CurrentDocumentIndexVersion);
 
             document.IndexVersion = IndexingVersions.CurrentDocumentIndexVersion;
@@ -300,16 +310,19 @@ public sealed class IngestionJobProcessor(
         {
             foreach (DocumentChunkText chunk in chunker.SplitDetailed(segment.Text))
             {
-                string chunkText = chunk.Text;
-                string textHash = contentHashService.ComputeChunkHash(chunkText);
-
                 candidates.Add(new ChunkCandidate(
                     Index: candidates.Count,
                     PageNumber: segment.PageNumber,
-                    Text: chunkText,
-                    TextHash: textHash,
+                    Text: chunk.Text,
+                    ChunkIdentityHash: chunk.ChunkIdentityHash,
+                    EmbeddingTextHash: chunk.EmbeddingTextHash,
                     ChunkVersion: IndexingVersions.CurrentChunkVersion,
+                    ChunkingAlgorithmId: chunk.ChunkingAlgorithmId,
+                    TokenizerId: chunk.TokenizerId,
+                    TokenCount: chunk.TokenCount,
+                    ChunkType: chunk.ChunkType,
                     HeadingPath: chunk.HeadingPath,
+                    SectionTitle: chunk.SectionTitle,
                     SourceStartOffset: chunk.SourceStartOffset,
                     SourceEndOffset: chunk.SourceEndOffset));
             }
@@ -337,13 +350,13 @@ public sealed class IngestionJobProcessor(
                 AddTag(tags, chunk.Id, "headingPath", candidate.HeadingPath);
             }
 
-            if (candidate.SourceStartOffset is not null && candidate.SourceEndOffset is not null)
+            if (chunk.SourceStartOffset is not null && chunk.SourceEndOffset is not null)
             {
                 AddTag(
                     tags,
                     chunk.Id,
                     "sourceSpan",
-                    $"{candidate.SourceStartOffset.Value}:{candidate.SourceEndOffset.Value}");
+                    $"{chunk.SourceStartOffset.Value}:{chunk.SourceEndOffset.Value}");
             }
 
             if (chunk.PageNumber is not null)
@@ -351,7 +364,8 @@ public sealed class IngestionJobProcessor(
                 AddTag(tags, chunk.Id, "pageNumber", chunk.PageNumber.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
             }
 
-            AddTag(tags, chunk.Id, "textHash", chunk.TextHash);
+            AddTag(tags, chunk.Id, "embeddingTextHash", chunk.EmbeddingTextHash);
+            AddTag(tags, chunk.Id, "chunkIdentityHash", chunk.ChunkIdentityHash);
         }
 
         return tags;
@@ -386,7 +400,7 @@ public sealed class IngestionJobProcessor(
 
         foreach (DocumentChunk newChunk in newChunks)
         {
-            if (reusableEmbeddingsByTextHash.TryGetValue(newChunk.TextHash, out DocumentEmbedding? reusableEmbedding))
+            if (reusableEmbeddingsByTextHash.TryGetValue(newChunk.EmbeddingTextHash, out DocumentEmbedding? reusableEmbedding))
             {
                 copiedEmbeddings.Add(CopyEmbeddingForChunk(reusableEmbedding, newChunk.Id));
                 continue;
@@ -424,7 +438,7 @@ public sealed class IngestionJobProcessor(
         }
 
         string[] textHashes = newChunks
-            .Select(chunk => chunk.TextHash)
+            .Select(chunk => chunk.EmbeddingTextHash)
             .Where(textHash => !string.IsNullOrWhiteSpace(textHash))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
@@ -440,13 +454,13 @@ public sealed class IngestionJobProcessor(
                 on chunk.Id equals embedding.DocumentChunkId
             where chunk.DocumentId != currentDocumentId
                 && chunk.ChunkVersion == IndexingVersions.CurrentChunkVersion
-                && textHashes.Contains(chunk.TextHash)
+                && textHashes.Contains(chunk.EmbeddingTextHash)
                 && embedding.ModelName == modelName
-            select new ReusableEmbeddingProjection(chunk.TextHash, embedding))
+            select new ReusableEmbeddingProjection(chunk.EmbeddingTextHash, embedding))
             .ToListAsync(cancellationToken);
 
         return reusableEmbeddings
-            .GroupBy(item => item.TextHash, StringComparer.Ordinal)
+            .GroupBy(item => item.EmbeddingTextHash, StringComparer.Ordinal)
             .ToDictionary(
                 group => group.Key,
                 group => group
@@ -475,8 +489,17 @@ public sealed class IngestionJobProcessor(
             reusedChunk.ExistingChunk.Index = reusedChunk.Candidate.Index;
             reusedChunk.ExistingChunk.PageNumber = reusedChunk.Candidate.PageNumber;
             reusedChunk.ExistingChunk.Text = reusedChunk.Candidate.Text;
-            reusedChunk.ExistingChunk.TextHash = reusedChunk.Candidate.TextHash;
             reusedChunk.ExistingChunk.ChunkVersion = reusedChunk.Candidate.ChunkVersion;
+            reusedChunk.ExistingChunk.HeadingPath = reusedChunk.Candidate.HeadingPath;
+            reusedChunk.ExistingChunk.SectionTitle = reusedChunk.Candidate.SectionTitle;
+            reusedChunk.ExistingChunk.ChunkType = reusedChunk.Candidate.ChunkType;
+            reusedChunk.ExistingChunk.SourceStartOffset = reusedChunk.Candidate.SourceStartOffset;
+            reusedChunk.ExistingChunk.SourceEndOffset = reusedChunk.Candidate.SourceEndOffset;
+            reusedChunk.ExistingChunk.TokenCount = reusedChunk.Candidate.TokenCount;
+            reusedChunk.ExistingChunk.TokenizerId = reusedChunk.Candidate.TokenizerId;
+            reusedChunk.ExistingChunk.ChunkingAlgorithmId = reusedChunk.Candidate.ChunkingAlgorithmId;
+            reusedChunk.ExistingChunk.ChunkIdentityHash = reusedChunk.Candidate.ChunkIdentityHash;
+            reusedChunk.ExistingChunk.EmbeddingTextHash = reusedChunk.Candidate.EmbeddingTextHash;
         }
     }
 
@@ -505,6 +528,11 @@ public sealed class IngestionJobProcessor(
 
     private static string SanitizeIngestionError(Exception exception)
     {
+        if (exception is KnowledgeApp.Application.Exceptions.TokenizerUnavailableException)
+        {
+            return "Tokenizer model is not installed. Please run AI setup or configure tokenizer path.";
+        }
+
         string message = exception.Message;
 
         if (string.IsNullOrWhiteSpace(message))
@@ -525,6 +553,6 @@ public sealed class IngestionJobProcessor(
         int CrossDocumentReusedEmbeddingsCount);
 
     private sealed record ReusableEmbeddingProjection(
-        string TextHash,
+        string EmbeddingTextHash,
         DocumentEmbedding Embedding);
 }

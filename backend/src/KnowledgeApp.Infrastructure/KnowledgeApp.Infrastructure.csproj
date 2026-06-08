@@ -19,6 +19,7 @@
     <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="MediatR" />
     <PackageReference Include="System.Numerics.Tensors" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" />
   </ItemGroup>
 
   <ItemGroup>

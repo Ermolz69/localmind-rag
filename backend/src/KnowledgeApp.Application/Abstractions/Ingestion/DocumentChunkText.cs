@@ -1,12 +1,19 @@
-namespace KnowledgeApp.Application.Abstractions;
+namespace KnowledgeApp.Application.Abstractions.Ingestion;
 
 public sealed record DocumentChunkText(
     string Text,
-    string? HeadingPath = null,
-    int? SourceStartOffset = null,
-    int? SourceEndOffset = null)
+    string? CoreText,
+    bool HasOverlap,
+    string? HeadingPath,
+    string? SectionTitle,
+    string ChunkType,
+    int? SourceStartOffset,
+    int? SourceEndOffset,
+    int TokenCount,
+    string TokenizerId,
+    string ChunkingAlgorithmId,
+    string ChunkIdentityHash,
+    string EmbeddingTextHash)
 {
-    public string EmbeddingText => string.IsNullOrWhiteSpace(HeadingPath)
-        ? Text
-        : $"Section: {HeadingPath}\n\n{Text}";
+    public string EmbeddingText => Text;
 }

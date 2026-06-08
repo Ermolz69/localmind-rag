@@ -1,13 +1,6 @@
-namespace KnowledgeApp.Application.Abstractions;
+namespace KnowledgeApp.Application.Abstractions.Ingestion;
 
 public interface IDocumentChunker
 {
-    IReadOnlyList<string> Split(string text);
-
-    IReadOnlyList<DocumentChunkText> SplitDetailed(string text)
-    {
-        return Split(text)
-            .Select(chunk => new DocumentChunkText(chunk))
-            .ToArray();
-    }
+    IReadOnlyList<DocumentChunkText> SplitDetailed(string text);
 }

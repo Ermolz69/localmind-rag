@@ -18,13 +18,13 @@ public sealed class IncrementalChunkPlanner : IIncrementalChunkPlanner
 
         foreach (ChunkCandidate incomingChunk in incomingChunks)
         {
-            if (string.IsNullOrWhiteSpace(incomingChunk.TextHash))
+            if (string.IsNullOrWhiteSpace(incomingChunk.ChunkIdentityHash))
             {
                 newChunks.Add(incomingChunk);
                 continue;
             }
 
-            ChunkMatchKey key = new ChunkMatchKey(incomingChunk.TextHash, incomingChunk.ChunkVersion);
+            ChunkMatchKey key = new ChunkMatchKey(incomingChunk.ChunkIdentityHash, incomingChunk.ChunkingAlgorithmId, incomingChunk.ChunkVersion);
 
             if (!existingChunksByKey.TryGetValue(key, out Queue<DocumentChunk>? matchingExistingChunks) ||
                 matchingExistingChunks.Count == 0)
@@ -54,12 +54,12 @@ public sealed class IncrementalChunkPlanner : IIncrementalChunkPlanner
 
         foreach (DocumentChunk existingChunk in existingChunks.OrderBy(chunk => chunk.Index))
         {
-            if (string.IsNullOrWhiteSpace(existingChunk.TextHash))
+            if (string.IsNullOrWhiteSpace(existingChunk.ChunkIdentityHash))
             {
                 continue;
             }
 
-            ChunkMatchKey key = new ChunkMatchKey(existingChunk.TextHash, existingChunk.ChunkVersion);
+            ChunkMatchKey key = new ChunkMatchKey(existingChunk.ChunkIdentityHash, existingChunk.ChunkingAlgorithmId, existingChunk.ChunkVersion);
 
             if (!existingChunksByKey.TryGetValue(key, out Queue<DocumentChunk>? queue))
             {
@@ -73,5 +73,5 @@ public sealed class IncrementalChunkPlanner : IIncrementalChunkPlanner
         return existingChunksByKey;
     }
 
-    private readonly record struct ChunkMatchKey(string TextHash, int ChunkVersion);
+    private readonly record struct ChunkMatchKey(string ChunkIdentityHash, string ChunkingAlgorithmId, int ChunkVersion);
 }

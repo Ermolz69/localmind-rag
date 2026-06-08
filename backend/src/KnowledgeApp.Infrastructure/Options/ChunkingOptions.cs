@@ -4,17 +4,41 @@ public sealed class ChunkingOptions
 {
     public const string SectionName = "Chunking";
 
-    public string Strategy { get; set; } = "StructureAware";
+    public ChunkingTokenizerOptions Tokenizer { get; set; } = new();
 
-    public int TargetChunkCharacters { get; set; } = 1200;
+    public int ChunkingVersion { get; set; } = 1;
 
-    public int MaxChunkCharacters { get; set; } = 1600;
+    public string ChunkingAlgorithmId { get; set; } = "structure-aware-token-v1";
 
-    public int MinChunkCharacters { get; set; } = 200;
+    public ChunkingProfile Default { get; set; } = new()
+    {
+        TargetTokens = 420,
+        MaxTokens = 700,
+        MinTokens = 120,
+        OverlapTokens = 80
+    };
 
-    public int OverlapCharacters { get; set; } = 150;
+    public ChunkingProfile Code { get; set; } = new()
+    {
+        TargetTokens = 280,
+        MaxTokens = 520,
+        MinTokens = 80,
+        OverlapTokens = 40
+    };
 
-    public bool ApplyOverlapOnlyOnForcedSplit { get; set; } = true;
+    public ChunkingProfile Table { get; set; } = new()
+    {
+        TargetTokens = 500,
+        MaxTokens = 900,
+        MinTokens = 100,
+        OverlapTokens = 30
+    };
 
-    public bool PreserveHeadings { get; set; } = true;
+    public ChunkingProfile Slide { get; set; } = new()
+    {
+        TargetTokens = 300,
+        MaxTokens = 500,
+        MinTokens = 50,
+        OverlapTokens = 0
+    };
 }

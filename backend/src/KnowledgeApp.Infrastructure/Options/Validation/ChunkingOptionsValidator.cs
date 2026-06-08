@@ -9,34 +9,46 @@ public sealed class ChunkingOptionsValidator : IValidateOptions<ChunkingOptions>
     {
         List<string> failures = [];
 
-        if (!string.Equals(options.Strategy, "StructureAware", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(options.Strategy, "Simple", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(options.Tokenizer.TokenizerId))
         {
-            failures.Add("Chunking:Strategy must be StructureAware or Simple.");
+            failures.Add("Chunking:Tokenizer:TokenizerId is required.");
         }
 
-        if (options.TargetChunkCharacters <= 0)
+        if (string.IsNullOrWhiteSpace(options.ChunkingAlgorithmId))
         {
-            failures.Add("Chunking:TargetChunkCharacters must be greater than zero.");
+            failures.Add("Chunking:ChunkingAlgorithmId is required.");
         }
 
-        if (options.MaxChunkCharacters < options.TargetChunkCharacters)
-        {
-            failures.Add("Chunking:MaxChunkCharacters must be greater than or equal to TargetChunkCharacters.");
-        }
-
-        if (options.MinChunkCharacters < 0)
-        {
-            failures.Add("Chunking:MinChunkCharacters must be greater than or equal to zero.");
-        }
-
-        if (options.OverlapCharacters < 0 || options.OverlapCharacters >= options.TargetChunkCharacters)
-        {
-            failures.Add("Chunking:OverlapCharacters must be greater than or equal to zero and less than TargetChunkCharacters.");
-        }
+        ValidateProfile(options.Default, "Default", failures);
+        ValidateProfile(options.Code, "Code", failures);
+        ValidateProfile(options.Table, "Table", failures);
+        ValidateProfile(options.Slide, "Slide", failures);
 
         return failures.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(failures);
+    }
+
+    private static void ValidateProfile(ChunkingProfile profile, string profileName, List<string> failures)
+    {
+        if (profile.TargetTokens <= 0)
+        {
+            failures.Add($"Chunking:{profileName}:TargetTokens must be greater than zero.");
+        }
+
+        if (profile.MaxTokens < profile.TargetTokens)
+        {
+            failures.Add($"Chunking:{profileName}:MaxTokens must be greater than or equal to TargetTokens.");
+        }
+
+        if (profile.MinTokens < 0)
+        {
+            failures.Add($"Chunking:{profileName}:MinTokens must be greater than or equal to zero.");
+        }
+
+        if (profile.OverlapTokens < 0 || profile.OverlapTokens >= profile.TargetTokens)
+        {
+            failures.Add($"Chunking:{profileName}:OverlapTokens must be greater than or equal to zero and less than TargetTokens.");
+        }
     }
 }

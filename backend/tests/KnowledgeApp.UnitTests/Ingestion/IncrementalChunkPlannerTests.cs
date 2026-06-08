@@ -61,7 +61,7 @@ public sealed class IncrementalChunkPlannerTests
         Assert.Single(plan.NewChunks);
         Assert.Single(plan.DeletedChunks);
 
-        Assert.Equal("hash-b-modified", plan.NewChunks[0].TextHash);
+        Assert.Equal("hash-b-modified", plan.NewChunks[0].ChunkIdentityHash);
         Assert.Same(existingChunks[1], plan.DeletedChunks[0]);
     }
 
@@ -93,7 +93,7 @@ public sealed class IncrementalChunkPlannerTests
     }
 
     [Fact]
-    public void BuildPlan_Should_ReuseMovedChunks_WhenTextHashesAreSame()
+    public void BuildPlan_Should_ReuseMovedChunks_WhenIdentityHashesAreSame()
     {
         IncrementalChunkPlanner planner = new IncrementalChunkPlanner();
 
@@ -209,7 +209,11 @@ public sealed class IncrementalChunkPlannerTests
             Index = index,
             PageNumber = null,
             Text = $"Existing text for {textHash}",
-            TextHash = textHash,
+            ChunkIdentityHash = textHash,
+            EmbeddingTextHash = textHash,
+            ChunkingAlgorithmId = "test-alg",
+            TokenizerId = "test-tokenizer",
+            ChunkType = "unknown",
             ChunkVersion = chunkVersion
         };
     }
@@ -223,7 +227,12 @@ public sealed class IncrementalChunkPlannerTests
             Index: index,
             PageNumber: null,
             Text: $"Incoming text for {textHash}",
-            TextHash: textHash,
-            ChunkVersion: chunkVersion);
+            ChunkIdentityHash: textHash,
+            EmbeddingTextHash: textHash,
+            ChunkVersion: chunkVersion,
+            ChunkingAlgorithmId: "test-alg",
+            TokenizerId: "test-tokenizer",
+            TokenCount: 10,
+            ChunkType: "unknown");
     }
 }
