@@ -6,10 +6,10 @@ use std::{
 
 use crate::app_runtime::{HEALTH_PATH, LOCAL_API_HOST};
 
-pub fn wait_for_health(base_url: &str) -> bool {
+pub fn wait_for_health(base_url: &str, expected_token: &str) -> bool {
     for delay in health_backoff_schedule() {
         std::thread::sleep(delay);
-        if check_health(base_url) {
+        if check_health(base_url, expected_token) {
             return true;
         }
     }
@@ -17,7 +17,7 @@ pub fn wait_for_health(base_url: &str) -> bool {
     false
 }
 
-pub fn check_health(base_url: &str) -> bool {
+pub fn check_health(base_url: &str, expected_token: &str) -> bool {
     let Some(port) = base_url
         .rsplit(':')
         .next()
@@ -51,7 +51,22 @@ pub fn check_health(base_url: &str) -> bool {
         return false;
     }
 
-    response.starts_with("HTTP/1.1 200") || response.starts_with("HTTP/1.0 200")
+    if response.is_empty() {
+        return false;
+    }
+
+    if let Some(body_start) = response.find("\r\n\r\n") {
+        let body = &response[body_start + 4..];
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(body) {
+            if let Some(service) = json.get("service").and_then(|s| s.as_str()) {
+                if let Some(token) = json.get("supervisorInstanceId").and_then(|t| t.as_str()) {
+                    return service == "KnowledgeApp.LocalApi" && token == expected_token;
+                }
+            }
+        }
+    }
+
+    false
 }
 
 fn health_backoff_schedule() -> [Duration; 8] {

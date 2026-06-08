@@ -5,6 +5,7 @@ import { setApiBaseUrl } from "@shared/api";
 import { StartupScreen } from "./StartupScreen";
 import {
   copyDiagnosticsToClipboard,
+  enableLimitedMode,
   getAppRuntimeInfo,
   openLogsFolder,
   restartLocalApi,
@@ -13,7 +14,6 @@ import {
 
 export function AppBootstrap({ children }: PropsWithChildren) {
   const [runtimeInfo, setRuntimeInfo] = useState<AppRuntimeInfo | null>(null);
-  const [limitedMode, setLimitedMode] = useState(false);
 
   const applyRuntimeInfo = useCallback((info: AppRuntimeInfo) => {
     setRuntimeInfo(info);
@@ -42,17 +42,20 @@ export function AppBootstrap({ children }: PropsWithChildren) {
     };
   }, [applyRuntimeInfo]);
 
-  if (runtimeInfo?.localApiStatus === "Ready" || limitedMode) {
+  if (
+    runtimeInfo?.desktopMode === "Limited" ||
+    runtimeInfo?.localApiStatus === "Ready"
+  ) {
     return <>{children}</>;
   }
 
   return (
     <StartupScreen
       runtimeInfo={runtimeInfo}
-      onRetry={() => void restartLocalApi().then(applyRuntimeInfo)}
+      onRetry={() => void restartLocalApi()}
       onOpenLogs={() => void openLogsFolder()}
       onCopyDiagnostics={() => void copyDiagnosticsToClipboard()}
-      onContinue={() => setLimitedMode(true)}
+      onContinue={() => void enableLimitedMode().then(applyRuntimeInfo)}
       canContinue={
         runtimeInfo?.localApiStatus === "Failed" ||
         runtimeInfo?.localApiStatus === "Crashed"

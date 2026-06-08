@@ -6,7 +6,7 @@ use crate::{
     app_runtime::{local_api_base_url, SupervisorError, HEALTH_PATH, STATUS_EVENT},
     local_api::{
         health, paths, process,
-        state::{AppRuntimeInfo, LocalApiStatus, SupervisorState},
+        state::{AppRuntimeInfo, DesktopMode, LocalApiStatus, SupervisorState},
     },
 };
 
@@ -27,19 +27,21 @@ impl LocalApiSupervisor {
 
         AppRuntimeInfo {
             local_api_status: state.status,
-            base_url: if state.status == LocalApiStatus::Ready {
-                state.port.map(local_api_base_url)
-            } else {
-                None
-            },
+            base_url: state.override_url.clone().or_else(|| state.port.map(local_api_base_url)),
             pid: state.child.as_ref().map(std::process::Child::id),
             logs_path: paths::logs_dir(&root).display().to_string(),
             app_data_path: paths::app_data_dir(&root).display().to_string(),
             last_error: state.last_error.clone(),
+            desktop_mode: state.desktop_mode,
+            api_available: state.status == LocalApiStatus::Ready && (state.port.is_some() || state.override_url.is_some()),
         }
     }
 
     pub fn start(&self, app: AppHandle, restarting: bool) {
+        self.start_with_retry(app, restarting, 1);
+    }
+
+    fn start_with_retry(&self, app: AppHandle, restarting: bool, attempt: u32) {
         if !self.transition_to_starting(&app, restarting) {
             return;
         }
@@ -50,22 +52,26 @@ impl LocalApiSupervisor {
             return;
         }
 
-        if let Some(existing_port) = paths::read_sidecar_port(&root) {
-            let existing_base_url = local_api_base_url(existing_port);
-            if health::check_health(&existing_base_url) {
-                paths::write_sidecar_log(
-                    &root,
-                    &format!("LocalApi is already ready at {existing_base_url}."),
-                );
-                self.set_status(
-                    &app,
-                    LocalApiStatus::Ready,
-                    Some(existing_port),
-                    None,
-                    false,
-                );
-                return;
-            }
+        if let Ok(override_url) = std::env::var("LOCALMIND_LOCAL_API_URL") {
+            paths::write_sidecar_log(
+                &root,
+                &format!("Using external LocalApi override from environment: {override_url}"),
+            );
+            
+            let (generation, token) = {
+                let mut state = self.state.lock().expect("supervisor state poisoned");
+                state.status = LocalApiStatus::Ready;
+                state.override_url = Some(override_url.clone());
+                state.monitor_running = true;
+                state.last_error = None;
+                state.monitor_generation += 1;
+                state.instance_token = None;
+                (state.monitor_generation, String::new())
+            };
+            
+            self.emit_status(&app);
+            self.spawn_monitor(app, root, override_url, token, generation, attempt);
+            return;
         }
 
         let port = process::reserve_loopback_port();
@@ -74,59 +80,80 @@ impl LocalApiSupervisor {
             return;
         }
 
-        match process::spawn_local_api(&root, port) {
+        let token = uuid::Uuid::new_v4().to_string();
+
+        match process::spawn_local_api(&root, port, &token) {
             Ok((child, description)) => {
                 paths::write_sidecar_log(
                     &root,
-                    &format!("Starting LocalApi with command: {description}"),
+                    &format!("Starting LocalApi with command: {description} (Attempt {})", attempt),
                 );
 
-                {
+                let generation = {
                     let mut state = self.state.lock().expect("supervisor state poisoned");
                     state.child = Some(child);
                     state.port = Some(port);
                     state.status = LocalApiStatus::Starting;
                     state.monitor_running = true;
                     state.last_error = None;
-                }
+                    state.monitor_generation += 1;
+                    state.instance_token = Some(token.clone());
+                    state.monitor_generation
+                };
 
                 self.emit_status(&app);
-                self.spawn_monitor(app, root, local_api_base_url(port));
+                self.spawn_monitor(app, root, local_api_base_url(port), token, generation, attempt);
             }
-            Err(error) => self.set_failed(&app, error),
+            Err(error) => {
+                paths::write_sidecar_log(&root, &format!("Spawn failed: {}", error.message()));
+                self.set_failed(&app, error);
+            }
         }
     }
 
     pub fn restart(&self, app: AppHandle) {
-        {
+        let child_to_kill = {
             let mut state = self.state.lock().expect("supervisor state poisoned");
             state.status = LocalApiStatus::Restarting;
             state.last_error = None;
             state.monitor_running = false;
-
-            if let Some(mut child) = state.child.take() {
-                process::kill_child(&mut child);
-            }
-
             state.port = None;
+            state.instance_token = None;
+            state.monitor_generation += 1;
+            state.child.take()
+        };
+
+        if let Some(mut child) = child_to_kill {
+            process::kill_child(&mut child);
         }
 
         self.emit_status(&app);
-        self.start(app, true);
+        self.start_with_retry(app, true, 1);
     }
 
     pub fn stop(&self, app: &AppHandle) {
-        {
+        let child_to_kill = {
             let mut state = self.state.lock().expect("supervisor state poisoned");
-            if let Some(mut child) = state.child.take() {
-                process::kill_child(&mut child);
-            }
-
             state.status = LocalApiStatus::Stopped;
             state.monitor_running = false;
             state.port = None;
+            state.instance_token = None;
+            state.monitor_generation += 1;
+            state.child.take()
+        };
+
+        if let Some(mut child) = child_to_kill {
+            process::kill_child(&mut child);
         }
 
+        self.emit_status(app);
+    }
+
+    pub fn enable_limited_mode(&self, app: &AppHandle) {
+        {
+            let mut state = self.state.lock().expect("supervisor state poisoned");
+            state.desktop_mode = DesktopMode::Limited;
+        }
         self.emit_status(app);
     }
 
@@ -183,14 +210,29 @@ impl LocalApiSupervisor {
         );
     }
 
-    fn spawn_monitor(&self, app: AppHandle, root: std::path::PathBuf, base_url: String) {
+    fn spawn_monitor(
+        &self,
+        app: AppHandle,
+        root: std::path::PathBuf,
+        base_url: String,
+        expected_token: String,
+        generation: u64,
+        attempt: u32,
+    ) {
         thread::spawn(move || {
-            let ready = health::wait_for_health(&base_url);
+            let ready = if expected_token.is_empty() {
+                true
+            } else {
+                health::wait_for_health(&base_url, &expected_token)
+            };
+
+            let mut retry = false;
 
             {
                 let supervisor = app.state::<LocalApiSupervisor>();
                 let mut state = supervisor.state.lock().expect("supervisor state poisoned");
-                if !state.monitor_running {
+                
+                if !state.monitor_running || state.monitor_generation != generation {
                     return;
                 }
 
@@ -198,13 +240,45 @@ impl LocalApiSupervisor {
                     state.status = LocalApiStatus::Ready;
                     state.last_error = None;
                 } else {
-                    state.status = LocalApiStatus::Failed;
-                    state.last_error = Some(
-                        SupervisorError::HealthTimeout(format!("{base_url}{HEALTH_PATH}"))
-                            .message(),
-                    );
                     state.monitor_running = false;
+                    if attempt < 3 {
+                        retry = true;
+                    } else {
+                        state.status = LocalApiStatus::Failed;
+                        state.last_error = Some(
+                            SupervisorError::HealthTimeout(format!("{base_url}{HEALTH_PATH}"))
+                                .message(),
+                        );
+                    }
                 }
+            }
+
+            if retry {
+                paths::write_sidecar_log(
+                    &root,
+                    &format!(
+                        "Startup attempt {}/3 failed health check for {}{}. Identity mismatch or port collision. Retrying with a new port.",
+                        attempt, base_url, HEALTH_PATH
+                    ),
+                );
+
+                let supervisor = app.state::<LocalApiSupervisor>();
+                let child_to_kill = {
+                    let mut state = supervisor.state.lock().expect("supervisor state poisoned");
+                    state.status = LocalApiStatus::Restarting;
+                    state.port = None;
+                    state.instance_token = None;
+                    state.monitor_generation += 1;
+                    state.child.take()
+                };
+
+                if let Some(mut child) = child_to_kill {
+                    process::kill_child(&mut child);
+                }
+
+                supervisor.emit_status(&app);
+                supervisor.start_with_retry(app.clone(), true, attempt + 1);
+                return;
             }
 
             let _ = app.emit(
@@ -219,7 +293,7 @@ impl LocalApiSupervisor {
                 {
                     let supervisor = app.state::<LocalApiSupervisor>();
                     let mut state = supervisor.state.lock().expect("supervisor state poisoned");
-                    if !state.monitor_running {
+                    if !state.monitor_running || state.monitor_generation != generation {
                         return;
                     }
 
@@ -254,10 +328,14 @@ impl LocalApiSupervisor {
 
 impl Drop for LocalApiSupervisor {
     fn drop(&mut self) {
-        if let Ok(mut state) = self.state.lock() {
-            if let Some(mut child) = state.child.take() {
-                process::kill_child(&mut child);
-            }
+        let child_to_kill = if let Ok(mut state) = self.state.lock() {
+            state.child.take()
+        } else {
+            None
+        };
+
+        if let Some(mut child) = child_to_kill {
+            process::kill_child(&mut child);
         }
     }
 }

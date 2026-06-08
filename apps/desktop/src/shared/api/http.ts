@@ -12,11 +12,6 @@ function getApiBaseUrl(): string {
     return cachedBaseUrl;
   }
 
-  if (import.meta.env.VITE_LOCAL_API_URL) {
-    cachedBaseUrl = import.meta.env.VITE_LOCAL_API_URL as string;
-    return cachedBaseUrl;
-  }
-
   throw new Error("LocalApi base URL is not ready.");
 }
 

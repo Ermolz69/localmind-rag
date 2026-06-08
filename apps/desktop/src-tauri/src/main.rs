@@ -6,9 +6,9 @@ mod os;
 
 use local_api::{
     commands::{
-        copy_diagnostics_to_clipboard, get_app_runtime_info, open_logs_folder, restart_local_api,
-        reveal_file_in_explorer, select_connected_folder, select_document_files,
-        start_local_api_on_setup,
+        copy_diagnostics_to_clipboard, enable_limited_mode, get_app_runtime_info, open_logs_folder,
+        read_app_cache, restart_local_api, reveal_file_in_explorer, select_connected_folder,
+        select_document_files, start_local_api_on_setup, write_app_cache,
     },
     supervisor::LocalApiSupervisor,
 };
@@ -16,15 +16,20 @@ use tauri::Manager;
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(LocalApiSupervisor::new())
         .invoke_handler(tauri::generate_handler![
             get_app_runtime_info,
             restart_local_api,
+            enable_limited_mode,
             open_logs_folder,
             copy_diagnostics_to_clipboard,
             select_document_files,
             select_connected_folder,
-            reveal_file_in_explorer
+            reveal_file_in_explorer,
+            read_app_cache,
+            write_app_cache
         ])
         .setup(|app| {
             start_local_api_on_setup(app.handle().clone());

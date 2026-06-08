@@ -4,6 +4,9 @@ use std::{
     process::Command,
 };
 
+pub mod clipboard;
+pub mod dialogs;
+
 #[cfg(windows)]
 mod windows;
 
@@ -34,31 +37,16 @@ pub fn reveal_file(path: &str) -> std::io::Result<()> {
     return open_folder(Path::new(path));
 }
 
-pub fn copy_text_to_clipboard(text: &str) -> std::io::Result<()> {
-    #[cfg(windows)]
-    return windows::copy_text_to_clipboard(text);
-
-    #[cfg(not(windows))]
-    {
-        let _ = text;
-        Ok(())
-    }
+pub fn copy_text_to_clipboard(app: &tauri::AppHandle, text: &str) -> std::io::Result<()> {
+    clipboard::copy_text_to_clipboard(app, text)
 }
 
-pub fn select_document_files() -> std::io::Result<Vec<String>> {
-    #[cfg(windows)]
-    return windows::select_document_files();
-
-    #[cfg(not(windows))]
-    Ok([])
+pub fn select_document_files(app: &tauri::AppHandle) -> std::io::Result<Vec<String>> {
+    dialogs::select_document_files(app)
 }
 
-pub fn select_connected_folder() -> std::io::Result<Option<String>> {
-    #[cfg(windows)]
-    return windows::select_connected_folder();
-
-    #[cfg(not(windows))]
-    Ok(None)
+pub fn select_connected_folder(app: &tauri::AppHandle) -> std::io::Result<Option<String>> {
+    dialogs::select_connected_folder(app)
 }
 
 pub fn open_append(path: &Path) -> std::io::Result<File> {

@@ -5,9 +5,25 @@ use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
+use serde::Serialize;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub enum RuntimeRootMode {
+    DevelopmentRepository,
+    Portable,
+    InstalledAppData,
+}
 
 pub fn app_root() -> PathBuf {
     repository_root().unwrap_or_else(portable_root)
+}
+
+pub fn runtime_root_mode() -> RuntimeRootMode {
+    if repository_root().is_some() {
+        RuntimeRootMode::DevelopmentRepository
+    } else {
+        RuntimeRootMode::Portable
+    }
 }
 
 pub fn app_data_dir(root: &Path) -> PathBuf {
@@ -20,6 +36,10 @@ pub fn data_dir(root: &Path) -> PathBuf {
 
 pub fn files_dir(root: &Path) -> PathBuf {
     app_data_dir(root).join("files")
+}
+
+pub fn cache_dir(root: &Path) -> PathBuf {
+    app_data_dir(root).join("cache")
 }
 
 pub fn indexes_dir(root: &Path) -> PathBuf {
@@ -55,13 +75,8 @@ pub fn ensure_runtime_dirs(root: &Path) -> std::io::Result<()> {
     fs::create_dir_all(data_dir(root))?;
     fs::create_dir_all(files_dir(root))?;
     fs::create_dir_all(indexes_dir(root))?;
-    fs::create_dir_all(logs_dir(root))
-}
-
-pub fn read_sidecar_port(root: &Path) -> Option<u16> {
-    fs::read_to_string(sidecar_port_path(root))
-        .ok()
-        .and_then(|content| content.trim().parse::<u16>().ok())
+    fs::create_dir_all(logs_dir(root))?;
+    fs::create_dir_all(cache_dir(root))
 }
 
 pub fn write_sidecar_port(root: &Path, port: u16) -> std::io::Result<()> {

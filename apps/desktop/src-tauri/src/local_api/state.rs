@@ -12,6 +12,12 @@ pub enum LocalApiStatus {
     Stopped,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+pub enum DesktopMode {
+    Normal,
+    Limited,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct AppRuntimeInfo {
     #[serde(rename = "localApiStatus")]
@@ -25,14 +31,22 @@ pub struct AppRuntimeInfo {
     pub app_data_path: String,
     #[serde(rename = "lastError")]
     pub last_error: Option<String>,
+    #[serde(rename = "desktopMode")]
+    pub desktop_mode: DesktopMode,
+    #[serde(rename = "apiAvailable")]
+    pub api_available: bool,
 }
 
 pub(super) struct SupervisorState {
     pub child: Option<Child>,
     pub status: LocalApiStatus,
     pub port: Option<u16>,
+    pub override_url: Option<String>,
     pub last_error: Option<String>,
     pub monitor_running: bool,
+    pub desktop_mode: DesktopMode,
+    pub instance_token: Option<String>,
+    pub monitor_generation: u64,
 }
 
 impl Default for SupervisorState {
@@ -41,8 +55,12 @@ impl Default for SupervisorState {
             child: None,
             status: LocalApiStatus::NotStarted,
             port: None,
+            override_url: None,
             last_error: None,
             monitor_running: false,
+            desktop_mode: DesktopMode::Normal,
+            instance_token: None,
+            monitor_generation: 0,
         }
     }
 }

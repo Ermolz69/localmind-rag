@@ -23,7 +23,11 @@ pub fn reserve_loopback_port() -> u16 {
         .unwrap_or(DEFAULT_LOCAL_API_PORT)
 }
 
-pub fn spawn_local_api(root: &Path, port: u16) -> Result<(Child, String), SupervisorError> {
+pub fn spawn_local_api(
+    root: &Path,
+    port: u16,
+    token: &str,
+) -> Result<(Child, String), SupervisorError> {
     let Some(mut launch) = build_local_api_command(root) else {
         return Err(SupervisorError::BinaryNotFound);
     };
@@ -36,6 +40,7 @@ pub fn spawn_local_api(root: &Path, port: u16) -> Result<(Child, String), Superv
         .current_dir(root)
         .env("KNOWLEDGE_APP_ROOT", root)
         .env("ASPNETCORE_URLS", base_url)
+        .env("LOCALMIND_SUPERVISOR_TOKEN", token)
         .env("LocalRuntime__DataPath", paths::data_dir(root))
         .env("LocalRuntime__FilesPath", paths::files_dir(root))
         .env("LocalRuntime__IndexPath", paths::indexes_dir(root))

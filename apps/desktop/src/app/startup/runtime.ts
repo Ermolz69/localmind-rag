@@ -9,6 +9,8 @@ export type LocalApiStatus =
   | "Restarting"
   | "Stopped";
 
+export type DesktopMode = "Normal" | "Limited";
+
 export type AppRuntimeInfo = {
   localApiStatus: LocalApiStatus;
   baseUrl: string | null;
@@ -16,25 +18,20 @@ export type AppRuntimeInfo = {
   logsPath: string;
   appDataPath: string;
   lastError: string | null;
+  desktopMode: DesktopMode;
+  apiAvailable: boolean;
 };
 
 export function getAppRuntimeInfo() {
-  if (import.meta.env.VITE_LOCAL_API_URL) {
-    return Promise.resolve<AppRuntimeInfo>({
-      localApiStatus: "Ready",
-      baseUrl: import.meta.env.VITE_LOCAL_API_URL as string,
-      pid: null,
-      logsPath: "",
-      appDataPath: "",
-      lastError: null,
-    });
-  }
-
   return invoke<AppRuntimeInfo>("get_app_runtime_info");
 }
 
-export function restartLocalApi() {
-  return invoke<AppRuntimeInfo>("restart_local_api");
+export async function restartLocalApi(): Promise<void> {
+  await invoke("restart_local_api");
+}
+
+export function enableLimitedMode() {
+  return invoke<AppRuntimeInfo>("enable_limited_mode");
 }
 
 export function openLogsFolder() {
@@ -43,4 +40,12 @@ export function openLogsFolder() {
 
 export function copyDiagnosticsToClipboard() {
   return invoke<void>("copy_diagnostics_to_clipboard");
+}
+
+export function readAppCache(key: string) {
+  return invoke<string | null>("read_app_cache", { key });
+}
+
+export function writeAppCache(key: string, payload: string) {
+  return invoke<void>("write_app_cache", { key, payload });
 }

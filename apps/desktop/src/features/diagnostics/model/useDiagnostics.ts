@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DiagnosticsStatus } from "@entities/runtime";
 import { diagnosticsApi } from "@shared/api";
 import { useApiQuery } from "@shared/lib/hooks";
+import { readAppCache, writeAppCache } from "@app/startup/runtime";
 
 const DIAGNOSTICS_CACHE_KEY = "localmind:diagnostics:v1";
 const DIAGNOSTICS_CACHE_POLICY = {
@@ -18,13 +19,44 @@ type DiagnosticsCacheEntry = {
 let memoryCache: DiagnosticsCacheEntry | null = null;
 
 export function useDiagnostics() {
-  const cached = useMemo(() => getCachedDiagnostics(Date.now()), []);
+  const [persistedCache, setPersistedCache] =
+    useState<DiagnosticsCacheEntry | null>(null);
+
+  useEffect(() => {
+    if (!memoryCache) {
+      void readPersistedCache(Date.now()).then((cache) => {
+        if (cache) {
+          setPersistedCache(cache);
+        }
+      });
+    }
+  }, []);
+
+  const cached = useMemo(() => {
+    const memory = readMemoryCache(Date.now());
+    if (memory) {
+      return memory;
+    }
+
+    if (persistedCache) {
+      const ageMs = Date.now() - persistedCache.cachedAt;
+      return {
+        ...persistedCache,
+        state:
+          ageMs <= DIAGNOSTICS_CACHE_POLICY.persistedFreshMs
+            ? ("fresh" as const)
+            : ("stale" as const),
+      };
+    }
+    return null;
+  }, [persistedCache]);
+
   const shouldRefresh = !cached || cached.state === "stale";
 
   const { data, isLoading, isFetching, error, reload } = useApiQuery(
     async () => {
       const diagnostics = await diagnosticsApi.getDiagnostics();
-      writeDiagnosticsCache(diagnostics);
+      void writeDiagnosticsCache(diagnostics);
       return diagnostics;
     },
     {
@@ -36,7 +68,7 @@ export function useDiagnostics() {
 
   useEffect(() => {
     if (data) {
-      writeDiagnosticsCache(data);
+      void writeDiagnosticsCache(data);
     }
   }, [data]);
 
@@ -48,15 +80,6 @@ export function useDiagnostics() {
     lastUpdatedAt: cached?.cachedAt ?? memoryCache?.cachedAt ?? null,
     reload,
   };
-}
-
-function getCachedDiagnostics(now: number) {
-  const memory = readMemoryCache(now);
-  if (memory) {
-    return memory;
-  }
-
-  return readPersistedCache(now);
 }
 
 function readMemoryCache(now: number) {
@@ -72,45 +95,37 @@ function readMemoryCache(now: number) {
   return null;
 }
 
-function readPersistedCache(now: number) {
+async function readPersistedCache(now: number) {
   if (typeof window === "undefined") {
     return null;
   }
 
   try {
-    const raw = window.localStorage.getItem(DIAGNOSTICS_CACHE_KEY);
+    const raw = await readAppCache(DIAGNOSTICS_CACHE_KEY);
     if (!raw) {
       return null;
     }
 
     const entry = JSON.parse(raw) as DiagnosticsCacheEntry;
     if (!isDiagnosticsCacheEntry(entry)) {
-      window.localStorage.removeItem(DIAGNOSTICS_CACHE_KEY);
+      void writeAppCache(DIAGNOSTICS_CACHE_KEY, "");
       return null;
     }
 
     const ageMs = now - entry.cachedAt;
     if (ageMs > DIAGNOSTICS_CACHE_POLICY.persistedMaxAgeMs) {
-      window.localStorage.removeItem(DIAGNOSTICS_CACHE_KEY);
+      void writeAppCache(DIAGNOSTICS_CACHE_KEY, "");
       return null;
     }
 
     memoryCache = entry;
-
-    return {
-      ...entry,
-      state:
-        ageMs <= DIAGNOSTICS_CACHE_POLICY.persistedFreshMs
-          ? ("fresh" as const)
-          : ("stale" as const),
-    };
+    return entry;
   } catch {
-    window.localStorage.removeItem(DIAGNOSTICS_CACHE_KEY);
     return null;
   }
 }
 
-function writeDiagnosticsCache(data: DiagnosticsStatus) {
+async function writeDiagnosticsCache(data: DiagnosticsStatus) {
   const entry = { cachedAt: Date.now(), data };
   memoryCache = entry;
 
@@ -119,9 +134,9 @@ function writeDiagnosticsCache(data: DiagnosticsStatus) {
   }
 
   try {
-    window.localStorage.setItem(DIAGNOSTICS_CACHE_KEY, JSON.stringify(entry));
+    await writeAppCache(DIAGNOSTICS_CACHE_KEY, JSON.stringify(entry));
   } catch {
-    // Diagnostics are optional; storage quota failures should not affect UI.
+    // Diagnostics are optional
   }
 }
 
