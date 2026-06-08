@@ -98,6 +98,12 @@ public sealed class DocumentEmbeddingService(
 
     private DocumentEmbedding CreateEmbedding(DocumentChunk chunk, float[] vector)
     {
+        float norm = System.Numerics.Tensors.TensorPrimitives.Norm(vector);
+        if (norm > 0)
+        {
+            System.Numerics.Tensors.TensorPrimitives.Divide(vector, norm, vector);
+        }
+
         return new DocumentEmbedding
         {
             CreatedAt = dateTimeProvider.UtcNow,

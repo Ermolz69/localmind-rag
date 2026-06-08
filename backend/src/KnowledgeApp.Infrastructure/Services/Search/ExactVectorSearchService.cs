@@ -33,6 +33,14 @@ public sealed class ExactVectorSearchService(AppDbContext dbContext) : IVectorSe
             return [];
         }
 
+        // Normalize the query vector once
+        float[] normalizedQuery = queryVector.ToArray();
+        float queryNorm = System.Numerics.Tensors.TensorPrimitives.Norm(normalizedQuery);
+        if (queryNorm > 0)
+        {
+            System.Numerics.Tensors.TensorPrimitives.Divide(normalizedQuery, queryNorm, normalizedQuery);
+        }
+
         var rowsQuery =
             from embedding in dbContext.DocumentEmbeddings
             join chunk in dbContext.DocumentChunks on embedding.DocumentChunkId equals chunk.Id
@@ -70,44 +78,40 @@ public sealed class ExactVectorSearchService(AppDbContext dbContext) : IVectorSe
             }
         }
 
-        var rows = await rowsQuery.ToArrayAsync(cancellationToken);
+        // Use a min-heap to keep track of the top K results without sorting the entire dataset
+        var topK = new PriorityQueue<RagSourceDto, double>(options.Limit);
 
-        return rows
-            .Where(x => x.Dimension == queryVector.Length)
-            .Select(x =>
+        await foreach (var x in rowsQuery.AsAsyncEnumerable().WithCancellation(cancellationToken))
+        {
+            if (x.Dimension != normalizedQuery.Length)
             {
-                float[]? chunkVector = EmbeddingVectorSerializer.FromBytes(x.Embedding);
-                double score = CosineSimilarity(queryVector, chunkVector);
-                return new RagSourceDto(x.DocumentId, x.DocumentName, x.ChunkId, x.PageNumber, score, x.Text);
-            })
-            .OrderByDescending(x => x.Score)
-            .Take(options.Limit)
-            .ToArray();
-    }
+                continue;
+            }
 
-    private static double CosineSimilarity(float[] left, float[] right)
-    {
-        if (left.Length == 0 || left.Length != right.Length)
-        {
-            return 0;
+            var span = x.Embedding.AsSpan();
+            var chunkVector = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, float>(span);
+
+            // Since embeddings are normalized at ingestion and the query is normalized here,
+            // we can use SIMD Dot product which is equivalent to Cosine Similarity.
+            double score = System.Numerics.Tensors.TensorPrimitives.Dot(normalizedQuery, chunkVector);
+
+            if (topK.Count < options.Limit)
+            {
+                topK.Enqueue(new RagSourceDto(x.DocumentId, x.DocumentName, x.ChunkId, x.PageNumber, score, x.Text), score);
+            }
+            else if (topK.TryPeek(out _, out double minScore) && score > minScore)
+            {
+                topK.Dequeue();
+                topK.Enqueue(new RagSourceDto(x.DocumentId, x.DocumentName, x.ChunkId, x.PageNumber, score, x.Text), score);
+            }
         }
 
-        double dotProduct = 0;
-        double leftMagnitude = 0;
-        double rightMagnitude = 0;
-
-        for (int i = 0; i < left.Length; i++)
+        var results = new RagSourceDto[topK.Count];
+        for (int i = results.Length - 1; i >= 0; i--)
         {
-            dotProduct += left[i] * right[i];
-            leftMagnitude += left[i] * left[i];
-            rightMagnitude += right[i] * right[i];
+            results[i] = topK.Dequeue();
         }
 
-        if (leftMagnitude == 0 || rightMagnitude == 0)
-        {
-            return 0;
-        }
-
-        return dotProduct / (Math.Sqrt(leftMagnitude) * Math.Sqrt(rightMagnitude));
+        return results;
     }
 }
