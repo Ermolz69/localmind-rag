@@ -3,6 +3,7 @@ using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Services;
 using Microsoft.Extensions.Options;
+using System.Runtime.InteropServices;
 
 namespace KnowledgeApp.UnitTests.Infrastructure;
 
@@ -47,6 +48,29 @@ public sealed class DocumentEmbeddingServiceTests
 
         Assert.Equal(2, generator.CallCount);
         Assert.Equal(2, embeddings.Count);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_Should_Normalize_Vectors()
+    {
+        BatchGenerator generator = new();
+        DocumentEmbeddingService service = new(generator, new FixedDateTimeProvider());
+
+        DocumentChunk[] chunks =
+        [
+            new() { Id = Guid.NewGuid(), Text = "unnormalized_text_that_produces_large_vector" }
+        ];
+
+        IReadOnlyList<DocumentEmbedding> embeddings = await service.GenerateAsync(chunks);
+
+        Assert.Single(embeddings);
+
+        var span = embeddings[0].Embedding.AsSpan();
+        var vector = MemoryMarshal.Cast<byte, float>(span);
+
+        // Verify the norm is approximately 1.0
+        float norm = System.Numerics.Tensors.TensorPrimitives.Norm(vector);
+        Assert.True(Math.Abs(norm - 1.0f) < 0.001f, $"Expected norm 1.0, got {norm}");
     }
 
     private sealed class BatchGenerator : IBatchEmbeddingGenerator

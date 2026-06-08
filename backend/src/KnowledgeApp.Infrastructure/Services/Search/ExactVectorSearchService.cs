@@ -20,9 +20,13 @@ using SlideText = DocumentFormat.OpenXml.Drawing.Text;
 using WordParagraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
 using WordText = DocumentFormat.OpenXml.Wordprocessing.Text;
 
+using Microsoft.Extensions.Logging;
+
 namespace KnowledgeApp.Infrastructure.Services;
 
-public sealed class ExactVectorSearchService(AppDbContext dbContext) : IVectorSearchService, IVectorIndex
+public sealed class ExactVectorSearchService(
+    AppDbContext dbContext,
+    ILogger<ExactVectorSearchService> logger) : IVectorSearchService, IVectorIndex
 {
     public Task UpsertAsync(Guid chunkId, float[] vector, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -80,15 +84,23 @@ public sealed class ExactVectorSearchService(AppDbContext dbContext) : IVectorSe
 
         // Use a min-heap to keep track of the top K results without sorting the entire dataset
         var topK = new PriorityQueue<RagSourceDto, double>(options.Limit);
+        int skippedCorruptedCount = 0;
 
         await foreach (var x in rowsQuery.AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
             if (x.Dimension != normalizedQuery.Length)
             {
+                skippedCorruptedCount++;
                 continue;
             }
 
             var span = x.Embedding.AsSpan();
+            if (span.Length % sizeof(float) != 0 || span.Length / sizeof(float) != x.Dimension)
+            {
+                skippedCorruptedCount++;
+                continue;
+            }
+
             var chunkVector = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, float>(span);
 
             // Since embeddings are normalized at ingestion and the query is normalized here,
@@ -110,6 +122,14 @@ public sealed class ExactVectorSearchService(AppDbContext dbContext) : IVectorSe
         for (int i = results.Length - 1; i >= 0; i--)
         {
             results[i] = topK.Dequeue();
+        }
+
+        if (skippedCorruptedCount > 0)
+        {
+            logger.LogWarning(
+                "Skipped {SkippedCount} corrupted or dimension-mismatched vector blobs during exact search. " +
+                "Existing local dev databases should be deleted or re-indexed after SIMD optimizations.",
+                skippedCorruptedCount);
         }
 
         return results;

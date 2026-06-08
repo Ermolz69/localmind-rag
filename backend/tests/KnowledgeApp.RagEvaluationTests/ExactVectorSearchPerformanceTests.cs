@@ -6,6 +6,7 @@ using KnowledgeApp.Infrastructure.Services;
 using KnowledgeApp.RagEvaluationTests.TestSupport;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace KnowledgeApp.RagEvaluationTests;
@@ -79,7 +80,7 @@ public class ExactVectorSearchPerformanceTests(RagEvaluationTestFactory factory)
         db.ChangeTracker.Clear();
         db.ChangeTracker.AutoDetectChangesEnabled = true;
 
-        var searchService = new ExactVectorSearchService(db);
+        var searchService = new ExactVectorSearchService(db, NullLogger<ExactVectorSearchService>.Instance);
         var queryVector = GenerateRandomVector(dimension, random);
         var options = new KnowledgeApp.Application.Abstractions.VectorSearchOptions(Limit: 10);
 
@@ -87,6 +88,11 @@ public class ExactVectorSearchPerformanceTests(RagEvaluationTestFactory factory)
         await searchService.SearchAsync(queryVector, options, CancellationToken.None);
 
         int iterations = 5;
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        long memBefore = GC.GetAllocatedBytesForCurrentThread();
+
         var sw = Stopwatch.StartNew();
         for (int i = 0; i < iterations; i++)
         {
@@ -94,8 +100,13 @@ public class ExactVectorSearchPerformanceTests(RagEvaluationTestFactory factory)
         }
         sw.Stop();
 
+        long memAfter = GC.GetAllocatedBytesForCurrentThread();
+        long allocatedBytes = memAfter - memBefore;
+
         double avgLatencyMs = sw.Elapsed.TotalMilliseconds / iterations;
-        Console.WriteLine($"[Benchmark] {chunkCount} chunks, Top-K: 10, Dim: 1024. Avg Latency: {avgLatencyMs:F2} ms");
+        double avgAllocMs = allocatedBytes / (double)iterations;
+
+        Console.WriteLine($"[Benchmark] {chunkCount} chunks, Top-K: 10, Dim: 1024. Avg Latency: {avgLatencyMs:F2} ms, Avg Allocation: {avgAllocMs:F0} bytes");
 
         Assert.True(avgLatencyMs > 0);
     }
