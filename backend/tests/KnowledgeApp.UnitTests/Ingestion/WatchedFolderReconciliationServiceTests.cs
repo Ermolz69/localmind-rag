@@ -4,6 +4,8 @@ using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Infrastructure.Persistence;
 using KnowledgeApp.Infrastructure.Services.WatchedFolders;
+using KnowledgeApp.Application.Settings;
+using KnowledgeApp.Application.Ingestion.WatchedFolders.Filtering;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +36,8 @@ public sealed class WatchedFolderReconciliationServiceTests : IAsyncLifetime
             scopeFactory,
             debounceBuffer,
             dateTimeProvider,
+            new FakeSettingsService(),
+            new FakeWatchedFileFilterService(),
             NullLogger<WatchedFolderReconciliationService>.Instance);
 
         tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -381,6 +385,35 @@ public sealed class WatchedFolderReconciliationServiceTests : IAsyncLifetime
         {
             await Context.DisposeAsync();
             await connection.DisposeAsync();
+        }
+    }
+
+    private sealed class FakeSettingsService : ISettingsService
+    {
+        public Task<AppSettingsDto> GetAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new AppSettingsDto(default!, default!, default!, default!, new WatchedFoldersSettingsDto(true, 1000, "MarkDeleted", [])));
+        }
+        public Task<KnowledgeApp.Application.Common.Results.Result> UpdateAsync(AppSettingsDto request, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(KnowledgeApp.Application.Common.Results.Result.Success());
+        }
+    }
+
+    private sealed class FakeWatchedFileFilterService : IWatchedFileFilterService
+    {
+        public WatchedFileFilterContext CreateContext(WatchedFoldersSettingsDto settings)
+        {
+            return new WatchedFileFilterContext(settings);
+        }
+
+        public WatchedFileFilterResult Evaluate(string filePath, WatchedFileFilterContext context)
+        {
+            if (filePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return WatchedFileFilterResult.Rejected(WatchedFileFilterReason.UnsupportedExtension);
+            }
+            return WatchedFileFilterResult.Allowed();
         }
     }
 }

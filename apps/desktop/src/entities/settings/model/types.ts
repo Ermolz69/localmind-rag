@@ -68,4 +68,27 @@ export type WatchedFolderStatus = {
   lastEventAt: string | null;
   lastError: string | null;
   lastErrorAt: string | null;
+  healthStatus: string;
+  lastScanStartedAt: string | null;
+  lastScanCompletedAt: string | null;
+  activeDocumentsCount: number;
+  deletedWaitingCleanupCount: number;
+  lastScanNewFiles: number;
+  lastScanChangedFiles: number;
+  lastScanDeletedFiles: number;
+  lastScanUnchangedFiles: number;
+  lastScanUnsupportedFiles: number;
+};
+
+export type RescanWatchedFoldersRequest = {
+  path?: string | null;
+};
+
+export type RescanWatchedFoldersResponse = {
+  scannedFolders: number;
+  queuedCreatedOrChanged: number;
+  queuedDeleted: number;
+  unchangedFiles: number;
+  unsupportedFiles: number;
+  failedFolders: number;
 };

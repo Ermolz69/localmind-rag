@@ -4,4 +4,5 @@ public sealed record WatchedFileChange(
     string FilePath,
     string WatchedFolderPath,
     WatchedFileChangeType ChangeType,
-    DateTimeOffset LastEventAt);
+    DateTimeOffset LastEventAt,
+    string? OldFilePath = null);

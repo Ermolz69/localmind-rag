@@ -188,6 +188,11 @@ public sealed class UploadDocumentHandlerTests
             SaveCalls++;
             return Task.FromResult(new StoredFileDto(fileName, $"runtime/app/files/{documentId}/{fileName}", content.Length, "HASH"));
         }
+
+        public Task DeleteAsync(string localPath, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FixedDateTimeProvider : IDateTimeProvider

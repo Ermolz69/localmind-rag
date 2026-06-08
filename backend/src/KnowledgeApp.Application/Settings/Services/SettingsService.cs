@@ -59,7 +59,27 @@ public sealed class SettingsService(
                 Folders: GetWatchedFolders(
                     storedSettings,
                     SettingsKeys.WatchedFoldersFoldersJson,
-                    defaults.WatchedFolders.Folders)));
+                    defaults.WatchedFolders.Folders),
+                IgnoredFolders: GetStringList(
+                    storedSettings,
+                    SettingsKeys.WatchedFoldersIgnoredFoldersJson,
+                    defaults.WatchedFolders.IgnoredFolders),
+                IgnoredPatterns: GetStringList(
+                    storedSettings,
+                    SettingsKeys.WatchedFoldersIgnoredPatternsJson,
+                    defaults.WatchedFolders.IgnoredPatterns),
+                MaxFileSizeMb: GetNullableInt(
+                    storedSettings,
+                    SettingsKeys.WatchedFoldersMaxFileSizeMb,
+                    defaults.WatchedFolders.MaxFileSizeMb),
+                AllowedExtensions: GetStringList(
+                    storedSettings,
+                    SettingsKeys.WatchedFoldersAllowedExtensionsJson,
+                    defaults.WatchedFolders.AllowedExtensions),
+                StorageMode: GetString(
+                    storedSettings,
+                    SettingsKeys.WatchedFoldersStorageMode,
+                    defaults.WatchedFolders.StorageMode)));
     }
 
     public async Task<Result> UpdateAsync(AppSettingsDto request, CancellationToken cancellationToken = default)
@@ -104,6 +124,26 @@ public sealed class SettingsService(
             storedSettings,
             SettingsKeys.WatchedFoldersFoldersJson,
             JsonSerializer.Serialize(normalizedRequest.WatchedFolders.Folders, JsonOptions));
+        Upsert(
+            storedSettings,
+            SettingsKeys.WatchedFoldersIgnoredFoldersJson,
+            JsonSerializer.Serialize(normalizedRequest.WatchedFolders.IgnoredFolders, JsonOptions));
+        Upsert(
+            storedSettings,
+            SettingsKeys.WatchedFoldersIgnoredPatternsJson,
+            JsonSerializer.Serialize(normalizedRequest.WatchedFolders.IgnoredPatterns, JsonOptions));
+        Upsert(
+            storedSettings,
+            SettingsKeys.WatchedFoldersMaxFileSizeMb,
+            normalizedRequest.WatchedFolders.MaxFileSizeMb?.ToString() ?? string.Empty);
+        Upsert(
+            storedSettings,
+            SettingsKeys.WatchedFoldersAllowedExtensionsJson,
+            JsonSerializer.Serialize(normalizedRequest.WatchedFolders.AllowedExtensions, JsonOptions));
+        Upsert(
+            storedSettings,
+            SettingsKeys.WatchedFoldersStorageMode,
+            normalizedRequest.WatchedFolders.StorageMode);
 
         await operationLogRepository.AddAsync(new OperationLog
         {
@@ -171,6 +211,37 @@ public sealed class SettingsService(
         {
             return fallback;
         }
+    }
+
+    private static IReadOnlyList<string>? GetStringList(
+        IReadOnlyDictionary<string, string> settings,
+        string key,
+        IReadOnlyList<string>? fallback)
+    {
+        if (!settings.TryGetValue(key, out string? value) || string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        try
+        {
+            IReadOnlyList<string>? list = JsonSerializer.Deserialize<IReadOnlyList<string>>(value, JsonOptions);
+            return list ?? fallback;
+        }
+        catch (JsonException)
+        {
+            return fallback;
+        }
+    }
+
+    private static int? GetNullableInt(
+        IReadOnlyDictionary<string, string> settings,
+        string key,
+        int? fallback)
+    {
+        return settings.TryGetValue(key, out string? value) && !string.IsNullOrWhiteSpace(value) && int.TryParse(value, out int parsed)
+            ? parsed
+            : fallback;
     }
 
     private void Upsert(IReadOnlyDictionary<string, AppSetting> storedSettings, string key, string value)

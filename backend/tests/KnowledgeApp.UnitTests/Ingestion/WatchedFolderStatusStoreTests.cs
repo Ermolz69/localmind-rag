@@ -99,6 +99,32 @@ public sealed class WatchedFolderStatusStoreTests : IDisposable
         Assert.Equal(now, status.LastErrorAt);
     }
 
+    [Fact]
+    public void RecordScan_Should_UpdateFolderState()
+    {
+        WatchedFolderStatusStore store = new WatchedFolderStatusStore();
+        DateTimeOffset start = new(2026, 6, 4, 12, 0, 0, TimeSpan.Zero);
+        DateTimeOffset end = new(2026, 6, 4, 12, 5, 0, TimeSpan.Zero);
+
+        store.RecordScanStarted(watchedFolderPath, start);
+        store.RecordScanCompleted(watchedFolderPath, end, new WatchedFolderReconciliationResult(
+            QueuedCreatedOrChanged: 10,
+            QueuedDeleted: 2,
+            UnchangedFiles: 5,
+            UnsupportedFiles: 1));
+
+        Contracts.WatchedFolders.WatchedFolderStatusResponse status = store.GetStatus(CreateSettings());
+        Contracts.WatchedFolders.WatchedFolderStatusDto folderStatus = status.Folders[0];
+
+        Assert.Equal(start, folderStatus.LastScanStartedAt);
+        Assert.Equal(end, folderStatus.LastScanCompletedAt);
+        Assert.Equal(10, folderStatus.LastScanNewFiles);
+        Assert.Equal(2, folderStatus.LastScanDeletedFiles);
+        Assert.Equal(5, folderStatus.LastScanUnchangedFiles);
+        Assert.Equal(1, folderStatus.LastScanUnsupportedFiles);
+        Assert.Equal(0, folderStatus.LastScanChangedFiles);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(rootPath))

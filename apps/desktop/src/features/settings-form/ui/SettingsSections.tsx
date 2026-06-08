@@ -20,6 +20,36 @@ export function SettingsSections({
 }: SettingsSectionsProps) {
   const [isCleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
+  const [isRescanningAll, setIsRescanningAll] = useState(false);
+  const [rescanningPath, setRescanningPath] = useState<string | null>(null);
+
+  async function handleRescan(path?: string) {
+    if (path) {
+      setRescanningPath(path);
+    } else {
+      setIsRescanningAll(true);
+    }
+
+    try {
+      const response = await watchedFoldersApi.rescan({ path: path || null });
+      const checked =
+        response.queuedCreatedOrChanged +
+        response.unchangedFiles +
+        response.unsupportedFiles;
+      alert(
+        `Rescan completed: ${checked} files checked, ${response.queuedDeleted} missing files detected.`,
+      );
+    } catch (error) {
+      console.error(error);
+      alert("Failed to rescan watched folders.");
+    } finally {
+      if (path) {
+        setRescanningPath(null);
+      } else {
+        setIsRescanningAll(false);
+      }
+    }
+  }
 
   async function handleCleanup() {
     setIsCleaning(true);
@@ -348,29 +378,88 @@ export function SettingsSections({
                     </label>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span>Exists: {status?.exists ? "yes" : "unknown"}</span>
-                    <span>
-                      Watching: {status?.isWatching ? "active" : "inactive"}
-                    </span>
-                    <span>Pending: {status?.pendingEvents ?? 0}</span>
-                    {status?.lastEventAt ? (
-                      <span>Last event: {status.lastEventAt}</span>
-                    ) : null}
-                    {status?.lastError ? (
-                      <span className="text-destructive">
-                        Error: {status.lastError}
+                  <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span
+                        className={`rounded-full px-2 py-0.5 font-medium ${
+                          status?.healthStatus === "Active"
+                            ? "bg-green-500/10 text-green-500"
+                            : status?.healthStatus === "Missing" ||
+                                status?.healthStatus === "WatcherError"
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {status?.healthStatus || "Unknown"}
                       </span>
+                      <span className="text-muted-foreground">
+                        Active documents: {status?.activeDocumentsCount ?? 0}
+                      </span>
+                      {(status?.deletedWaitingCleanupCount ?? 0) > 0 && (
+                        <span className="text-destructive font-medium">
+                          Pending cleanup: {status?.deletedWaitingCleanupCount}
+                        </span>
+                      )}
+                      <span className="text-muted-foreground">
+                        Pending events: {status?.pendingEvents ?? 0}
+                      </span>
+                    </div>
+
+                    {(status?.lastScanStartedAt ||
+                      status?.lastScanCompletedAt) && (
+                      <div className="text-xs text-muted-foreground">
+                        <span className="mr-3">Last scan:</span>
+                        {status.lastScanCompletedAt ? (
+                          <span>
+                            {new Date(
+                              status.lastScanCompletedAt,
+                            ).toLocaleString()}{" "}
+                            ({status.lastScanNewFiles} queued,{" "}
+                            {status.lastScanDeletedFiles} missing,{" "}
+                            {status.lastScanUnchangedFiles} unchanged,{" "}
+                            {status.lastScanUnsupportedFiles} unsupported)
+                          </span>
+                        ) : (
+                          <span>
+                            Started at{" "}
+                            {status.lastScanStartedAt
+                              ? new Date(
+                                  status.lastScanStartedAt,
+                                ).toLocaleString()
+                              : "Unknown"}{" "}
+                            (Scanning...)
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {status?.lastError ? (
+                      <div className="text-destructive text-xs">
+                        Error: {status.lastError}
+                      </div>
                     ) : null}
                   </div>
 
-                  <button
-                    className="text-destructive mt-3 text-sm font-medium hover:underline"
-                    type="button"
-                    onClick={() => removeWatchedFolder(index)}
-                  >
-                    Remove folder
-                  </button>
+                  <div className="mt-3 flex items-center justify-between">
+                    <button
+                      className="text-destructive text-sm font-medium hover:underline"
+                      type="button"
+                      onClick={() => removeWatchedFolder(index)}
+                    >
+                      Remove folder
+                    </button>
+                    <Button
+                      variant="secondary"
+                      disabled={
+                        rescanningPath === folder.path || !folder.enabled
+                      }
+                      onClick={() => handleRescan(folder.path)}
+                    >
+                      {rescanningPath === folder.path
+                        ? "Rescanning..."
+                        : "Rescan"}
+                    </Button>
+                  </div>
                 </div>
               );
             })}
@@ -390,7 +479,14 @@ export function SettingsSections({
             </p>
           ) : null}
 
-          <div className="pt-2">
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Button
+              variant="secondary"
+              disabled={isRescanningAll}
+              onClick={() => handleRescan()}
+            >
+              {isRescanningAll ? "Rescanning..." : "Rescan All"}
+            </Button>
             <Button
               variant="secondary"
               onClick={() => setCleanupConfirmOpen(true)}

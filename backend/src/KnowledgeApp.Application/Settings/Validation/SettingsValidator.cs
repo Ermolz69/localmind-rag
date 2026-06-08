@@ -74,6 +74,12 @@ public sealed class SettingsValidator(IWatchedFolderPathValidator watchedFolderP
             errors["watchedFolders.deletePolicy"] = ["Unsupported watched file delete policy."];
         }
 
+        if (watchedFolders.StorageMode != WatchedFolderStorageModes.LinkOnly &&
+            watchedFolders.StorageMode != WatchedFolderStorageModes.CopyToAppStorage)
+        {
+            errors["watchedFolders.storageMode"] = ["Unsupported watched folder storage mode."];
+        }
+
         IReadOnlyList<string> configuredFolderPaths = watchedFolders.Folders
             .Select(folder => folder.Path)
             .ToArray();

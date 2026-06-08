@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
@@ -27,7 +28,7 @@ public sealed class WatchedFolderCleanupServiceTests : IAsyncLifetime
     {
         // Arrange
         var dbContext = database.Context;
-        var sut = new WatchedFolderCleanupService(dbContext, NullLogger<WatchedFolderCleanupService>.Instance);
+        var sut = new WatchedFolderCleanupService(dbContext, new FakeFileStorageService(), NullLogger<WatchedFolderCleanupService>.Instance);
 
         var doc1 = new Document { Id = Guid.NewGuid(), Name = "doc1", Status = DocumentStatus.Deleted, DeletedAt = DateTimeOffset.UtcNow };
         var docFile1 = new DocumentFile { Id = Guid.NewGuid(), DocumentId = doc1.Id, FileName = "doc1", FileType = FileType.PlainText, LocalPath = "c:/test/doc1" };
@@ -113,6 +114,19 @@ public sealed class WatchedFolderCleanupServiceTests : IAsyncLifetime
         {
             await Context.DisposeAsync();
             await connection.DisposeAsync();
+        }
+    }
+
+    private sealed class FakeFileStorageService : IFileStorageService
+    {
+        public Task<KnowledgeApp.Contracts.Documents.StoredFileDto> SaveAsync(Stream content, Guid documentId, string fileName, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new KnowledgeApp.Contracts.Documents.StoredFileDto(fileName, $"runtime/app/files/{documentId}/{fileName}", content.Length, "HASH"));
+        }
+
+        public Task DeleteAsync(string localPath, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
         }
     }
 }

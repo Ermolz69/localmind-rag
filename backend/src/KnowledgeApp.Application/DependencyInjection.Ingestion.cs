@@ -15,6 +15,7 @@ public static partial class DependencyInjection
         services.AddScoped<CancelIngestionJobHandler>();
         services.AddScoped<KnowledgeApp.Application.Ingestion.WatchedFolders.Commands.CleanupWatchedFoldersHandler>();
 
+        services.AddSingleton<KnowledgeApp.Application.Ingestion.WatchedFolders.Filtering.IWatchedFileFilterService, KnowledgeApp.Application.Ingestion.WatchedFolders.Filtering.WatchedFileFilterService>();
         services.AddSingleton<IIncrementalChunkPlanner, IncrementalChunkPlanner>();
 
         return services;

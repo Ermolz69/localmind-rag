@@ -1,5 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Ingestion.WatchedFolders;
+using KnowledgeApp.Application.Ingestion.WatchedFolders.Filtering;
 using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Settings;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,7 @@ public sealed class WindowsFileWatcherHostedService(
     IFileWatcherDebounceBuffer debounceBuffer,
     IWatchedFolderStatusStore statusStore,
     IDateTimeProvider dateTimeProvider,
+    IWatchedFileFilterService filterService,
     ILogger<WindowsFileWatcherHostedService> logger) : BackgroundService
 {
     private static readonly TimeSpan LoopDelay = TimeSpan.FromMilliseconds(250);
@@ -26,6 +28,7 @@ public sealed class WindowsFileWatcherHostedService(
         DebounceMilliseconds: 1000,
         DeletePolicy: "MarkDeleted",
         Folders: []);
+    private WatchedFileFilterContext? currentFilterContext;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -85,6 +88,7 @@ public sealed class WindowsFileWatcherHostedService(
         AppSettingsDto settings = await settingsService.GetAsync(cancellationToken);
 
         currentSettings = settings.WatchedFolders ?? CreateDisabledWatchedFolderSettings();
+        currentFilterContext = filterService.CreateContext(currentSettings);
 
         ApplyWatcherSettings(currentSettings);
     }
@@ -174,11 +178,7 @@ public sealed class WindowsFileWatcherHostedService(
             watcher.Created += (_, args) => EnqueueCreatedOrChanged(folder.Path, args.FullPath);
             watcher.Changed += (_, args) => EnqueueCreatedOrChanged(folder.Path, args.FullPath);
             watcher.Deleted += (_, args) => EnqueueDeleted(folder.Path, args.FullPath);
-            watcher.Renamed += (_, args) =>
-            {
-                EnqueueDeleted(folder.Path, args.OldFullPath);
-                EnqueueCreatedOrChanged(folder.Path, args.FullPath);
-            };
+            watcher.Renamed += (_, args) => EnqueueRenamed(folder.Path, args.OldFullPath, args.FullPath);
             watcher.Error += (_, args) =>
             {
                 logger.LogWarning(args.GetException(), "Watched folder FileSystemWatcher error.");
@@ -220,6 +220,15 @@ public sealed class WindowsFileWatcherHostedService(
             return;
         }
 
+        if (currentFilterContext is not null)
+        {
+            WatchedFileFilterResult result = filterService.Evaluate(filePath, currentFilterContext);
+            if (!result.IsAllowed)
+            {
+                return;
+            }
+        }
+
         DateTimeOffset now = dateTimeProvider.UtcNow;
 
         debounceBuffer.AddOrUpdate(new WatchedFileChange(
@@ -246,6 +255,26 @@ public sealed class WindowsFileWatcherHostedService(
             WatchedFolderPath: watchedFolderPath,
             ChangeType: WatchedFileChangeType.Deleted,
             LastEventAt: now));
+
+        statusStore.RecordFolderEvent(watchedFolderPath, now);
+        statusStore.SetGlobalPendingEvents(debounceBuffer.PendingCount);
+    }
+
+    private void EnqueueRenamed(string watchedFolderPath, string oldFilePath, string newFilePath)
+    {
+        if (string.IsNullOrWhiteSpace(oldFilePath) || string.IsNullOrWhiteSpace(newFilePath))
+        {
+            return;
+        }
+
+        DateTimeOffset now = dateTimeProvider.UtcNow;
+
+        debounceBuffer.AddOrUpdate(new WatchedFileChange(
+            FilePath: newFilePath,
+            WatchedFolderPath: watchedFolderPath,
+            ChangeType: WatchedFileChangeType.Renamed,
+            LastEventAt: now,
+            OldFilePath: oldFilePath));
 
         statusStore.RecordFolderEvent(watchedFolderPath, now);
         statusStore.SetGlobalPendingEvents(debounceBuffer.PendingCount);
@@ -278,6 +307,14 @@ public sealed class WindowsFileWatcherHostedService(
                 if (change.ChangeType == WatchedFileChangeType.Deleted)
                 {
                     await watchedFileIngestionService.HandleDeletedAsync(change.FilePath, cancellationToken);
+                }
+                else if (change.ChangeType == WatchedFileChangeType.Renamed && change.OldFilePath is not null)
+                {
+                    await watchedFileIngestionService.HandleRenamedAsync(
+                        change.OldFilePath,
+                        change.FilePath,
+                        change.WatchedFolderPath,
+                        cancellationToken);
                 }
                 else
                 {

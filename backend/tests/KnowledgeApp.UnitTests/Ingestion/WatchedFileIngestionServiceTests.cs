@@ -1,5 +1,8 @@
-using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Domain.Enums;
+using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Settings;
+using KnowledgeApp.Contracts.Settings;
+using KnowledgeApp.Application.Ingestion.WatchedFolders.Filtering;
 using KnowledgeApp.Infrastructure.Persistence;
 using KnowledgeApp.Infrastructure.Services.WatchedFolders;
 using Microsoft.Data.Sqlite;
@@ -169,6 +172,116 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
         Assert.Empty(database.Context.IngestionJobs);
     }
 
+    [Fact]
+    public async Task HandleRenamedAsync_Should_UpdateMetadataWithoutJob_WhenHashDidNotChange()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        string watchedFolderPath = CreateTempDirectory();
+        string oldFilePath = Path.Combine(watchedFolderPath, "old-name.txt");
+        string newFilePath = Path.Combine(watchedFolderPath, "new-name.txt");
+
+        await File.WriteAllTextAsync(oldFilePath, "Content.");
+        var (service, provider) = CreateService(database);
+
+        await service.HandleCreatedOrChangedAsync(oldFilePath, watchedFolderPath);
+
+        Domain.Entities.Document document1 = await database.Context.Documents.SingleAsync();
+        Guid docId = document1.Id;
+
+        // Move the file and keep the same content
+        File.Move(oldFilePath, newFilePath);
+
+        await service.HandleRenamedAsync(oldFilePath, newFilePath, watchedFolderPath);
+
+        int documentCount = await database.Context.Documents.CountAsync();
+        int jobCount = await database.Context.IngestionJobs.CountAsync();
+        Domain.Entities.Document document2 = await database.Context.Documents.SingleAsync();
+        Domain.Entities.DocumentFile documentFile = await database.Context.DocumentFiles.SingleAsync();
+        Domain.Entities.WatchedFileLink link = await database.Context.WatchedFileLinks.SingleAsync();
+
+        Assert.Equal(1, documentCount);
+        Assert.Equal(1, jobCount); // Only the initial job
+        Assert.Equal(docId, document2.Id);
+        Assert.Equal("new-name.txt", document2.Name);
+        Assert.Equal("new-name.txt", documentFile.FileName);
+        Assert.Equal(newFilePath, documentFile.LocalPath);
+        Assert.Equal(newFilePath, link.FilePath);
+        Assert.Equal(NormalizePath(newFilePath), link.NormalizedFilePath);
+    }
+
+    [Fact]
+    public async Task HandleRenamedAsync_Should_UpdateMetadataAndCreateJob_WhenHashChanged()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        string watchedFolderPath = CreateTempDirectory();
+        string oldFilePath = Path.Combine(watchedFolderPath, "old-name.txt");
+        string newFilePath = Path.Combine(watchedFolderPath, "new-name.txt");
+
+        await File.WriteAllTextAsync(oldFilePath, "Old Content.");
+        var (service, provider) = CreateService(database);
+
+        await service.HandleCreatedOrChangedAsync(oldFilePath, watchedFolderPath);
+
+        File.Move(oldFilePath, newFilePath);
+        await File.WriteAllTextAsync(newFilePath, "New Content.");
+
+        await service.HandleRenamedAsync(oldFilePath, newFilePath, watchedFolderPath);
+
+        int jobCount = await database.Context.IngestionJobs.CountAsync();
+        Domain.Entities.Document document = await database.Context.Documents.SingleAsync();
+        Domain.Entities.WatchedFileLink link = await database.Context.WatchedFileLinks.SingleAsync();
+
+        Assert.Equal(2, jobCount); // Initial + Renamed/Changed
+        Assert.Equal("new-name.txt", document.Name);
+        Assert.Equal(newFilePath, link.FilePath);
+    }
+
+    [Fact]
+    public async Task HandleRenamedAsync_Should_DeleteOldDocument_WhenRenamedToUnsupportedType()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        string watchedFolderPath = CreateTempDirectory();
+        string oldFilePath = Path.Combine(watchedFolderPath, "old-name.txt");
+        string newFilePath = Path.Combine(watchedFolderPath, "new-name.exe");
+
+        await File.WriteAllTextAsync(oldFilePath, "Content.");
+        var (service, provider) = CreateService(database);
+
+        await service.HandleCreatedOrChangedAsync(oldFilePath, watchedFolderPath);
+
+        File.Move(oldFilePath, newFilePath);
+
+        await service.HandleRenamedAsync(oldFilePath, newFilePath, watchedFolderPath);
+
+        Domain.Entities.Document document = await database.Context.Documents.SingleAsync();
+        Domain.Entities.WatchedFileLink link = await database.Context.WatchedFileLinks.SingleAsync();
+
+        Assert.Equal(DocumentStatus.Deleted, document.Status);
+        Assert.NotNull(document.DeletedAt);
+        Assert.NotNull(link.DeletedAt);
+    }
+
+    [Fact]
+    public async Task HandleRenamedAsync_Should_CreateNewDocument_WhenOldLinkMissing()
+    {
+        await using TestDatabase database = await TestDatabase.CreateAsync();
+        string watchedFolderPath = CreateTempDirectory();
+        string oldFilePath = Path.Combine(watchedFolderPath, "old-name.txt");
+        string newFilePath = Path.Combine(watchedFolderPath, "new-name.txt");
+
+        await File.WriteAllTextAsync(newFilePath, "Content.");
+        var (service, provider) = CreateService(database);
+
+        // We skip calling HandleCreatedOrChangedAsync for oldFilePath to simulate missing link
+        await service.HandleRenamedAsync(oldFilePath, newFilePath, watchedFolderPath);
+
+        Domain.Entities.Document document = await database.Context.Documents.SingleAsync();
+        Domain.Entities.WatchedFileLink link = await database.Context.WatchedFileLinks.SingleAsync();
+
+        Assert.Equal("new-name.txt", document.Name);
+        Assert.Equal(newFilePath, link.FilePath);
+    }
+
     public async ValueTask DisposeAsync()
     {
         foreach (string path in pathsToDelete.OrderByDescending(path => path.Length))
@@ -209,7 +322,10 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
         var provider = new MutableDateTimeProvider();
         var service = new WatchedFileIngestionService(
             database.Context,
-            provider);
+            provider,
+            new FakeSettingsService(),
+            new FakeWatchedFileFilterService(),
+            new FakeFileStorageService());
 
         return (service, provider);
     }
@@ -241,6 +357,49 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
     private sealed class MutableDateTimeProvider : IDateTimeProvider
     {
         public DateTimeOffset UtcNow { get; set; } = new(2026, 6, 4, 12, 0, 0, TimeSpan.Zero);
+    }
+
+    private sealed class FakeSettingsService : ISettingsService
+    {
+        public Task<AppSettingsDto> GetAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new AppSettingsDto(default!, default!, default!, default!, new WatchedFoldersSettingsDto(true, 1000, "MarkDeleted", [])));
+        }
+
+        public Task<KnowledgeApp.Application.Common.Results.Result> UpdateAsync(AppSettingsDto request, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(KnowledgeApp.Application.Common.Results.Result.Success());
+        }
+    }
+
+    private sealed class FakeWatchedFileFilterService : IWatchedFileFilterService
+    {
+        public WatchedFileFilterContext CreateContext(WatchedFoldersSettingsDto settings)
+        {
+            return new WatchedFileFilterContext(settings);
+        }
+
+        public WatchedFileFilterResult Evaluate(string filePath, WatchedFileFilterContext context)
+        {
+            if (filePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return WatchedFileFilterResult.Rejected(WatchedFileFilterReason.UnsupportedExtension);
+            }
+            return WatchedFileFilterResult.Allowed();
+        }
+    }
+
+    private sealed class FakeFileStorageService : IFileStorageService
+    {
+        public Task<KnowledgeApp.Contracts.Documents.StoredFileDto> SaveAsync(Stream content, Guid documentId, string fileName, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new KnowledgeApp.Contracts.Documents.StoredFileDto(fileName, $"runtime/app/files/{documentId}/{fileName}", content.Length, "HASH"));
+        }
+
+        public Task DeleteAsync(string localPath, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class TestDatabase : IAsyncDisposable
