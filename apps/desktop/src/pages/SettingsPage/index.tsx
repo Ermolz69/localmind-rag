@@ -1,11 +1,7 @@
 import { Monitor, Moon, Palette, RefreshCw, Save, Sun } from "lucide-react";
-import {
-  DiagnosticsPanel,
-  SettingsSections,
-  useSettingsForm,
-} from "@features/settings-form";
+import { SettingsSections, useSettingsForm } from "@features/settings-form";
 import { themes, type ThemeName } from "@shared/theme/tokens";
-import { Button, ErrorBanner, Modal, PageHeader } from "@shared/ui";
+import { Button, ErrorBanner, Modal, PageHeader, Skeleton } from "@shared/ui";
 
 const themeLabels: Record<ThemeName, string> = {
   light: "Light",
@@ -25,7 +21,6 @@ const settingsNavigation = [
   { href: "#ai", label: "AI" },
   { href: "#sync", label: "Sync" },
   { href: "#watched-folders", label: "Watched folders" },
-  { href: "#diagnostics", label: "Diagnostics" },
 ];
 
 export function SettingsPage() {
@@ -92,8 +87,10 @@ export function SettingsPage() {
           </section>
 
           {page.isLoading ? (
-            <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
-              Loading settings...
+            <div className="space-y-6">
+              <Skeleton className="h-[200px] w-full" />
+              <Skeleton className="h-[200px] w-full" />
+              <Skeleton className="h-[200px] w-full" />
             </div>
           ) : page.draft ? (
             <>
@@ -133,8 +130,6 @@ export function SettingsPage() {
                   </Button>
                 </div>
               </div>
-
-              <DiagnosticsPanel diagnostics={page.diagnostics} />
             </>
           ) : null}
         </main>

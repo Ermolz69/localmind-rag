@@ -4,7 +4,6 @@ import type {
   WatchedFolderStatusResponse,
 } from "@entities/settings";
 import {
-  diagnosticsApi,
   getFieldErrors,
   settingsApi,
   watchedFoldersApi,
@@ -28,16 +27,13 @@ export function useSettingsForm() {
     reload: load,
   } = useApiQuery(
     async () => {
-      const [nextSettings, nextDiagnostics, nextWatchedFolderStatus] =
-        await Promise.all([
-          settingsApi.getSettings(),
-          diagnosticsApi.getDiagnostics(),
-          watchedFoldersApi.getStatus().catch(() => null),
-        ]);
+      const [nextSettings, nextWatchedFolderStatus] = await Promise.all([
+        settingsApi.getSettings(),
+        watchedFoldersApi.getStatus().catch(() => null),
+      ]);
 
       return {
         settings: nextSettings,
-        diagnostics: nextDiagnostics,
         watchedFolderStatus: nextWatchedFolderStatus,
       };
     },
@@ -96,7 +92,6 @@ export function useSettingsForm() {
   }
 
   return {
-    diagnostics: data?.diagnostics ?? null,
     draft,
     error: queryError ?? saveMutation.error,
     fieldErrors,

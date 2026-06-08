@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CursorPage } from "@shared/api";
 import { getErrorMessage } from "@shared/api";
 
@@ -12,44 +12,76 @@ export function useCursorPage<T>(
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fallbackErrorRef = useRef(fallbackError);
+  const loadPageRef = useRef(loadPage);
+  const reloadInFlightRef = useRef<Promise<CursorPage<T> | null> | null>(null);
+  const loadMoreInFlightRef = useRef<Promise<CursorPage<T> | null> | null>(
+    null,
+  );
 
-  const reload = useCallback(async () => {
-    setError(null);
-    setIsLoading(true);
-    try {
-      const page = await loadPage(null);
-      setItems(page.items);
-      setNextCursor(page.nextCursor);
-      setHasMore(page.hasMore);
-      return page;
-    } catch (exception) {
-      setError(getErrorMessage(exception, fallbackError));
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
+  useEffect(() => {
+    fallbackErrorRef.current = fallbackError;
+    loadPageRef.current = loadPage;
   }, [fallbackError, loadPage]);
 
-  const loadMore = useCallback(async () => {
-    if (!nextCursor || isLoadingMore) {
+  const reload = useCallback(() => {
+    if (reloadInFlightRef.current) {
+      return reloadInFlightRef.current;
+    }
+
+    const request = (async () => {
+      setError(null);
+      setIsLoading(true);
+      try {
+        const page = await loadPageRef.current(null);
+        setItems(page.items);
+        setNextCursor(page.nextCursor);
+        setHasMore(page.hasMore);
+        return page;
+      } catch (exception) {
+        setError(getErrorMessage(exception, fallbackErrorRef.current));
+        return null;
+      } finally {
+        setIsLoading(false);
+        reloadInFlightRef.current = null;
+      }
+    })();
+
+    reloadInFlightRef.current = request;
+    return request;
+  }, []);
+
+  const loadMore = useCallback(() => {
+    if (!nextCursor) {
       return null;
     }
 
-    setError(null);
-    setIsLoadingMore(true);
-    try {
-      const page = await loadPage(nextCursor);
-      setItems((current) => [...current, ...page.items]);
-      setNextCursor(page.nextCursor);
-      setHasMore(page.hasMore);
-      return page;
-    } catch (exception) {
-      setError(getErrorMessage(exception, fallbackError));
-      return null;
-    } finally {
-      setIsLoadingMore(false);
+    if (loadMoreInFlightRef.current) {
+      return loadMoreInFlightRef.current;
     }
-  }, [fallbackError, isLoadingMore, loadPage, nextCursor]);
+
+    const cursor = nextCursor;
+    const request = (async () => {
+      setError(null);
+      setIsLoadingMore(true);
+      try {
+        const page = await loadPageRef.current(cursor);
+        setItems((current) => [...current, ...page.items]);
+        setNextCursor(page.nextCursor);
+        setHasMore(page.hasMore);
+        return page;
+      } catch (exception) {
+        setError(getErrorMessage(exception, fallbackErrorRef.current));
+        return null;
+      } finally {
+        setIsLoadingMore(false);
+        loadMoreInFlightRef.current = null;
+      }
+    })();
+
+    loadMoreInFlightRef.current = request;
+    return request;
+  }, [nextCursor]);
 
   useEffect(() => {
     void reload();
