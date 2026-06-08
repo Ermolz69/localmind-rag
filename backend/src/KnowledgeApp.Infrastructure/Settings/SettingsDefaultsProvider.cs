@@ -40,6 +40,11 @@ public sealed class SettingsDefaultsProvider(
                 Enabled: false,
                 DebounceMilliseconds: 1000,
                 DeletePolicy: "MarkDeleted",
-                Folders: []));
+                Folders: Array.Empty<WatchedFolderDto>(),
+                IgnoredFolders: [".git", "node_modules", "bin", "obj"],
+                IgnoredPatterns: ["~$*", "*.tmp", "*.bak"],
+                MaxFileSizeMb: 100,
+                AllowedExtensions: null,
+                StorageMode: WatchedFolderStorageModes.LinkOnly));
     }
 }

@@ -33,7 +33,17 @@ public sealed class WatchedFolderStatusStore : IWatchedFolderStatusStore
                 PendingEvents: state?.PendingEvents ?? 0,
                 LastEventAt: state?.LastEventAt,
                 LastError: state?.LastError,
-                LastErrorAt: state?.LastErrorAt));
+                LastErrorAt: state?.LastErrorAt,
+                HealthStatus: WatchedFolderHealthStatuses.Inactive, // To be calculated by the query handler
+                LastScanStartedAt: state?.LastScanStartedAt,
+                LastScanCompletedAt: state?.LastScanCompletedAt,
+                ActiveDocumentsCount: 0,
+                DeletedWaitingCleanupCount: 0,
+                LastScanNewFiles: state?.LastScanNewFiles ?? 0,
+                LastScanChangedFiles: state?.LastScanChangedFiles ?? 0,
+                LastScanDeletedFiles: state?.LastScanDeletedFiles ?? 0,
+                LastScanUnchangedFiles: state?.LastScanUnchangedFiles ?? 0,
+                LastScanUnsupportedFiles: state?.LastScanUnsupportedFiles ?? 0));
         }
 
         return new WatchedFolderStatusResponse(
@@ -84,6 +94,23 @@ public sealed class WatchedFolderStatusStore : IWatchedFolderStatusStore
     public void SetGlobalPendingEvents(int pendingEvents)
     {
         globalPendingEvents = Math.Max(0, pendingEvents);
+    }
+
+    public void RecordScanStarted(string folderPath, DateTimeOffset startedAt)
+    {
+        FolderState state = GetOrCreateFolderState(folderPath);
+        state.LastScanStartedAt = startedAt;
+    }
+
+    public void RecordScanCompleted(string folderPath, DateTimeOffset completedAt, WatchedFolderReconciliationResult result)
+    {
+        FolderState state = GetOrCreateFolderState(folderPath);
+        state.LastScanCompletedAt = completedAt;
+        state.LastScanNewFiles = result.QueuedCreatedOrChanged; // We don't differentiate new vs changed here strictly, but let's assume they map to this
+        state.LastScanChangedFiles = 0; // Keeping 0 as QueuedCreatedOrChanged lumps them together for now
+        state.LastScanDeletedFiles = result.QueuedDeleted;
+        state.LastScanUnchangedFiles = result.UnchangedFiles;
+        state.LastScanUnsupportedFiles = result.UnsupportedFiles;
     }
 
     private FolderState GetOrCreateFolderState(string folderPath)
@@ -145,5 +172,19 @@ public sealed class WatchedFolderStatusStore : IWatchedFolderStatusStore
         public string? LastError { get; set; }
 
         public DateTimeOffset? LastErrorAt { get; set; }
+
+        public DateTimeOffset? LastScanStartedAt { get; set; }
+
+        public DateTimeOffset? LastScanCompletedAt { get; set; }
+
+        public int LastScanNewFiles { get; set; }
+
+        public int LastScanChangedFiles { get; set; }
+
+        public int LastScanDeletedFiles { get; set; }
+
+        public int LastScanUnchangedFiles { get; set; }
+
+        public int LastScanUnsupportedFiles { get; set; }
     }
 }

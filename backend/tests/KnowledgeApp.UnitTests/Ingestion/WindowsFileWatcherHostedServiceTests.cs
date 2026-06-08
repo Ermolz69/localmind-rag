@@ -3,6 +3,7 @@ using KnowledgeApp.Application.Ingestion.WatchedFolders;
 using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Contracts.WatchedFolders;
+using KnowledgeApp.Application.Ingestion.WatchedFolders.Filtering;
 using KnowledgeApp.Infrastructure.Services.WatchedFolders;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -57,6 +58,7 @@ public class WindowsFileWatcherHostedServiceTests
                 debounceBuffer,
                 statusStore,
                 dateTimeProvider,
+                new FakeWatchedFileFilterService(),
                 loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
             );
 
@@ -115,7 +117,7 @@ public class WindowsFileWatcherHostedServiceTests
         LoggerFactory loggerFactory = new LoggerFactory();
 
         WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
-            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
         );
 
         // Act
@@ -167,7 +169,7 @@ public class WindowsFileWatcherHostedServiceTests
         LoggerFactory loggerFactory = new LoggerFactory();
 
         WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
-            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
         );
 
         // Act
@@ -218,7 +220,7 @@ public class WindowsFileWatcherHostedServiceTests
         LoggerFactory loggerFactory = new LoggerFactory();
 
         WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
-            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
         );
 
         // Act
@@ -270,7 +272,7 @@ public class WindowsFileWatcherHostedServiceTests
             LoggerFactory loggerFactory = new LoggerFactory();
 
             WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
-                scopeFactory, debounceBuffer, statusStore, dateTimeProvider, loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+                scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
             );
 
             // Act
@@ -313,10 +315,10 @@ public class WindowsFileWatcherHostedServiceTests
     {
         public List<WatchedFolderDto> ReconciledFolders { get; } = new();
 
-        public Task ReconcileFolderAsync(WatchedFolderDto folder, CancellationToken cancellationToken = default)
+        public Task<WatchedFolderReconciliationResult> ReconcileFolderAsync(WatchedFolderDto folder, CancellationToken cancellationToken = default)
         {
             ReconciledFolders.Add(folder);
-            return Task.CompletedTask;
+            return Task.FromResult(new WatchedFolderReconciliationResult(0, 0, 0, 0));
         }
     }
 
@@ -421,6 +423,8 @@ public class WindowsFileWatcherHostedServiceTests
         public void RecordFolderError(string folderPath, string sanitizedError, DateTimeOffset occurredAt) { }
         public void RecordGlobalError(string sanitizedError, DateTimeOffset occurredAt) { }
         public void SetGlobalPendingEvents(int pendingEvents) { }
+        public void RecordScanStarted(string folderPath, DateTimeOffset occurredAt) { }
+        public void RecordScanCompleted(string folderPath, DateTimeOffset occurredAt, WatchedFolderReconciliationResult result) { }
     }
 
     private sealed class FakeDateTimeProvider : IDateTimeProvider
@@ -431,5 +435,18 @@ public class WindowsFileWatcherHostedServiceTests
         }
 
         public DateTimeOffset UtcNow { get; set; }
+    }
+
+    private sealed class FakeWatchedFileFilterService : IWatchedFileFilterService
+    {
+        public WatchedFileFilterContext CreateContext(WatchedFoldersSettingsDto settings)
+        {
+            return new WatchedFileFilterContext(settings);
+        }
+
+        public WatchedFileFilterResult Evaluate(string filePath, WatchedFileFilterContext context)
+        {
+            return WatchedFileFilterResult.Allowed();
+        }
     }
 }

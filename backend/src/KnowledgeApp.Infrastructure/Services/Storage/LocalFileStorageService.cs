@@ -47,4 +47,28 @@ public sealed class LocalFileStorageService(IAppPathProvider paths) : IFileStora
         string? hash = Convert.ToHexString(await SHA256.HashDataAsync(input, cancellationToken));
         return new StoredFileDto(safeFileName, localPath, sizeBytes, hash);
     }
+
+    public Task DeleteAsync(string localPath, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(localPath))
+        {
+            return Task.CompletedTask;
+        }
+
+        string fullLocalPath = Path.GetFullPath(localPath);
+        string fullFilesPath = Path.GetFullPath(paths.FilesDirectory);
+
+        // Safety check: only delete if the file is genuinely inside the app storage files directory
+        if (!fullLocalPath.StartsWith(fullFilesPath + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.CompletedTask;
+        }
+
+        if (File.Exists(fullLocalPath))
+        {
+            File.Delete(fullLocalPath);
+        }
+
+        return Task.CompletedTask;
+    }
 }

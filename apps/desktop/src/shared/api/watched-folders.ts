@@ -1,4 +1,6 @@
 import type {
+  RescanWatchedFoldersRequest,
+  RescanWatchedFoldersResponse,
   WatchedFolderCleanupResponse,
   WatchedFolderStatusResponse,
 } from "@entities/settings";
@@ -10,5 +12,10 @@ export const watchedFoldersApi = {
   cleanup: () =>
     request<WatchedFolderCleanupResponse>("/watched-folders/cleanup", {
       method: "POST",
+    }),
+  rescan: (req: RescanWatchedFoldersRequest) =>
+    request<RescanWatchedFoldersResponse>("/watched-folders/rescan", {
+      method: "POST",
+      body: JSON.stringify(req),
     }),
 };

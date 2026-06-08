@@ -18,4 +18,8 @@ public interface IWatchedFolderStatusStore
     void RecordGlobalError(string sanitizedError, DateTimeOffset occurredAt);
 
     void SetGlobalPendingEvents(int pendingEvents);
+
+    void RecordScanStarted(string folderPath, DateTimeOffset startedAt);
+
+    void RecordScanCompleted(string folderPath, DateTimeOffset completedAt, WatchedFolderReconciliationResult result);
 }

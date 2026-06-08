@@ -21,6 +21,7 @@ public interface IAppDbContext
     DbSet<SyncOutboxItem> SyncOutbox { get; }
     DbSet<SyncState> SyncStates { get; }
     DbSet<SemanticCacheEntry> SemanticCacheEntries { get; }
+    DbSet<WatchedFileLink> WatchedFileLinks { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

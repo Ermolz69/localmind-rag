@@ -1,5 +1,7 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Ingestion.WatchedFolders;
+using KnowledgeApp.Application.Ingestion.WatchedFolders.Filtering;
+using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Infrastructure.Persistence;
@@ -13,17 +15,29 @@ public sealed class WatchedFolderReconciliationService(
     IServiceScopeFactory scopeFactory,
     IFileWatcherDebounceBuffer debounceBuffer,
     IDateTimeProvider dateTimeProvider,
+    ISettingsService settingsService,
+    IWatchedFileFilterService filterService,
     ILogger<WatchedFolderReconciliationService> logger) : IWatchedFolderReconciliationService
 {
-    public async Task ReconcileFolderAsync(WatchedFolderDto folder, CancellationToken cancellationToken = default)
+    public async Task<WatchedFolderReconciliationResult> ReconcileFolderAsync(WatchedFolderDto folder, CancellationToken cancellationToken = default)
     {
+        int queuedCreatedOrChanged = 0;
+        int queuedDeleted = 0;
+        int unchangedFiles = 0;
+        int unsupportedFiles = 0;
+
         if (string.IsNullOrWhiteSpace(folder.Path) || !Directory.Exists(folder.Path))
         {
-            return;
+            return new WatchedFolderReconciliationResult(0, 0, 0, 0);
         }
 
         try
         {
+            AppSettingsDto appSettings = await settingsService.GetAsync(cancellationToken);
+            WatchedFoldersSettingsDto settings = appSettings.WatchedFolders ?? new WatchedFoldersSettingsDto(
+                Enabled: false, DebounceMilliseconds: 1000, DeletePolicy: "MarkDeleted", Folders: []);
+            WatchedFileFilterContext filterContext = filterService.CreateContext(settings);
+
             using IServiceScope scope = scopeFactory.CreateScope();
             AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
@@ -42,14 +56,26 @@ public sealed class WatchedFolderReconciliationService(
             List<string> diskFiles;
             try
             {
-                diskFiles = Directory.EnumerateFiles(folder.Path, "*.*", options)
-                    .Where(IsSupportedFileType)
-                    .ToList();
+                var allFiles = Directory.EnumerateFiles(folder.Path, "*.*", options).ToList();
+                diskFiles = new List<string>();
+
+                foreach (var file in allFiles)
+                {
+                    WatchedFileFilterResult result = filterService.Evaluate(file, filterContext);
+                    if (result.IsAllowed)
+                    {
+                        diskFiles.Add(file);
+                    }
+                    else
+                    {
+                        unsupportedFiles++;
+                    }
+                }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
             {
                 logger.LogWarning(ex, "Watched folder became inaccessible during reconciliation: {FolderPath}", folder.Path);
-                return;
+                return new WatchedFolderReconciliationResult(0, 0, 0, 0);
             }
 
             DateTimeOffset now = dateTimeProvider.UtcNow;
@@ -66,6 +92,7 @@ public sealed class WatchedFolderReconciliationService(
                         WatchedFolderPath: folder.Path,
                         ChangeType: WatchedFileChangeType.CreatedOrChanged,
                         LastEventAt: now));
+                    queuedCreatedOrChanged++;
                 }
                 else
                 {
@@ -81,6 +108,11 @@ public sealed class WatchedFolderReconciliationService(
                             WatchedFolderPath: folder.Path,
                             ChangeType: WatchedFileChangeType.CreatedOrChanged,
                             LastEventAt: now));
+                        queuedCreatedOrChanged++;
+                    }
+                    else
+                    {
+                        unchangedFiles++;
                     }
                 }
             }
@@ -94,8 +126,15 @@ public sealed class WatchedFolderReconciliationService(
                         WatchedFolderPath: folder.Path,
                         ChangeType: WatchedFileChangeType.Deleted,
                         LastEventAt: now));
+                    queuedDeleted++;
                 }
             }
+
+            return new WatchedFolderReconciliationResult(
+                QueuedCreatedOrChanged: queuedCreatedOrChanged,
+                QueuedDeleted: queuedDeleted,
+                UnchangedFiles: unchangedFiles,
+                UnsupportedFiles: unsupportedFiles);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -104,26 +143,10 @@ public sealed class WatchedFolderReconciliationService(
         catch (Exception exception)
         {
             logger.LogWarning(exception, "Failed to perform startup reconciliation scan for watched folder {FolderPath}.", folder.Path);
+            return new WatchedFolderReconciliationResult(queuedCreatedOrChanged, queuedDeleted, unchangedFiles, unsupportedFiles);
         }
     }
 
-    private static bool IsSupportedFileType(string filePath)
-    {
-        string extension = Path.GetExtension(filePath);
-
-        return extension.ToLowerInvariant() switch
-        {
-            ".pdf" => true,
-            ".docx" => true,
-            ".pptx" => true,
-            ".md" => true,
-            ".markdown" => true,
-            ".txt" => true,
-            ".html" => true,
-            ".htm" => true,
-            _ => false
-        };
-    }
 
     private static string NormalizePath(string path)
     {

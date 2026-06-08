@@ -1,5 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Ingestion.WatchedFolders;
+using KnowledgeApp.Application.Ingestion.WatchedFolders.Filtering;
 using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Settings;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,7 @@ public sealed class WindowsFileWatcherHostedService(
     IFileWatcherDebounceBuffer debounceBuffer,
     IWatchedFolderStatusStore statusStore,
     IDateTimeProvider dateTimeProvider,
+    IWatchedFileFilterService filterService,
     ILogger<WindowsFileWatcherHostedService> logger) : BackgroundService
 {
     private static readonly TimeSpan LoopDelay = TimeSpan.FromMilliseconds(250);
@@ -26,6 +28,7 @@ public sealed class WindowsFileWatcherHostedService(
         DebounceMilliseconds: 1000,
         DeletePolicy: "MarkDeleted",
         Folders: []);
+    private WatchedFileFilterContext? currentFilterContext;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -85,6 +88,7 @@ public sealed class WindowsFileWatcherHostedService(
         AppSettingsDto settings = await settingsService.GetAsync(cancellationToken);
 
         currentSettings = settings.WatchedFolders ?? CreateDisabledWatchedFolderSettings();
+        currentFilterContext = filterService.CreateContext(currentSettings);
 
         ApplyWatcherSettings(currentSettings);
     }
@@ -214,6 +218,15 @@ public sealed class WindowsFileWatcherHostedService(
         if (string.IsNullOrWhiteSpace(filePath))
         {
             return;
+        }
+
+        if (currentFilterContext is not null)
+        {
+            WatchedFileFilterResult result = filterService.Evaluate(filePath, currentFilterContext);
+            if (!result.IsAllowed)
+            {
+                return;
+            }
         }
 
         DateTimeOffset now = dateTimeProvider.UtcNow;

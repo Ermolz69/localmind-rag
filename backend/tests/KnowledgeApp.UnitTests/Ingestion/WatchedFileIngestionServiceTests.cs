@@ -1,5 +1,8 @@
-using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Domain.Enums;
+using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Settings;
+using KnowledgeApp.Contracts.Settings;
+using KnowledgeApp.Application.Ingestion.WatchedFolders.Filtering;
 using KnowledgeApp.Infrastructure.Persistence;
 using KnowledgeApp.Infrastructure.Services.WatchedFolders;
 using Microsoft.Data.Sqlite;
@@ -319,7 +322,10 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
         var provider = new MutableDateTimeProvider();
         var service = new WatchedFileIngestionService(
             database.Context,
-            provider);
+            provider,
+            new FakeSettingsService(),
+            new FakeWatchedFileFilterService(),
+            new FakeFileStorageService());
 
         return (service, provider);
     }
@@ -351,6 +357,49 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
     private sealed class MutableDateTimeProvider : IDateTimeProvider
     {
         public DateTimeOffset UtcNow { get; set; } = new(2026, 6, 4, 12, 0, 0, TimeSpan.Zero);
+    }
+
+    private sealed class FakeSettingsService : ISettingsService
+    {
+        public Task<AppSettingsDto> GetAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new AppSettingsDto(default!, default!, default!, default!, new WatchedFoldersSettingsDto(true, 1000, "MarkDeleted", [])));
+        }
+
+        public Task<KnowledgeApp.Application.Common.Results.Result> UpdateAsync(AppSettingsDto request, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(KnowledgeApp.Application.Common.Results.Result.Success());
+        }
+    }
+
+    private sealed class FakeWatchedFileFilterService : IWatchedFileFilterService
+    {
+        public WatchedFileFilterContext CreateContext(WatchedFoldersSettingsDto settings)
+        {
+            return new WatchedFileFilterContext(settings);
+        }
+
+        public WatchedFileFilterResult Evaluate(string filePath, WatchedFileFilterContext context)
+        {
+            if (filePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return WatchedFileFilterResult.Rejected(WatchedFileFilterReason.UnsupportedExtension);
+            }
+            return WatchedFileFilterResult.Allowed();
+        }
+    }
+
+    private sealed class FakeFileStorageService : IFileStorageService
+    {
+        public Task<KnowledgeApp.Contracts.Documents.StoredFileDto> SaveAsync(Stream content, Guid documentId, string fileName, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new KnowledgeApp.Contracts.Documents.StoredFileDto(fileName, $"runtime/app/files/{documentId}/{fileName}", content.Length, "HASH"));
+        }
+
+        public Task DeleteAsync(string localPath, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class TestDatabase : IAsyncDisposable

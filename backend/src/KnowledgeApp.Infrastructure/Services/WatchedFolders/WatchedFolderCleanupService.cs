@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Ingestion.WatchedFolders;
 using KnowledgeApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ namespace KnowledgeApp.Infrastructure.Services.WatchedFolders;
 
 public sealed class WatchedFolderCleanupService(
     AppDbContext dbContext,
+    IFileStorageService fileStorageService,
     ILogger<WatchedFolderCleanupService> logger) : IWatchedFolderCleanupService
 {
     public async Task<int> CleanupDeletedFilesAsync(CancellationToken cancellationToken = default)
@@ -23,6 +25,11 @@ public sealed class WatchedFolderCleanupService(
 
         Guid[] linkIds = deletedLinks.Select(x => x.Id).ToArray();
         Guid[] documentIds = deletedLinks.Select(x => x.DocumentId).ToArray();
+
+        string[] filePathsToDelete = await dbContext.DocumentFiles
+            .Where(f => documentIds.Contains(f.DocumentId))
+            .Select(f => f.LocalPath)
+            .ToArrayAsync(cancellationToken);
 
         int cleanedCount = 0;
 
@@ -70,6 +77,18 @@ public sealed class WatchedFolderCleanupService(
                 .ExecuteDeleteAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
+
+            foreach (string filePath in filePathsToDelete)
+            {
+                try
+                {
+                    await fileStorageService.DeleteAsync(filePath, cancellationToken);
+                }
+                catch (Exception fileEx)
+                {
+                    logger.LogWarning(fileEx, "Failed to delete physical file during cleanup: {FilePath}", filePath);
+                }
+            }
 
             logger.LogInformation("Cleaned up {CleanedCount} deleted watched documents", cleanedCount);
         }

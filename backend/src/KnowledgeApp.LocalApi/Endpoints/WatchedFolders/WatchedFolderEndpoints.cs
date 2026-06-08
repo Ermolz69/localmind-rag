@@ -1,9 +1,11 @@
 using KnowledgeApp.Application.Ingestion.WatchedFolders;
 using KnowledgeApp.Application.Ingestion.WatchedFolders.Commands;
+using KnowledgeApp.Application.Ingestion.WatchedFolders.Queries;
 using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Contracts.WatchedFolders;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
@@ -13,18 +15,11 @@ public static class WatchedFolderEndpoints
     public static IEndpointRouteBuilder MapWatchedFolderEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/watched-folders/status", async (
-            ISettingsService settingsService,
-            IWatchedFolderStatusStore statusStore,
+            [FromServices] ISender sender,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            AppSettingsDto settings = await settingsService.GetAsync(cancellationToken);
-
-            WatchedFoldersSettingsDto watchedFolders =
-                settings.WatchedFolders ?? CreateDisabledWatchedFolderSettings();
-
-            WatchedFolderStatusResponse status = statusStore.GetStatus(watchedFolders);
-
+            var status = await sender.Send(new GetWatchedFolderStatusQuery(), cancellationToken);
             return ApiResults.Ok(status, context);
         })
         .WithName("GetWatchedFolderStatus")
@@ -32,6 +27,22 @@ public static class WatchedFolderEndpoints
         .WithSummary("Gets watched folder status.")
         .WithDescription("Returns watched folder watcher state, pending event count, and sanitized watcher errors.")
         .Produces<ApiResponse<WatchedFolderStatusResponse>>();
+
+        app.MapPost("/watched-folders/rescan", async (
+            [FromBody] RescanWatchedFoldersRequest request,
+            [FromServices] ISender sender,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+        {
+            var command = new RescanWatchedFoldersCommand(request.Path);
+            var result = await sender.Send(command, cancellationToken);
+            return result.ToApiResult(context);
+        })
+        .WithName("RescanWatchedFolders")
+        .WithTags("WatchedFolders")
+        .WithSummary("Rescan watched folders.")
+        .WithDescription("Manually rescans watched folders to find missed changes.")
+        .Produces<ApiResponse<RescanWatchedFoldersResponse>>();
 
         app.MapPost("/watched-folders/cleanup", async (
             [FromServices] CleanupWatchedFoldersHandler handler,
@@ -50,12 +61,4 @@ public static class WatchedFolderEndpoints
         return app;
     }
 
-    private static WatchedFoldersSettingsDto CreateDisabledWatchedFolderSettings()
-    {
-        return new WatchedFoldersSettingsDto(
-            Enabled: false,
-            DebounceMilliseconds: 1000,
-            DeletePolicy: "MarkDeleted",
-            Folders: []);
-    }
 }

@@ -23,6 +23,11 @@ public static class SettingsKeys
     public const string WatchedFoldersDebounceMilliseconds = "WatchedFolders.DebounceMilliseconds";
     public const string WatchedFoldersDeletePolicy = "WatchedFolders.DeletePolicy";
     public const string WatchedFoldersFoldersJson = "WatchedFolders.FoldersJson";
+    public const string WatchedFoldersIgnoredFoldersJson = "WatchedFolders.IgnoredFoldersJson";
+    public const string WatchedFoldersIgnoredPatternsJson = "WatchedFolders.IgnoredPatternsJson";
+    public const string WatchedFoldersMaxFileSizeMb = "WatchedFolders.MaxFileSizeMb";
+    public const string WatchedFoldersAllowedExtensionsJson = "WatchedFolders.AllowedExtensionsJson";
+    public const string WatchedFoldersStorageMode = "WatchedFolders.StorageMode";
 
     public static readonly string[] KnownKeys =
     [
@@ -43,5 +48,10 @@ public static class SettingsKeys
         WatchedFoldersDebounceMilliseconds,
         WatchedFoldersDeletePolicy,
         WatchedFoldersFoldersJson,
+        WatchedFoldersIgnoredFoldersJson,
+        WatchedFoldersIgnoredPatternsJson,
+        WatchedFoldersMaxFileSizeMb,
+        WatchedFoldersAllowedExtensionsJson,
+        WatchedFoldersStorageMode,
     ];
 }
