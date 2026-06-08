@@ -4,6 +4,7 @@ app/indexes/*
 app/logs/*
 ai/bin/*
 ai/models/*
+ai/.tmp/*
 ocr/bin/*
 ocr/tessdata/*
 

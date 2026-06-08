@@ -37,7 +37,19 @@ function Test-LlamaServer {
         return $false
     }
 
-    $version = & $serverPath --version 2>&1
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $version = & $serverPath --version 2>&1 | ForEach-Object { $_.ToString() }
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        return $false
+    }
+
     return ($version -join "`n").Contains($expectedVersion)
 }
 

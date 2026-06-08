@@ -21,24 +21,21 @@ export function useApiMutation<TArgs extends unknown[], TResult>(
   const fallbackErrorRef = useRef(fallbackError);
   fallbackErrorRef.current = fallbackError;
 
-  const execute = useCallback(
-    async (...args: TArgs) => {
-      setError(null);
-      setRawError(null);
-      setIsPending(true);
+  const execute = useCallback(async (...args: TArgs) => {
+    setError(null);
+    setRawError(null);
+    setIsPending(true);
 
-      try {
-        return await mutationFnRef.current(...args);
-      } catch (exception) {
-        setRawError(exception);
-        setError(getErrorMessage(exception, fallbackErrorRef.current));
-        return null;
-      } finally {
-        setIsPending(false);
-      }
-    },
-    [],
-  );
+    try {
+      return await mutationFnRef.current(...args);
+    } catch (exception) {
+      setRawError(exception);
+      setError(getErrorMessage(exception, fallbackErrorRef.current));
+      return null;
+    } finally {
+      setIsPending(false);
+    }
+  }, []);
 
   const reset = useCallback(() => {
     setError(null);

@@ -22,13 +22,17 @@ export function useBuckets() {
   );
 
   const renameMutation = useApiMutation(
-    (id: string, newName: string) => bucketsApi.updateBucket(id, { name: newName }),
+    (id: string, newName: string) =>
+      bucketsApi.updateBucket(id, { name: newName }),
     { fallbackError: "Failed to rename bucket." },
   );
 
-  const deleteMutation = useApiMutation((id: string) => bucketsApi.deleteBucket(id), {
-    fallbackError: "Failed to delete bucket.",
-  });
+  const deleteMutation = useApiMutation(
+    (id: string) => bucketsApi.deleteBucket(id),
+    {
+      fallbackError: "Failed to delete bucket.",
+    },
+  );
 
   async function createBucket() {
     const nextName = name.trim();
@@ -69,7 +73,11 @@ export function useBuckets() {
       createMutation.error ??
       renameMutation.error ??
       deleteMutation.error,
-    isLoading: isLoading || createMutation.isPending || renameMutation.isPending || deleteMutation.isPending,
+    isLoading:
+      isLoading ||
+      createMutation.isPending ||
+      renameMutation.isPending ||
+      deleteMutation.isPending,
     loadBuckets,
     name,
     selectedBucketId,

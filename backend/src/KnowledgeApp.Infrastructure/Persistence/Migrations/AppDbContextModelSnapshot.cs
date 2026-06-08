@@ -210,6 +210,15 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("IndexVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("IndexedContentHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid?>("LocalDeviceId")
                         .HasColumnType("TEXT");
 
@@ -235,6 +244,8 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DeletedAt");
 
+                    b.HasIndex("IndexedContentHash");
+
                     b.HasIndex("LocalDeviceId");
 
                     b.ToTable("documents", (string)null);
@@ -245,6 +256,11 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("ChunkVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
@@ -265,6 +281,13 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("TextHash")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("TEXT");
 
@@ -272,7 +295,46 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DocumentId");
 
+                    b.HasIndex("TextHash");
+
+                    b.HasIndex("DocumentId", "TextHash");
+
                     b.ToTable("document_chunks", (string)null);
+                });
+
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.DocumentChunkTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DocumentChunkId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("LocalVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentChunkId");
+
+                    b.HasIndex("Key", "Value");
+
+                    b.ToTable("document_chunk_tags", (string)null);
                 });
 
             modelBuilder.Entity("KnowledgeApp.Domain.Entities.DocumentEmbedding", b =>
@@ -353,6 +415,41 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.HasIndex("DocumentId");
 
                     b.ToTable("document_files", (string)null);
+                });
+
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.DocumentTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("LocalVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("Key", "Value");
+
+                    b.ToTable("document_tags", (string)null);
                 });
 
             modelBuilder.Entity("KnowledgeApp.Domain.Entities.IngestionJob", b =>
@@ -508,6 +605,41 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("note_links", (string)null);
+                });
+
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.NoteTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("LocalVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("NoteId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NoteId");
+
+                    b.HasIndex("Key", "Value");
+
+                    b.ToTable("note_tags", (string)null);
                 });
 
             modelBuilder.Entity("KnowledgeApp.Domain.Entities.OperationLog", b =>
@@ -674,6 +806,106 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("sync_state", (string)null);
+                });
+
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.WatchedFileLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastContentHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("LastSeenAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("LocalVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("NormalizedFilePath")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedWatchedFolderPath")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WatchedFolderPath")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("NormalizedFilePath")
+                        .IsUnique();
+
+                    b.HasIndex("NormalizedWatchedFolderPath");
+
+                    b.HasIndex("WatchedFolderPath");
+
+                    b.ToTable("watched_file_links", (string)null);
+                });
+
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.DocumentChunkTag", b =>
+                {
+                    b.HasOne("KnowledgeApp.Domain.Entities.DocumentChunk", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentChunkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.DocumentTag", b =>
+                {
+                    b.HasOne("KnowledgeApp.Domain.Entities.Document", null)
+                        .WithMany("Tags")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.NoteTag", b =>
+                {
+                    b.HasOne("KnowledgeApp.Domain.Entities.Note", null)
+                        .WithMany("Tags")
+                        .HasForeignKey("NoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.Document", b =>
+                {
+                    b.Navigation("Tags");
+                });
+
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.Note", b =>
+                {
+                    b.Navigation("Tags");
                 });
 #pragma warning restore 612, 618
         }

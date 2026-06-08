@@ -6,7 +6,14 @@ namespace KnowledgeApp.Domain.Entities;
 public sealed class DocumentChunk : Entity
 {
     public Guid DocumentId { get; set; }
+
     public int Index { get; set; }
+
     public int? PageNumber { get; set; }
+
     public string Text { get; set; } = string.Empty;
+
+    public string TextHash { get; set; } = string.Empty;
+
+    public int ChunkVersion { get; set; }
 }

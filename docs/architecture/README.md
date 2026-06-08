@@ -16,9 +16,10 @@ This section describes the system as it is implemented now. It avoids future-ten
 8. [AI runtime](./ai-runtime.md) explains provider abstraction, llama.cpp, model listing, chat, and embeddings.
 9. [Data and storage](./database.md) explains SQLite, local files, embeddings, and offline persistence.
 10. [Frontend architecture](./frontend.md) explains the feature-sliced UI and LocalApi-only communication.
-11. [Observability](./observability.md) and [local security](./local-security.md) explain diagnostics, logs, loopback access, token protection, and upload guardrails.
-12. [Diagrams](./diagrams.md) indexes the focused Mermaid diagrams.
-13. [Architecture decisions](./decisions/README.md) records why the system is built this way.
+11. [Security and sync](./security-and-sync.md) explains loopback access, token protection, upload guardrails, and offline-first synchronization.
+12. [Observability](./observability.md) explains diagnostics and logs.
+13. [Diagrams](./diagrams.md) indexes the focused Mermaid diagrams.
+14. [Architecture decisions](./decisions/README.md) records why the system is built this way.
 
 ## Current Invariants
 

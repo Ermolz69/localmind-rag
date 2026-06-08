@@ -10,12 +10,14 @@ public sealed class NoteRepository(AppDbContext dbContext) : INoteRepository
     public async Task<Note?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await dbContext.Notes
+            .Include(note => note.Tags)
             .FirstOrDefaultAsync(item => item.Id == id && item.DeletedAt == null, cancellationToken);
     }
 
     public async Task<IReadOnlyList<Note>> ListAsync(Guid? bucketId, CancellationToken cancellationToken = default)
     {
         IQueryable<Note> query = dbContext.Notes
+            .Include(note => note.Tags)
             .Where(note => note.DeletedAt == null);
 
         if (bucketId.HasValue)

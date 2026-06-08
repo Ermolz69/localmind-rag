@@ -9,6 +9,8 @@
       href: product/requirements/technical-specification.md
     - name: Concept and MVP
       href: product/requirements/concept-and-mvp.md
+    - name: User journey map
+      href: product/user-journey-map.md
     - name: Functional requirements
       href: product/requirements/functional-requirements.md
     - name: Non-functional requirements
@@ -24,61 +26,86 @@
       href: architecture/system.md
     - name: Backend
       href: architecture/backend.md
-    - name: API contracts
-      href: architecture/api-contracts.md
-    - name: API versioning
-      href: architecture/api-versioning.md
-    - name: API error taxonomy
-      href: architecture/api-error-taxonomy.md
-    - name: Document ingestion
+      items:
+        - name: API contracts
+          href: architecture/api-contracts.md
+        - name: API versioning
+          href: architecture/api-versioning.md
+        - name: API error taxonomy
+          href: architecture/api-error-taxonomy.md
+        - name: Data and storage
+          href: architecture/database.md
+    - name: Ingestion
       href: architecture/ingestion.md
-    - name: Ingestion and RAG
-      href: architecture/rag-pipeline.md
-    - name: AI runtime
-      href: architecture/ai-runtime.md
-    - name: Data and storage
-      href: architecture/database.md
-    - name: Local runtime
+      items:
+        - name: Ingestion and RAG
+          href: architecture/rag-pipeline.md
+    - name: Runtime
       href: architecture/local-runtime.md
+      items:
+        - name: AI runtime
+          href: architecture/ai-runtime.md
     - name: Frontend
       href: architecture/frontend.md
-    - name: Frontend contracts
-      href: architecture/frontend-contracts.md
+      items:
+        - name: Frontend contracts
+          href: architecture/frontend-contracts.md
+    - name: Security & Sync
+      href: architecture/security-and-sync.md
+      items:
+        - name: Local security
+          href: architecture/local-security.md
+        - name: Offline/online sync
+          href: architecture/offline-online-sync.md
     - name: Observability
       href: architecture/observability.md
-    - name: Local security
-      href: architecture/local-security.md
-    - name: Offline/online sync
-      href: architecture/offline-online-sync.md
     - name: Diagrams
       href: architecture/diagrams.md
 
 - name: Decisions
   items:
-    - name: Index
+    - name: Overview
       href: architecture/decisions/README.md
+    - name: Core architecture
+      href: architecture/decisions/core-architecture.md
+      items:
+        - name: Modular monolith
+          href: architecture/decisions/0001-modular-monolith.md
+        - name: LocalApi as API boundary
+          href: architecture/decisions/0002-localapi-as-api-boundary.md
+        - name: ApiResponse envelope
+          href: architecture/decisions/0003-apiresponse-envelope.md
+    - name: Runtime
+      href: architecture/decisions/runtime.md
+      items:
+        - name: Frontend and AI runtime
+          href: architecture/decisions/0005-frontend-does-not-call-ai-runtime.md
+        - name: AI runtime provider abstraction
+          href: architecture/decisions/0007-ai-runtime-provider-abstraction.md
+    - name: Offline mode
+      href: architecture/decisions/offline-mode.md
+      items:
+        - name: Local vector index and offline mode
+          href: architecture/decisions/0006-local-vector-index-and-offline-mode.md
+        - name: Offline-first sync outbox
+          href: architecture/decisions/0010-offline-first-sync-outbox.md
+    - name: Ingestion
+      href: architecture/decisions/ingestion.md
+      items:
+        - name: ADR 0008 - Ingestion Job Lifecycle
+          href: architecture/decisions/0008-ingestion-job-lifecycle.md
+    - name: Security
+      href: architecture/decisions/security.md
+      items:
+        - name: ADR 0009 - LocalApi Local Security
+          href: architecture/decisions/0009-localapi-local-security.md
+    - name: Failures
+      href: architecture/decisions/failures.md
+      items:
+        - name: Result expected failures
+          href: architecture/decisions/0004-result-for-expected-failures.md
     - name: Template
       href: architecture/decisions/template.md
-    - name: Modular monolith
-      href: architecture/decisions/0001-modular-monolith.md
-    - name: LocalApi as API boundary
-      href: architecture/decisions/0002-localapi-as-api-boundary.md
-    - name: ApiResponse envelope
-      href: architecture/decisions/0003-apiresponse-envelope.md
-    - name: Result expected failures
-      href: architecture/decisions/0004-result-for-expected-failures.md
-    - name: Frontend and AI runtime
-      href: architecture/decisions/0005-frontend-does-not-call-ai-runtime.md
-    - name: Local vector index and offline mode
-      href: architecture/decisions/0006-local-vector-index-and-offline-mode.md
-    - name: AI runtime provider abstraction
-      href: architecture/decisions/0007-ai-runtime-provider-abstraction.md
-    - name: ADR 0008 - Ingestion Job Lifecycle
-      href: architecture/decisions/0008-ingestion-job-lifecycle.md
-    - name: ADR 0009 - LocalApi Local Security
-      href: architecture/decisions/0009-localapi-local-security.md
-    - name: ADR 0010 - Offline-First Sync Outbox
-      href: architecture/decisions/0010-offline-first-sync-outbox.md
 
 - name: Development
   items:
@@ -103,5 +130,6 @@
       href: api/openapi.html
     - name: .NET API
       href: auto-generated/dotnet-api/toc.yml
+      topicHref: api/dotnet-api.md
     - name: UI Documentation
-      href: storybook/index.html
+      href: api/storybook.md

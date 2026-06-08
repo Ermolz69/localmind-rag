@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\LocalMind.ApiGateway.Infrastructure\LocalMind.ApiGateway.Infrastructure.csproj" />
+    <ProjectReference Include="..\LocalMind.ApiGateway.Application\LocalMind.ApiGateway.Application.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

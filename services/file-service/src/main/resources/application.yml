@@ -1,0 +1,40 @@
+server:
+  port: ${FILE_SERVICE_PORT:8080}
+
+spring:
+  application:
+    name: localmind-file-service
+  datasource:
+    url: ${FILE_SERVICE_DB_URL:jdbc:postgresql://localhost:5432/localmind_files}
+    username: ${FILE_SERVICE_DB_USER:localmind}
+    password: ${FILE_SERVICE_DB_PASSWORD:localmind}
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: ${FILE_SERVICE_MAX_FILE_SIZE:100MB}
+      max-request-size: ${FILE_SERVICE_MAX_REQUEST_SIZE:100MB}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+localmind:
+  files:
+    allowed-extensions:
+      - pdf
+      - docx
+      - txt
+      - md
+    max-size-bytes: ${FILE_SERVICE_MAX_SIZE_BYTES:104857600}
+  storage:
+    bucket: ${FILE_SERVICE_MINIO_BUCKET:localmind-files}
+    endpoint: ${FILE_SERVICE_MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${FILE_SERVICE_MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${FILE_SERVICE_MINIO_SECRET_KEY:minioadmin}

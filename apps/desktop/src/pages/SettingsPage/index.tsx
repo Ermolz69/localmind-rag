@@ -1,11 +1,7 @@
 import { Monitor, Moon, Palette, RefreshCw, Save, Sun } from "lucide-react";
-import {
-  DiagnosticsPanel,
-  SettingsSections,
-  useSettingsForm,
-} from "@features/settings-form";
+import { SettingsSections, useSettingsForm } from "@features/settings-form";
 import { themes, type ThemeName } from "@shared/theme/tokens";
-import { Button, ErrorBanner, Modal, PageHeader } from "@shared/ui";
+import { Button, ErrorBanner, Modal, PageHeader, Skeleton } from "@shared/ui";
 
 const themeLabels: Record<ThemeName, string> = {
   light: "Light",
@@ -24,155 +20,152 @@ const settingsNavigation = [
   { href: "#runtime-paths", label: "Runtime paths" },
   { href: "#ai", label: "AI" },
   { href: "#sync", label: "Sync" },
-  { href: "#diagnostics", label: "Diagnostics" },
+  { href: "#watched-folders", label: "Watched folders" },
 ];
 
 export function SettingsPage() {
   const page = useSettingsForm();
 
   return (
-    <section className="mx-auto max-w-7xl space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="Settings"
-        description="Local runtime, AI provider, sync, diagnostics, and visual preferences."
+        description="Configure local runtime, AI models, sync, watched folders, and diagnostics."
         actions={
-          <>
+          <div className="flex gap-2">
             <Button variant="secondary" onClick={() => void page.load()}>
-              <RefreshCw size={16} aria-hidden />
+              <RefreshCw className="h-4 w-4" />
               Refresh
             </Button>
-            <Button onClick={() => page.setThemeModalOpen(true)}>
-              <Palette size={16} aria-hidden />
+            <Button
+              variant="secondary"
+              onClick={() => page.setThemeModalOpen(true)}
+            >
+              <Palette className="h-4 w-4" />
               Theme
             </Button>
-          </>
+          </div>
         }
       />
 
-      <ErrorBanner message={page.error} />
+      {page.error ? <ErrorBanner message={page.error} /> : null}
 
-      <div className="grid items-start gap-5 xl:grid-cols-[15rem_minmax(0,1fr)]">
-        <aside className="sticky top-4 hidden self-start xl:block">
-          <nav className="rounded-xl border border-border bg-card p-2 shadow-sm">
-            <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              On this page
-            </p>
-            <div className="flex flex-col gap-1">
-              {settingsNavigation.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </div>
+      <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+        <aside className="rounded-xl border border-border bg-card p-4">
+          <p className="text-sm font-semibold text-foreground">On this page</p>
+          <nav className="mt-3 space-y-2">
+            {settingsNavigation.map((item) => (
+              <a
+                className="block rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                href={item.href}
+                key={item.href}
+              >
+                {item.label}
+              </a>
+            ))}
           </nav>
         </aside>
 
-        <div className="min-w-0 space-y-4">
+        <main className="space-y-6">
           <section
+            className="rounded-xl border border-border bg-card p-5"
             id="appearance"
-            className="scroll-mt-6 rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6"
           >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-card-foreground">
-                  Appearance
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                  Current theme: {themeLabels[page.theme]}
-                </p>
-              </div>
-              <Button
-                variant="secondary"
-                onClick={() => page.setThemeModalOpen(true)}
-              >
-                Change
-              </Button>
-            </div>
+            <h2 className="text-lg font-semibold text-foreground">
+              Appearance
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Current theme: {themeLabels[page.theme]}
+            </p>
+            <Button
+              className="mt-4"
+              variant="secondary"
+              onClick={() => page.setThemeModalOpen(true)}
+            >
+              Change
+            </Button>
           </section>
 
           {page.isLoading ? (
-            <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground shadow-sm sm:p-6">
-              Loading settings...
+            <div className="space-y-6">
+              <Skeleton className="h-[200px] w-full" />
+              <Skeleton className="h-[200px] w-full" />
+              <Skeleton className="h-[200px] w-full" />
             </div>
           ) : page.draft ? (
             <>
-              <SettingsSections draft={page.draft} onChange={page.setDraft} />
-              <DiagnosticsPanel diagnostics={page.diagnostics} />
-              <div className="sticky bottom-4 z-10">
-                <div className="rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-card-foreground">
-                        {page.isDirty
-                          ? "Unsaved settings changes"
-                          : "Settings are saved"}
-                      </p>
-                      <p className="text-xs leading-5 text-muted-foreground">
-                        {page.isDirty
-                          ? "Save when the current setup looks right."
-                          : "This panel stays ready for the next edit."}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <Button
-                        variant="secondary"
-                        onClick={page.resetSettings}
-                        disabled={!page.isDirty || page.isSaving}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={() => void page.saveSettings()}
-                        disabled={page.isSaving || !page.isDirty}
-                      >
-                        <Save size={16} aria-hidden />
-                        {page.isSaving ? "Saving..." : "Save settings"}
-                      </Button>
-                    </div>
-                  </div>
+              <SettingsSections
+                draft={page.draft}
+                watchedFolderStatus={page.watchedFolderStatus}
+                onChange={page.setDraft}
+              />
+
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5">
+                <div>
+                  <p className="font-medium text-foreground">
+                    {page.isDirty
+                      ? "Unsaved settings changes"
+                      : "Settings are saved"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {page.isDirty
+                      ? "Save when the current setup looks right."
+                      : "This panel stays ready for the next edit."}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    disabled={!page.isDirty}
+                    variant="secondary"
+                    onClick={page.resetSettings}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={page.isSaving || !page.isDirty}
+                    onClick={() => void page.saveSettings()}
+                  >
+                    <Save className="h-4 w-4" />
+                    {page.isSaving ? "Saving..." : "Save settings"}
+                  </Button>
                 </div>
               </div>
             </>
           ) : null}
-        </div>
+        </main>
       </div>
 
       <Modal
         open={page.themeModalOpen}
         title="Choose theme"
-        description="Switch localmind between light, dark, or your system theme."
         onClose={() => page.setThemeModalOpen(false)}
       >
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-2">
           {themes.map((item) => {
             const Icon = themeIcons[item];
             const selected = page.theme === item;
+
             return (
               <button
-                key={item}
-                className={
+                className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
                   selected
-                    ? "rounded-md border border-border bg-primary p-4 text-left text-primary-foreground transition"
-                    : "rounded-md border border-border bg-background p-4 text-left text-foreground transition hover:bg-muted"
-                }
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border hover:bg-muted"
+                }`}
+                key={item}
+                type="button"
                 onClick={() => {
                   page.setTheme(item);
                   page.setThemeModalOpen(false);
                 }}
               >
-                <Icon size={18} aria-hidden />
-                <span className="mt-4 block text-sm font-medium">
-                  {themeLabels[item]}
-                </span>
+                <Icon className="h-4 w-4" />
+                {themeLabels[item]}
               </button>
             );
           })}
         </div>
       </Modal>
-    </section>
+    </div>
   );
 }

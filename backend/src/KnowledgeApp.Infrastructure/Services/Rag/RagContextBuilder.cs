@@ -43,11 +43,9 @@ public sealed class RagContextBuilder(
             new VectorSearchOptions(Limit: request.Limit),
             cancellationToken);
 
-        IReadOnlyList<RagSourceDto> relevantSources = rankedSources
-            .Where(source => source.Score >= options.MinimumSourceScore)
-            .ToArray();
+        IReadOnlyList<RagSourceDto> relevantSources = FilterRelevantSources(rankedSources);
 
-        string contextText = BuildContextText(relevantSources);
+        string contextText = BuildContextText(relevantSources, request.Question);
 
         diagnostics?.LogStep(
             operationId,
@@ -61,7 +59,31 @@ public sealed class RagContextBuilder(
         return new RagContext(relevantSources, contextText);
     }
 
-    private static string BuildContextText(IReadOnlyList<RagSourceDto> sources)
+    private IReadOnlyList<RagSourceDto> FilterRelevantSources(
+        IReadOnlyList<RagSourceDto> rankedSources)
+    {
+        RagSourceDto[] aboveMinimum = rankedSources
+            .Where(source => source.Score >= options.MinimumSourceScore)
+            .ToArray();
+
+        if (aboveMinimum.Length == 0)
+        {
+            return aboveMinimum;
+        }
+
+        double topScore = aboveMinimum[0].Score;
+        double scoreCutoff = Math.Max(
+            options.MinimumSourceScore,
+            topScore - options.MaxSourceScoreDistance);
+
+        return aboveMinimum
+            .Where(source => source.Score >= scoreCutoff)
+            .ToArray();
+    }
+
+    private static string BuildContextText(
+        IReadOnlyList<RagSourceDto> sources,
+        string question)
     {
         if (sources.Count == 0)
         {
@@ -74,12 +96,7 @@ public sealed class RagContextBuilder(
         {
             RagSourceDto source = sources[index];
 
-            string snippet = NormalizeSnippet(source.Snippet);
-
-            if (snippet.Length > SnippetCharacterLimit)
-            {
-                snippet = snippet[..SnippetCharacterLimit];
-            }
+            string snippet = BuildFocusedSnippet(source.Snippet, question);
 
             string page = source.PageNumber.HasValue
                 ? source.PageNumber.Value.ToString(CultureInfo.InvariantCulture)
@@ -129,5 +146,68 @@ public sealed class RagContextBuilder(
     private static string NormalizeSnippet(string snippet)
     {
         return Regex.Replace(snippet, "\\s+", " ").Trim();
+    }
+
+    private static string BuildFocusedSnippet(string text, string question)
+    {
+        string normalizedText = NormalizeSnippet(text);
+
+        if (normalizedText.Length <= SnippetCharacterLimit)
+        {
+            return normalizedText;
+        }
+
+        int matchIndex = FindBestMatchIndex(normalizedText, question);
+        int startIndex = matchIndex < 0
+            ? 0
+            : Math.Max(0, matchIndex - (SnippetCharacterLimit / 3));
+
+        if (startIndex + SnippetCharacterLimit > normalizedText.Length)
+        {
+            startIndex = Math.Max(0, normalizedText.Length - SnippetCharacterLimit);
+        }
+
+        string snippet = normalizedText
+            .Substring(startIndex, Math.Min(SnippetCharacterLimit, normalizedText.Length - startIndex))
+            .Trim();
+
+        string prefix = startIndex > 0 ? "..." : string.Empty;
+        string suffix = startIndex + snippet.Length < normalizedText.Length ? "..." : string.Empty;
+
+        return prefix + snippet + suffix;
+    }
+
+    private static int FindBestMatchIndex(string text, string question)
+    {
+        string phrase = NormalizeSnippet(question)
+            .Trim('?', '!', '.', ':', ';', ',', ' ', '\t');
+
+        if (!string.IsNullOrWhiteSpace(phrase))
+        {
+            int phraseIndex = text.IndexOf(phrase, StringComparison.OrdinalIgnoreCase);
+            if (phraseIndex >= 0)
+            {
+                return phraseIndex;
+            }
+        }
+
+        string[] terms = Regex
+            .Matches(question, @"[\p{L}\p{N}]+")
+            .Select(match => match.Value)
+            .Where(term => term.Length > 2)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(term => term.Length)
+            .ToArray();
+
+        foreach (string term in terms)
+        {
+            int termIndex = text.IndexOf(term, StringComparison.OrdinalIgnoreCase);
+            if (termIndex >= 0)
+            {
+                return termIndex;
+            }
+        }
+
+        return -1;
     }
 }

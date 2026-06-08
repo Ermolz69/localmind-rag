@@ -16,38 +16,56 @@ export function useApiQuery<T>(
     fallbackError = "Unable to load data.",
     enabled = true,
   } = options;
+  const hasInitialData = initialData !== null && initialData !== undefined;
 
   const [data, setData] = useState<T | null>(initialData as T | null);
-  const [isLoading, setIsLoading] = useState(enabled && !initialData);
+  const [isLoading, setIsLoading] = useState(enabled && !hasInitialData);
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rawError, setRawError] = useState<unknown | null>(null);
-
-  // Use refs to avoid re-creating the execute function when these change
   const queryFnRef = useRef(queryFn);
-  queryFnRef.current = queryFn;
-  
   const fallbackErrorRef = useRef(fallbackError);
-  fallbackErrorRef.current = fallbackError;
+  const hasDataRef = useRef(hasInitialData);
+  const inFlightRef = useRef<Promise<T | null> | null>(null);
 
-  const execute = useCallback(async () => {
-    setError(null);
-    setRawError(null);
-    setIsFetching(true);
+  useEffect(() => {
+    queryFnRef.current = queryFn;
+    fallbackErrorRef.current = fallbackError;
+  }, [fallbackError, queryFn]);
 
-    try {
-      const result = await queryFnRef.current();
-      setData(result);
-      return result;
-    } catch (exception) {
-      setRawError(exception);
-      setError(getErrorMessage(exception, fallbackErrorRef.current));
-      return null;
-    } finally {
-      setIsLoading(false);
-      setIsFetching(false);
+  const execute = useCallback(() => {
+    if (inFlightRef.current) {
+      return inFlightRef.current;
     }
-  }, []); // Stable execute function
+
+    const request = (async () => {
+      setError(null);
+      setRawError(null);
+      setIsFetching(true);
+
+      if (!hasDataRef.current) {
+        setIsLoading(true);
+      }
+
+      try {
+        const result = await queryFnRef.current();
+        hasDataRef.current = true;
+        setData(result);
+        return result;
+      } catch (exception) {
+        setRawError(exception);
+        setError(getErrorMessage(exception, fallbackErrorRef.current));
+        return null;
+      } finally {
+        setIsLoading(false);
+        setIsFetching(false);
+        inFlightRef.current = null;
+      }
+    })();
+
+    inFlightRef.current = request;
+    return request;
+  }, []);
 
   useEffect(() => {
     if (enabled) {

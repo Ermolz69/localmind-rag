@@ -16,9 +16,10 @@ models are stored under `runtime/ai/` and are intentionally not committed.
 Backend only:
 
 ```bash
-dotnet restore backend/KnowledgeApp.slnx
-dotnet build backend/KnowledgeApp.slnx
-dotnet test backend/KnowledgeApp.slnx
+cd backend
+dotnet restore KnowledgeApp.slnx
+dotnet build KnowledgeApp.slnx
+dotnet test KnowledgeApp.slnx
 ```
 
 Checks:

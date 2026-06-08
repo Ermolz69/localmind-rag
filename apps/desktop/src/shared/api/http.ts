@@ -15,7 +15,8 @@ async function getApiBaseUrl(): Promise<string> {
   }
 
   // Check if we are running inside Tauri
-  const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  const isTauri =
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
   if (isTauri) {
     try {
@@ -23,7 +24,10 @@ async function getApiBaseUrl(): Promise<string> {
       cachedBaseUrl = `http://127.0.0.1:${port}`;
       return cachedBaseUrl;
     } catch (error) {
-      console.error("Failed to get sidecar port from Tauri, falling back to 49321", error);
+      console.error(
+        "Failed to get sidecar port from Tauri, falling back to 49321",
+        error,
+      );
     }
   }
 

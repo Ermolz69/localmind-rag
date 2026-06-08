@@ -3,6 +3,7 @@ export type NoteDto = {
   title: string;
   markdown: string;
   bucketId: string | null;
+  tags?: Record<string, string> | null;
 };
 
 export type GetNotesRequest = {
@@ -16,10 +17,12 @@ export type CreateNoteRequest = {
   title: string;
   markdown: string;
   bucketId?: string | null;
+  tags?: Record<string, string> | null;
 };
 
 export type UpdateNoteRequest = {
   title: string;
   markdown: string;
   bucketId?: string | null;
+  tags?: Record<string, string> | null;
 };

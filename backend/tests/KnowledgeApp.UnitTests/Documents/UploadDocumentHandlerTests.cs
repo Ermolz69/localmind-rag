@@ -188,6 +188,11 @@ public sealed class UploadDocumentHandlerTests
             SaveCalls++;
             return Task.FromResult(new StoredFileDto(fileName, $"runtime/app/files/{documentId}/{fileName}", content.Length, "HASH"));
         }
+
+        public Task DeleteAsync(string localPath, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FixedDateTimeProvider : IDateTimeProvider
@@ -216,7 +221,7 @@ public sealed class UploadDocumentHandlerTests
                 .Options;
             AppDbContext? context = new AppDbContext(options);
             await context.Database.EnsureCreatedAsync();
-            return new TestDatabase(connection, context);
+            return new TestDatabase((SqliteConnection)connection, context);
         }
 
         public async ValueTask DisposeAsync()

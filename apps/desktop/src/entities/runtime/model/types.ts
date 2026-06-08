@@ -12,6 +12,10 @@ export type RuntimeStatus = {
   modelPath: string | null;
   setupRequired: boolean;
   setupReason: string | null;
+  chatModelName: string | null;
+  embeddingModelName: string | null;
+  chatModelPath: string | null;
+  embeddingModelPath: string | null;
 };
 
 export type RuntimeSetupResponse = {

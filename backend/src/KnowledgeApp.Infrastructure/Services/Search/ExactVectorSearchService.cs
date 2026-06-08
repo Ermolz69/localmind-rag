@@ -60,6 +60,16 @@ public sealed class ExactVectorSearchService(AppDbContext dbContext) : IVectorSe
             rowsQuery = rowsQuery.Where(x => x.DocumentBucketId == bucketId);
         }
 
+        if (options.Tags is { Count: > 0 } tags)
+        {
+            foreach (var tag in tags)
+            {
+                rowsQuery = rowsQuery.Where(x =>
+                    dbContext.DocumentTags.Any(dt => dt.DocumentId == x.DocumentId && dt.Key == tag.Key && dt.Value == tag.Value) ||
+                    dbContext.DocumentChunkTags.Any(ct => ct.DocumentChunkId == x.ChunkId && ct.Key == tag.Key && ct.Value == tag.Value));
+            }
+        }
+
         var rows = await rowsQuery.ToArrayAsync(cancellationToken);
 
         return rows

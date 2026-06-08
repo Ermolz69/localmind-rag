@@ -64,7 +64,7 @@ public sealed class RagPipelineTests
 
         Assert.True(embeddings.WasCalled);
         Assert.True(search.WasCalled);
-        Assert.Equal(6, search.Options?.Limit);
+        Assert.Equal(12, search.Options?.Limit);
         Assert.Empty(context.Sources);
         Assert.Equal(string.Empty, context.ContextText);
     }
@@ -139,6 +139,51 @@ public sealed class RagPipelineTests
     }
 
     [Fact]
+    public async Task RagContextBuilder_Should_Exclude_Sources_Too_Far_From_Top_Score()
+    {
+        RagSourceDto topMatch = new(
+            Guid.NewGuid(),
+            "DeepWork.md",
+            Guid.NewGuid(),
+            PageNumber: null,
+            Score: 0.59,
+            "The Roosevelt method uses a hard deadline.");
+
+        RagSourceDto closeMatch = new(
+            Guid.NewGuid(),
+            "DeepWork.md",
+            Guid.NewGuid(),
+            PageNumber: null,
+            Score: 0.52,
+            "Focus rituals support intense work.");
+
+        RagSourceDto looseMatch = new(
+            Guid.NewGuid(),
+            "DeepWork.md",
+            Guid.NewGuid(),
+            PageNumber: null,
+            Score: 0.48,
+            "Weekly reporting belongs to a different method.");
+
+        RagContextBuilder builder = CreateContextBuilder(
+            new FakeVectorSearchService([topMatch, closeMatch, looseMatch]),
+            new FakeEmbeddingGenerator(),
+            minimumSourceScore: 0.3);
+
+        RagContext context = await builder.BuildAsync(
+            new RagContextRequest(Guid.NewGuid(), "What is the Roosevelt method?"));
+
+        Assert.Equal(
+            [topMatch.ChunkId, closeMatch.ChunkId],
+            context.Sources.Select(source => source.ChunkId).ToArray());
+
+        Assert.DoesNotContain(
+            "Weekly reporting",
+            context.ContextText,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RagContextBuilder_Should_Preserve_Source_Order_And_Normalize_Context_Text()
     {
         RagSourceDto first = new(
@@ -159,7 +204,8 @@ public sealed class RagPipelineTests
 
         RagContextBuilder builder = CreateContextBuilder(
             new FakeVectorSearchService([first, second]),
-            new FakeEmbeddingGenerator());
+            new FakeEmbeddingGenerator(),
+            maxSourceScoreDistance: 1);
 
         RagContext context = await builder.BuildAsync(
             new RagContextRequest(Guid.NewGuid(), "ordered sources"));
@@ -215,6 +261,36 @@ public sealed class RagPipelineTests
 
         Assert.Contains(
             new string('a', 700),
+            context.ContextText,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RagContextBuilder_Should_Focus_Long_Snippet_Around_Question_Terms()
+    {
+        string prefix = new('a', 1_500);
+        string answerText =
+            "Метод роботи Рузвельта: обрати пріоритетне завдання, встановити жорсткий дедлайн і працювати інтенсивно.";
+
+        RagSourceDto source = new(
+            Guid.NewGuid(),
+            "DeepWork.md",
+            Guid.NewGuid(),
+            PageNumber: null,
+            Score: 0.34,
+            $"{prefix} {answerText}");
+
+        RagContextBuilder builder = CreateContextBuilder(
+            new FakeVectorSearchService([source]),
+            new FakeEmbeddingGenerator(),
+            minimumSourceScore: 0.3);
+
+        RagContext context = await builder.BuildAsync(
+            new RagContextRequest(Guid.NewGuid(), "В чому полягає метод роботи Рузвельта?"));
+
+        Assert.Single(context.Sources);
+        Assert.Contains(
+            answerText,
             context.ContextText,
             StringComparison.Ordinal);
     }
@@ -331,7 +407,8 @@ public sealed class RagPipelineTests
     private static RagContextBuilder CreateContextBuilder(
         IVectorSearchService search,
         IEmbeddingGenerator embeddings,
-        double minimumSourceScore = 0.65)
+        double minimumSourceScore = 0.65,
+        double maxSourceScoreDistance = 0.1)
     {
         return new RagContextBuilder(
             search,
@@ -339,6 +416,7 @@ public sealed class RagPipelineTests
             Options.Create(new RagOptions
             {
                 MinimumSourceScore = minimumSourceScore,
+                MaxSourceScoreDistance = maxSourceScoreDistance,
             }));
     }
 

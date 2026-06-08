@@ -71,7 +71,9 @@ public sealed class EmbeddingModelCatalog
                     stream,
                     SerializerOptions);
 
-            if (manifest is null || string.IsNullOrWhiteSpace(manifest.Id))
+            if (manifest is null
+                || string.IsNullOrWhiteSpace(manifest.Id)
+                || manifest.Dimension <= 0)
             {
                 continue;
             }

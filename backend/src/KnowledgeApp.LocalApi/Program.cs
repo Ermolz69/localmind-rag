@@ -50,6 +50,7 @@ apiV1.MapNoteEndpoints();
 apiV1.MapChatEndpoints();
 apiV1.MapSearchEndpoints();
 apiV1.MapSettingsEndpoints();
+apiV1.MapWatchedFolderEndpoints();
 apiV1.MapSyncEndpoints();
 
 app.Run();

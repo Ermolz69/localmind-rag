@@ -11,12 +11,14 @@ public sealed class DocumentRepository(AppDbContext dbContext) : IDocumentReposi
     public async Task<Document?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await dbContext.Documents
+            .Include(document => document.Tags)
             .FirstOrDefaultAsync(item => item.Id == id && item.DeletedAt == null, cancellationToken);
     }
 
     public async Task<IReadOnlyList<Document>> ListAsync(Guid? bucketId, string? status, int limit, int offset, CancellationToken cancellationToken = default)
     {
         IQueryable<Document> query = dbContext.Documents
+            .Include(document => document.Tags)
             .Where(document => document.DeletedAt == null);
 
         if (bucketId.HasValue)

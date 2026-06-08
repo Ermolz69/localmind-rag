@@ -11,6 +11,7 @@ export type DocumentSummary = {
   status: DocumentStatus;
   createdAt: string;
   lastError: string | null;
+  tags?: Record<string, string> | null;
 };
 
 export type GetDocumentsRequest = {

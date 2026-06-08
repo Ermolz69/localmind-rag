@@ -9,4 +9,6 @@ public interface IFileStorageService
         Guid documentId,
         string fileName,
         CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(string localPath, CancellationToken cancellationToken = default);
 }

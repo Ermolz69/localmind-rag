@@ -8,6 +8,7 @@ export { Input } from "./Input";
 export { Modal } from "./Modal";
 export { PageHeader } from "./PageHeader";
 export { Select } from "./Select";
+export { Skeleton } from "./Skeleton";
 export { StatusBadge } from "./StatusBadge";
 export { Textarea } from "./Textarea";
 export { Toast } from "./Toast";

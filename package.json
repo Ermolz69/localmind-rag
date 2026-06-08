@@ -4,14 +4,15 @@
   "packageManager": "pnpm@10.0.0",
   "scripts": {
     "setup": "pnpm install && pnpm setup:ai",
+    "prepare": "node -e \"try{require('node:child_process').execFileSync('git',['config','core.hooksPath','.githooks'],{stdio:'inherit'})}catch{}\"",
     "dev": "concurrently -n localapi,desktop \"dotnet run --project backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj --urls http://127.0.0.1:49321\" \"pnpm --filter desktop dev\"",
-    "check": "task check",
-    "docs:build": "task docs:build",
-    "package": "task package",
-    "setup:ai": "task setup:ai",
-    "setup:ai-runtime": "task setup:ai-runtime",
-    "setup:ai-models": "task setup:ai-models",
-    "setup:ocr": "task setup:ocr",
+    "check": "task -t .config/task/Taskfile.yml check",
+    "docs:build": "task -t .config/task/Taskfile.yml docs:build",
+    "package": "task -t .config/task/Taskfile.yml package",
+    "setup:ai": "task -t .config/task/Taskfile.yml setup:ai",
+    "setup:ai-runtime": "task -t .config/task/Taskfile.yml setup:ai-runtime",
+    "setup:ai-models": "task -t .config/task/Taskfile.yml setup:ai-models",
+    "setup:ocr": "task -t .config/task/Taskfile.yml setup:ocr",
     "docker:up": "docker compose -f infra/docker-compose.remote.yml up -d"
   },
   "devDependencies": {

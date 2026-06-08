@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
-import type { AppSettings } from "@entities/settings";
-import {
-  diagnosticsApi,
-  getFieldErrors,
-  settingsApi,
-} from "@shared/api";
+import type {
+  AppSettings,
+  WatchedFolderStatusResponse,
+} from "@entities/settings";
+import { getFieldErrors, settingsApi, watchedFoldersApi } from "@shared/api";
 import { useApiMutation, useApiQuery } from "@shared/lib/hooks";
 import { useTheme } from "@shared/theme/theme-provider";
 
 export function useSettingsForm() {
   const { theme, setTheme } = useTheme();
+
   const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [draft, setDraft] = useState<AppSettings | null>(null);
+  const [draft, setDraftState] = useState<AppSettings | null>(null);
+  const [hasLocalChanges, setHasLocalChanges] = useState(false);
   const [themeModalOpen, setThemeModalOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
@@ -22,26 +23,46 @@ export function useSettingsForm() {
     reload: load,
   } = useApiQuery(
     async () => {
-      const [nextSettings, nextDiagnostics] = await Promise.all([
+      const [nextSettings, nextWatchedFolderStatus] = await Promise.all([
         settingsApi.getSettings(),
-        diagnosticsApi.getDiagnostics(),
+        watchedFoldersApi.getStatus().catch(() => null),
       ]);
-      return { settings: nextSettings, diagnostics: nextDiagnostics };
+
+      return {
+        settings: nextSettings,
+        watchedFolderStatus: nextWatchedFolderStatus,
+      };
     },
     { fallbackError: "Unable to load settings." },
   );
 
   useEffect(() => {
-    if (data) {
-      setSettings(data.settings);
-      setDraft(data.settings);
+    if (!data) {
+      return;
     }
-  }, [data]);
+
+    setSettings(data.settings);
+
+    setDraftState((currentDraft) => {
+      if (hasLocalChanges && currentDraft) {
+        return currentDraft;
+      }
+
+      return data.settings;
+    });
+  }, [data, hasLocalChanges]);
 
   const saveMutation = useApiMutation(
     (nextSettings: AppSettings) => settingsApi.saveSettings(nextSettings),
     { fallbackError: "Unable to save settings." },
   );
+
+  const isDirty = JSON.stringify(settings) !== JSON.stringify(draft);
+
+  function setDraft(nextDraft: AppSettings | null) {
+    setDraftState(nextDraft);
+    setHasLocalChanges(JSON.stringify(settings) !== JSON.stringify(nextDraft));
+  }
 
   async function saveSettings() {
     if (!draft) {
@@ -49,24 +70,28 @@ export function useSettingsForm() {
     }
 
     setFieldErrors({});
+
     const success = await saveMutation.mutate(draft);
+
     if (success !== null) {
       setSettings(draft);
+      setDraftState(draft);
+      setHasLocalChanges(false);
     } else if (saveMutation.rawError) {
       setFieldErrors(getFieldErrors(saveMutation.rawError));
     }
   }
 
   function resetSettings() {
-    setDraft(settings);
+    setDraftState(settings);
+    setHasLocalChanges(false);
   }
 
   return {
-    diagnostics: data?.diagnostics ?? null,
     draft,
     error: queryError ?? saveMutation.error,
     fieldErrors,
-    isDirty: JSON.stringify(settings) !== JSON.stringify(draft),
+    isDirty,
     isLoading,
     isSaving: saveMutation.isPending,
     load,
@@ -77,5 +102,7 @@ export function useSettingsForm() {
     setThemeModalOpen,
     theme,
     themeModalOpen,
+    watchedFolderStatus:
+      data?.watchedFolderStatus ?? (null as WatchedFolderStatusResponse | null),
   };
 }

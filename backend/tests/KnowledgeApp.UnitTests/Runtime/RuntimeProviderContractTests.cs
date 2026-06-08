@@ -29,6 +29,7 @@ public sealed class RuntimeProviderContractTests
         });
 
         EmbeddingModelCatalog catalog = new(embeddingOptions);
+        ChatModelCatalog chatCatalog = new(runtimeOptions);
 
         AiRuntimeManager manager = new(
             paths,
@@ -40,6 +41,12 @@ public sealed class RuntimeProviderContractTests
                 embeddingOptions,
                 catalog,
                 new HttpClient()),
+            chatCatalog,
+            new ChatModelStore(
+                paths,
+                embeddingOptions,
+                chatCatalog,
+                new HttpClient()),
             NullLogger<AiRuntimeManager>.Instance);
 
         RuntimeStatusDto status = await manager.GetStatusAsync();
@@ -50,6 +57,19 @@ public sealed class RuntimeProviderContractTests
         Assert.NotNull(status.Capabilities);
         Assert.True(status.Capabilities.SupportsEmbeddings);
         Assert.True(status.Capabilities.SupportsStart);
+    }
+
+    [Fact]
+    public void ChatModelCatalog_Should_Load_Llama32_Manifest()
+    {
+        ChatModelCatalog catalog = new(Options.Create(new RuntimeOptions()));
+
+        ChatModelManifest manifest = catalog.GetDefault();
+
+        Assert.Equal("llama-3.2-3b-instruct-q4-k-m", manifest.Id);
+        Assert.Equal("meta-llama/Llama-3.2-3B-Instruct", manifest.ModelName);
+        Assert.Equal("Q4_K_M", manifest.Quantization);
+        Assert.Equal("bartowski/Llama-3.2-3B-Instruct-GGUF", manifest.SourceRepository);
     }
 
     [Fact]

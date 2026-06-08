@@ -17,7 +17,7 @@ README.txt
 Build it locally:
 
 ```bash
-task package
+task -t .config/task/Taskfile.yml package
 ```
 
 The output goes to `artifacts/`, which is ignored by Git. The `Portable Release` GitHub workflow uploads the ZIP as a workflow artifact and attaches it to tag releases matching `v*`.

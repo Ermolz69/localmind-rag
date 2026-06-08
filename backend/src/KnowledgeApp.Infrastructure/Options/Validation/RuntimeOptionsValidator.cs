@@ -31,9 +31,24 @@ public sealed class RuntimeOptionsValidator : IValidateOptions<RuntimeOptions>
             failures.Add("Ai:BaseUrl must be an absolute HTTP or HTTPS URL.");
         }
 
+        if (!OptionsValidationRules.IsAbsoluteHttpUrl(options.ChatBaseUrl))
+        {
+            failures.Add("Ai:ChatBaseUrl must be an absolute HTTP or HTTPS URL.");
+        }
+
+        if (!OptionsValidationRules.IsAbsoluteHttpUrl(options.EmbeddingBaseUrl))
+        {
+            failures.Add("Ai:EmbeddingBaseUrl must be an absolute HTTP or HTTPS URL.");
+        }
+
         if (OptionsValidationRules.IsMissing(options.ChatModel))
         {
             failures.Add("Ai:ChatModel is required.");
+        }
+
+        if (OptionsValidationRules.IsMissing(options.ChatModelManifest))
+        {
+            failures.Add("Ai:ChatModelManifest is required.");
         }
 
         if (options.Temperature < 0 || options.Temperature > 2)

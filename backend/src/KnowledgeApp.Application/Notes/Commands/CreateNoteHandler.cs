@@ -26,6 +26,7 @@ public sealed class CreateNoteHandler(
             Title = request.Title.Trim(),
             Markdown = request.Markdown,
             LocalDeviceId = localDeviceId,
+            Tags = request.Tags?.Select(t => new NoteTag { Key = t.Key, Value = t.Value }).ToList() ?? []
         };
 
         await noteRepository.AddAsync(note, cancellationToken);
