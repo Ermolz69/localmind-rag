@@ -14,15 +14,25 @@ async function getApiBaseUrl(): Promise<string> {
     return cachedBaseUrl;
   }
 
-  try {
-    const port = await invoke<number>("get_sidecar_port");
-    cachedBaseUrl = `http://127.0.0.1:${port}`;
-  } catch (error) {
-    console.error("Failed to get sidecar port, falling back to 49321", error);
-    cachedBaseUrl = "http://127.0.0.1:49321";
+  // Check if we are running inside Tauri
+  const isTauri =
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+  if (isTauri) {
+    try {
+      const port = await invoke<number>("get_sidecar_port");
+      cachedBaseUrl = `http://127.0.0.1:${port}`;
+      return cachedBaseUrl;
+    } catch (error) {
+      console.error(
+        "Failed to get sidecar port from Tauri, falling back to 49321",
+        error,
+      );
+    }
   }
 
-  return cachedBaseUrl as string;
+  cachedBaseUrl = "http://127.0.0.1:49321";
+  return cachedBaseUrl;
 }
 
 const publicApiPrefix = "/api/v1";

@@ -3,11 +3,7 @@ import type {
   AppSettings,
   WatchedFolderStatusResponse,
 } from "@entities/settings";
-import {
-  getFieldErrors,
-  settingsApi,
-  watchedFoldersApi,
-} from "@shared/api";
+import { getFieldErrors, settingsApi, watchedFoldersApi } from "@shared/api";
 import { useApiMutation, useApiQuery } from "@shared/lib/hooks";
 import { useTheme } from "@shared/theme/theme-provider";
 

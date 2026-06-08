@@ -16,15 +16,16 @@ export function useApiQuery<T>(
     fallbackError = "Unable to load data.",
     enabled = true,
   } = options;
+  const hasInitialData = initialData !== null && initialData !== undefined;
 
   const [data, setData] = useState<T | null>(initialData as T | null);
-  const [isLoading, setIsLoading] = useState(enabled);
+  const [isLoading, setIsLoading] = useState(enabled && !hasInitialData);
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rawError, setRawError] = useState<unknown | null>(null);
   const queryFnRef = useRef(queryFn);
   const fallbackErrorRef = useRef(fallbackError);
-  const hasDataRef = useRef(initialData !== null && initialData !== undefined);
+  const hasDataRef = useRef(hasInitialData);
   const inFlightRef = useRef<Promise<T | null> | null>(null);
 
   useEffect(() => {
