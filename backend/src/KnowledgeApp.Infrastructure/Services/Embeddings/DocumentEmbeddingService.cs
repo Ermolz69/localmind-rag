@@ -99,10 +99,12 @@ public sealed class DocumentEmbeddingService(
     private DocumentEmbedding CreateEmbedding(DocumentChunk chunk, float[] vector)
     {
         float norm = System.Numerics.Tensors.TensorPrimitives.Norm(vector);
-        if (norm > 0)
+        if (norm <= float.Epsilon)
         {
-            System.Numerics.Tensors.TensorPrimitives.Divide(vector, norm, vector);
+            throw new InvalidOperationException("Embedding provider returned a zero vector.");
         }
+
+        System.Numerics.Tensors.TensorPrimitives.Divide(vector, norm, vector);
 
         return new DocumentEmbedding
         {

@@ -86,13 +86,17 @@ public sealed class LlamaCppEmbeddingGenerator(
         }
 
         List<float[]> results = new(data.Count);
+        bool[] seen = new bool[texts.Count];
+
         foreach (EmbeddingResponseData item in data.OrderBy(item => item.Index))
         {
-            if (item.Index < 0 || item.Index >= texts.Count)
+            if (item.Index < 0 || item.Index >= texts.Count || seen[item.Index])
             {
                 throw CreateExternalDependencyException(
-                    $"llama.cpp embeddings response contained invalid index {item.Index}.");
+                    $"llama.cpp embeddings response contained invalid or duplicate index {item.Index}.");
             }
+
+            seen[item.Index] = true;
 
             if (item.Embedding.Length == 0)
             {

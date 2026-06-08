@@ -73,7 +73,21 @@ public sealed class DocumentEmbeddingServiceTests
         Assert.True(Math.Abs(norm - 1.0f) < 0.001f, $"Expected norm 1.0, got {norm}");
     }
 
-    private sealed class BatchGenerator : IBatchEmbeddingGenerator
+    [Fact]
+    public async Task GenerateAsync_Should_Reject_Zero_Vector()
+    {
+        BatchGenerator generator = new(returnsZeroVector: true);
+        DocumentEmbeddingService service = new(generator, new FixedDateTimeProvider());
+
+        DocumentChunk[] chunks =
+        [
+            new() { Id = Guid.NewGuid(), Text = "zero_vector_test" }
+        ];
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GenerateAsync(chunks));
+    }
+
+    private sealed class BatchGenerator(bool returnsZeroVector = false) : IBatchEmbeddingGenerator
     {
         public string ModelName => "batch";
 
@@ -81,7 +95,7 @@ public sealed class DocumentEmbeddingServiceTests
 
         public Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new[] { (float)text.Length });
+            return Task.FromResult(new[] { returnsZeroVector ? 0f : (float)text.Length });
         }
 
         public Task<IReadOnlyList<float[]>> GenerateBatchAsync(
@@ -90,7 +104,7 @@ public sealed class DocumentEmbeddingServiceTests
         {
             BatchSizes.Add(texts.Count);
             return Task.FromResult<IReadOnlyList<float[]>>(
-                texts.Select(text => new[] { (float)text.Length }).ToArray());
+                texts.Select(text => new[] { returnsZeroVector ? 0f : (float)text.Length }).ToArray());
         }
     }
 

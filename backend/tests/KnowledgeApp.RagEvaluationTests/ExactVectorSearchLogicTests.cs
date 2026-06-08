@@ -129,4 +129,75 @@ public class ExactVectorSearchLogicTests(RagEvaluationTestFactory factory) : ICl
         Assert.Equal(0.9, results[1].Score, 4);
         Assert.Equal(0.8, results[2].Score, 4);
     }
+    [Fact]
+    public async Task Search_Handles_NaN_And_Infinity_Vectors_Gracefully()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM document_embeddings");
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM document_chunks");
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM documents");
+
+        var doc = new Document { Id = Guid.NewGuid(), Name = "Doc", BucketId = Guid.NewGuid(), LocalVersion = 1 };
+        db.Documents.Add(doc);
+
+        var chunkId1 = Guid.NewGuid();
+        db.DocumentChunks.Add(new DocumentChunk { Id = chunkId1, DocumentId = doc.Id, Text = "Chunk 1", PageNumber = 1 });
+
+        var chunkId2 = Guid.NewGuid();
+        db.DocumentChunks.Add(new DocumentChunk { Id = chunkId2, DocumentId = doc.Id, Text = "Chunk 2", PageNumber = 1 });
+
+        // Vector with NaN
+        var nanVector = new float[1024];
+        nanVector[0] = float.NaN;
+
+        db.DocumentEmbeddings.Add(new DocumentEmbedding
+        {
+            DocumentChunkId = chunkId1,
+            Dimension = 1024,
+            ModelName = "test",
+            Embedding = System.Runtime.InteropServices.MemoryMarshal.Cast<float, byte>(nanVector.AsSpan()).ToArray()
+        });
+
+        // Vector with Infinity
+        var infVector = new float[1024];
+        infVector[0] = float.PositiveInfinity;
+
+        db.DocumentEmbeddings.Add(new DocumentEmbedding
+        {
+            DocumentChunkId = chunkId2,
+            Dimension = 1024,
+            ModelName = "test",
+            Embedding = System.Runtime.InteropServices.MemoryMarshal.Cast<float, byte>(infVector.AsSpan()).ToArray()
+        });
+
+        await db.SaveChangesAsync();
+
+        var searchService = new ExactVectorSearchService(db, NullLogger<ExactVectorSearchService>.Instance);
+        var query = new float[1024];
+        query[0] = 1;
+
+        var results = await searchService.SearchAsync(query, new VectorSearchOptions(Limit: 5), CancellationToken.None);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public async Task SearchAsync_Should_Return_Empty_For_Zero_Query_Vector()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM document_embeddings");
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM document_chunks");
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM documents");
+
+        var searchService = new ExactVectorSearchService(db, NullLogger<ExactVectorSearchService>.Instance);
+        var query = new float[1024]; // All zeros
+
+        var results = await searchService.SearchAsync(query, new VectorSearchOptions(Limit: 5), CancellationToken.None);
+
+        Assert.Empty(results);
+    }
 }

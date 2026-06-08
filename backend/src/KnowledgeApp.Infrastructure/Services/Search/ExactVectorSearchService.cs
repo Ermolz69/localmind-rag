@@ -1,25 +1,9 @@
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.RegularExpressions;
-using DocumentFormat.OpenXml.Packaging;
+using System.Runtime.InteropServices;
+using System.Numerics.Tensors;
 using KnowledgeApp.Application.Abstractions;
-using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Rag;
-using KnowledgeApp.Contracts.Runtime;
-using KnowledgeApp.Domain.Entities;
-using KnowledgeApp.Domain.Enums;
-using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using UglyToad.PdfPig;
-using A = DocumentFormat.OpenXml.Drawing;
-using PresentationSlideId = DocumentFormat.OpenXml.Presentation.SlideId;
-using SlideText = DocumentFormat.OpenXml.Drawing.Text;
-using WordParagraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
-using WordText = DocumentFormat.OpenXml.Wordprocessing.Text;
-
 using Microsoft.Extensions.Logging;
 
 namespace KnowledgeApp.Infrastructure.Services;
@@ -39,11 +23,14 @@ public sealed class ExactVectorSearchService(
 
         // Normalize the query vector once
         float[] normalizedQuery = queryVector.ToArray();
-        float queryNorm = System.Numerics.Tensors.TensorPrimitives.Norm(normalizedQuery);
-        if (queryNorm > 0)
+        float queryNorm = TensorPrimitives.Norm(normalizedQuery);
+        if (queryNorm <= float.Epsilon)
         {
-            System.Numerics.Tensors.TensorPrimitives.Divide(normalizedQuery, queryNorm, normalizedQuery);
+            logger.LogWarning("Skipping exact vector search because query embedding norm is zero.");
+            return [];
         }
+
+        TensorPrimitives.Divide(normalizedQuery, queryNorm, normalizedQuery);
 
         var rowsQuery =
             from embedding in dbContext.DocumentEmbeddings
@@ -105,7 +92,13 @@ public sealed class ExactVectorSearchService(
 
             // Since embeddings are normalized at ingestion and the query is normalized here,
             // we can use SIMD Dot product which is equivalent to Cosine Similarity.
-            double score = System.Numerics.Tensors.TensorPrimitives.Dot(normalizedQuery, chunkVector);
+            double score = TensorPrimitives.Dot(normalizedQuery, chunkVector);
+
+            if (!double.IsFinite(score))
+            {
+                skippedCorruptedCount++;
+                continue;
+            }
 
             if (topK.Count < options.Limit)
             {
