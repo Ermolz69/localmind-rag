@@ -50,15 +50,20 @@ flowchart LR
     Job --> Extract["Extract text"]
     Extract --> Chunk["Split into chunks"]
     Chunk --> Embed["Generate embeddings locally"]
-    Embed --> Store["Store chunks and vectors"]
-    Store --> SearchReady["Semantic search ready"]
+    Embed --> Store["Store chunks, vectors, and FTS rows"]
+    Store --> SearchReady["Hybrid search ready"]
 
     Question["User question"] --> EmbedQuestion["Embed question locally"]
+    Question --> KeywordSearch["SQLite FTS/BM25 search"]
     EmbedQuestion --> VectorSearch["Vector search"]
-    VectorSearch --> Context["Build RAG context"]
+    VectorSearch --> Fusion["Reciprocal Rank Fusion"]
+    KeywordSearch --> Fusion
+    Fusion --> Context["Build RAG context with guardrails"]
     Context --> Chat["Call local chat model"]
     Chat --> Answer["Answer with sources"]
 ```
+
+Semantic search and RAG retrieval use hybrid ranking. The existing local vector search finds semantically similar chunks, SQLite FTS/BM25 finds exact keyword matches, and Reciprocal Rank Fusion returns one ranked source list. RAG context construction keeps top hybrid candidates only when they have a strong vector score or enough specific keyword overlap to avoid passing broad keyword matches into chat context.
 
 ## Ingestion Lifecycle
 
@@ -85,6 +90,7 @@ sequenceDiagram
         Chunker-->>Processor: Chunk texts
         Processor->>Repo: Embedding, progress 75
         Processor->>DB: Replace DocumentChunk rows with page/slide metadata where available
+        Processor->>DB: Sync SQLite FTS rows for the document
         Processor->>Repo: Indexed, progress 100
         Processor->>DB: Mark document Indexed
     else Corrupt or unsupported file

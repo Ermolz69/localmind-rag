@@ -18,7 +18,8 @@ public sealed class IngestionJobProcessor(
     IContentHashService contentHashService,
     IIncrementalChunkPlanner incrementalChunkPlanner,
     IDateTimeProvider dateTimeProvider,
-    IAppDiagnosticLogger? diagnostics = null) : IIngestionJobProcessor
+    IAppDiagnosticLogger? diagnostics = null,
+    IFullTextChunkIndex? fullTextChunkIndex = null) : IIngestionJobProcessor
 {
     public async Task ProcessAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
@@ -233,6 +234,11 @@ public sealed class IngestionJobProcessor(
                 });
 
             await dbContext.SaveChangesAsync(cancellationToken);
+            if (fullTextChunkIndex is not null)
+            {
+                await fullTextChunkIndex.SyncDocumentAsync(document.Id, cancellationToken);
+            }
+
             await ingestionJobs.MarkIndexedAsync(jobId, dateTimeProvider.UtcNow, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

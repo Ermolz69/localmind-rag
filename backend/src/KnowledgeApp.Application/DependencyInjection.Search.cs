@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Search;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,6 +10,7 @@ public static partial class DependencyInjection
     {
         services.AddScoped<SemanticSearchHandler>();
         services.AddScoped<SemanticSearchRequestValidator>();
+        services.AddScoped<IHybridRetrievalService, HybridRetrievalService>();
 
         services.AddScoped<ContentSearchHandler>();
         services.AddScoped<ContentSearchRequestValidator>();

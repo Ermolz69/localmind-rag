@@ -7,7 +7,7 @@ namespace KnowledgeApp.Application.Search;
 
 public sealed class SemanticSearchHandler(
     IEmbeddingGenerator embeddings,
-    IVectorSearchService search,
+    IHybridRetrievalService search,
     SemanticSearchRequestValidator validator,
     IAppDiagnosticLogger? diagnostics = null)
 {
@@ -35,15 +35,23 @@ public sealed class SemanticSearchHandler(
             }
 
             float[] vector = await embeddings.GenerateAsync(request.Query.Trim(), cancellationToken);
-            VectorSearchOptions options = new(request.Limit, request.BucketId, request.DocumentId, request.Tags);
-            IReadOnlyList<RagSourceDto> sources = await search.SearchAsync(vector, options, cancellationToken);
+            HybridSearchOptions options = new(request.Limit, request.BucketId, request.DocumentId, request.Tags);
+            IReadOnlyList<HybridSearchResult> results = await search.SearchAsync(
+                request.Query.Trim(),
+                vector,
+                options,
+                cancellationToken);
+
+            RagSourceDto[] sources = results
+                .Select(result => result.ToRagSource())
+                .ToArray();
 
             diagnostics?.LogStep(
                 operationId,
                 DiagnosticNames.Steps.SemanticSearchCompleted,
                 new Dictionary<string, object?>
                 {
-                    [DiagnosticNames.Properties.SourcesCount] = sources.Count,
+                    [DiagnosticNames.Properties.SourcesCount] = sources.Length,
                 });
 
             return Result<SemanticSearchResponse>.Success(new SemanticSearchResponse(sources));
