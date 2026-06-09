@@ -10,7 +10,7 @@ namespace KnowledgeApp.UnitTests.Rag;
 public sealed class RagPipelineTests
 {
     [Fact]
-    public async Task RagContextBuilder_Should_Call_Embedding_And_Vector_Search_And_Build_Context()
+    public async Task RagContextBuilder_Should_Call_Embedding_And_Hybrid_Search_And_Build_Context()
     {
         RagSourceDto source = new(
             Guid.NewGuid(),
@@ -21,7 +21,7 @@ public sealed class RagPipelineTests
             "Localmind stores documents locally.");
 
         FakeEmbeddingGenerator embeddings = new();
-        FakeVectorSearchService search = new([source]);
+        FakeHybridRetrievalService search = FakeHybridRetrievalService.FromVectorSources([source]);
 
         RagContextBuilder builder = CreateContextBuilder(search, embeddings);
 
@@ -55,7 +55,7 @@ public sealed class RagPipelineTests
     public async Task RagContextBuilder_Should_Return_Empty_Context_When_Search_Has_No_Sources()
     {
         FakeEmbeddingGenerator embeddings = new();
-        FakeVectorSearchService search = new([]);
+        FakeHybridRetrievalService search = new([]);
 
         RagContextBuilder builder = CreateContextBuilder(search, embeddings);
 
@@ -89,7 +89,7 @@ public sealed class RagPipelineTests
             "Meal reimbursement is limited to 35 EUR per day.");
 
         RagContextBuilder builder = CreateContextBuilder(
-            new FakeVectorSearchService([relevant, weakMatch]),
+            FakeHybridRetrievalService.FromVectorSources([relevant, weakMatch]),
             new FakeEmbeddingGenerator(),
             minimumSourceScore: 0.65);
 
@@ -127,7 +127,7 @@ public sealed class RagPipelineTests
             "This document is unrelated to the question.");
 
         RagContextBuilder builder = CreateContextBuilder(
-            new FakeVectorSearchService([weakMatch]),
+            FakeHybridRetrievalService.FromVectorSources([weakMatch]),
             new FakeEmbeddingGenerator(),
             minimumSourceScore: 0.65);
 
@@ -139,7 +139,7 @@ public sealed class RagPipelineTests
     }
 
     [Fact]
-    public async Task RagContextBuilder_Should_Exclude_Sources_Too_Far_From_Top_Score()
+    public async Task RagContextBuilder_Should_Keep_Vector_Sources_Above_Minimum_Score()
     {
         RagSourceDto topMatch = new(
             Guid.NewGuid(),
@@ -157,16 +157,16 @@ public sealed class RagPipelineTests
             Score: 0.52,
             "Focus rituals support intense work.");
 
-        RagSourceDto looseMatch = new(
+        RagSourceDto weakMatch = new(
             Guid.NewGuid(),
             "DeepWork.md",
             Guid.NewGuid(),
             PageNumber: null,
-            Score: 0.48,
+            Score: 0.24,
             "Weekly reporting belongs to a different method.");
 
         RagContextBuilder builder = CreateContextBuilder(
-            new FakeVectorSearchService([topMatch, closeMatch, looseMatch]),
+            FakeHybridRetrievalService.FromVectorSources([topMatch, closeMatch, weakMatch]),
             new FakeEmbeddingGenerator(),
             minimumSourceScore: 0.3);
 
@@ -181,6 +181,64 @@ public sealed class RagPipelineTests
             "Weekly reporting",
             context.ContextText,
             StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RagContextBuilder_Should_Include_Strong_Keyword_Only_Source()
+    {
+        HybridSearchResult keywordOnly = new(
+            Guid.NewGuid(),
+            "Security.md",
+            Guid.NewGuid(),
+            PageNumber: null,
+            "Mutating endpoints require X-LocalMind-Token.",
+            Score: 0.016,
+            VectorScore: null,
+            VectorRank: null,
+            FullTextScore: -1.2,
+            FullTextRank: 3);
+
+        RagContextBuilder builder = CreateContextBuilder(
+            new FakeHybridRetrievalService([keywordOnly]),
+            new FakeEmbeddingGenerator(),
+            minimumSourceScore: 0.65);
+
+        RagContext context = await builder.BuildAsync(
+            new RagContextRequest(Guid.NewGuid(), "X-LocalMind-Token"));
+
+        RagSourceDto source = Assert.Single(context.Sources);
+        Assert.Equal(keywordOnly.ChunkId, source.ChunkId);
+        Assert.Contains(
+            "X-LocalMind-Token",
+            context.ContextText,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RagContextBuilder_Should_Exclude_Weak_Keyword_Only_Source()
+    {
+        HybridSearchResult keywordOnly = new(
+            Guid.NewGuid(),
+            "Broad.md",
+            Guid.NewGuid(),
+            PageNumber: null,
+            "A broad low-ranked keyword match.",
+            Score: 0.014,
+            VectorScore: null,
+            VectorRank: null,
+            FullTextScore: -0.1,
+            FullTextRank: 12);
+
+        RagContextBuilder builder = CreateContextBuilder(
+            new FakeHybridRetrievalService([keywordOnly]),
+            new FakeEmbeddingGenerator(),
+            minimumSourceScore: 0.65);
+
+        RagContext context = await builder.BuildAsync(
+            new RagContextRequest(Guid.NewGuid(), "broad"));
+
+        Assert.Empty(context.Sources);
+        Assert.Equal(string.Empty, context.ContextText);
     }
 
     [Fact]
@@ -203,7 +261,7 @@ public sealed class RagPipelineTests
             "Second snippet.");
 
         RagContextBuilder builder = CreateContextBuilder(
-            new FakeVectorSearchService([first, second]),
+            FakeHybridRetrievalService.FromVectorSources([first, second]),
             new FakeEmbeddingGenerator(),
             maxSourceScoreDistance: 1);
 
@@ -251,7 +309,7 @@ public sealed class RagPipelineTests
             longSnippet);
 
         RagContextBuilder builder = CreateContextBuilder(
-            new FakeVectorSearchService([source]),
+            FakeHybridRetrievalService.FromVectorSources([source]),
             new FakeEmbeddingGenerator());
 
         RagContext context = await builder.BuildAsync(
@@ -281,7 +339,7 @@ public sealed class RagPipelineTests
             $"{prefix} {answerText}");
 
         RagContextBuilder builder = CreateContextBuilder(
-            new FakeVectorSearchService([source]),
+            FakeHybridRetrievalService.FromVectorSources([source]),
             new FakeEmbeddingGenerator(),
             minimumSourceScore: 0.3);
 
@@ -405,7 +463,7 @@ public sealed class RagPipelineTests
     }
 
     private static RagContextBuilder CreateContextBuilder(
-        IVectorSearchService search,
+        IHybridRetrievalService search,
         IEmbeddingGenerator embeddings,
         double minimumSourceScore = 0.65,
         double maxSourceScoreDistance = 0.1)
@@ -436,22 +494,42 @@ public sealed class RagPipelineTests
         }
     }
 
-    private sealed class FakeVectorSearchService(
-        IReadOnlyList<RagSourceDto> sources) : IVectorSearchService
+    private sealed class FakeHybridRetrievalService(
+        IReadOnlyList<HybridSearchResult> results) : IHybridRetrievalService
     {
         public bool WasCalled { get; private set; }
 
-        public VectorSearchOptions? Options { get; private set; }
+        public HybridSearchOptions? Options { get; private set; }
 
-        public Task<IReadOnlyList<RagSourceDto>> SearchAsync(
+        public static FakeHybridRetrievalService FromVectorSources(IReadOnlyList<RagSourceDto> sources)
+        {
+            HybridSearchResult[] results = sources
+                .Select((source, index) => new HybridSearchResult(
+                    source.DocumentId,
+                    source.DocumentName,
+                    source.ChunkId,
+                    source.PageNumber,
+                    source.Snippet,
+                    source.Score,
+                    VectorScore: source.Score,
+                    VectorRank: index + 1,
+                    FullTextScore: null,
+                    FullTextRank: null))
+                .ToArray();
+
+            return new FakeHybridRetrievalService(results);
+        }
+
+        public Task<IReadOnlyList<HybridSearchResult>> SearchAsync(
+            string query,
             float[] queryVector,
-            VectorSearchOptions options,
+            HybridSearchOptions options,
             CancellationToken cancellationToken = default)
         {
             WasCalled = true;
             Options = options;
 
-            return Task.FromResult(sources);
+            return Task.FromResult(results);
         }
     }
 

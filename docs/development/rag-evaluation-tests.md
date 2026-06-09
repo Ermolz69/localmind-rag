@@ -51,9 +51,9 @@ Unknown question           -> [0, 0, 0, 1]
 
 This allows the tests to validate the RAG pipeline with predictable source ranking.
 
-## RAG score threshold
+## RAG retrieval guardrails
 
-The RAG context builder filters retrieved sources by `Rag:MinimumSourceScore`.
+The RAG context builder receives hybrid retrieval results from vector search plus SQLite FTS/BM25. `Rag:MinimumSourceScore` still gates vector-only candidates, while keyword candidates must be high-ranked and contain enough specific query-term overlap before entering chat context.
 
 The evaluation test factory sets:
 
@@ -61,9 +61,9 @@ The evaluation test factory sets:
 Rag:MinimumSourceScore = 0.8
 ```
 
-This means that unrelated fixture documents with low similarity scores are not passed into the chat context.
+This means that unrelated fixture documents with low vector similarity are not passed into the chat context just because BM25 matched broad words.
 
-The normal semantic search endpoint can still return ranked search results. The stricter threshold applies to RAG context construction so chat answers are not generated from weak or unrelated sources.
+The normal semantic search endpoint can still return ranked hybrid search results. The stricter guardrails apply to RAG context construction so chat answers are not generated from weak or unrelated sources.
 
 ## Test groups
 

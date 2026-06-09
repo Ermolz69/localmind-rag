@@ -80,7 +80,7 @@ public sealed class RetrievedContextTests(
     }
 
     [Fact]
-    public async Task Rag_Context_Should_Include_Only_Relevant_Source_After_Score_Filtering()
+    public async Task Rag_Context_Should_Include_Only_Relevant_Source_After_Hybrid_Guardrails()
     {
         using HttpClient client = factory.CreateClient();
 
@@ -107,8 +107,8 @@ public sealed class RetrievedContextTests(
                 source.DocumentName);
 
             Assert.True(
-                source.Score >= 0.8,
-                $"Expected source for case '{testCase.Id}' to pass the configured RAG threshold.");
+                source.Score > 0,
+                $"Expected source for case '{testCase.Id}' to receive a positive hybrid retrieval score.");
         }
     }
 }
