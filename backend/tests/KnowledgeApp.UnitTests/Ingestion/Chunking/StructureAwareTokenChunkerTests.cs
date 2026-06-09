@@ -36,10 +36,10 @@ public class StructureAwareTokenChunkerTests
         // Assert
         // 1. EmbeddingTextHash is calculated from the exact same text used for embedding
         Assert.Equal($"hash-{chunk1.Text}", chunk1.EmbeddingTextHash);
-        
+
         // 2. ChunkIdentityHash changes when HeadingPath changes
         Assert.NotEqual(chunk1.ChunkIdentityHash, chunk2.ChunkIdentityHash);
-        
+
         // 3. EmbeddingTextHash does not change when only HeadingPath changes
         Assert.Equal(chunk1.EmbeddingTextHash, chunk2.EmbeddingTextHash);
     }

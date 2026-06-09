@@ -27,7 +27,7 @@ public sealed partial class MarkdownBlockParser(ITokenizerService tokenizer) : I
         foreach (string paragraph in paragraphs)
         {
             int tokenCount = tokenizer.CountTokens(paragraph);
-            
+
             blocks.Add(new DocumentBlock(
                 Type: DocumentBlockType.Paragraph,
                 Text: paragraph,

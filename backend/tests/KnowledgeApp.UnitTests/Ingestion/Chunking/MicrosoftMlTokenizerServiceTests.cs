@@ -23,7 +23,7 @@ public class MicrosoftMlTokenizerServiceTests
         };
 
         var monitor = new TestOptionsMonitor<ChunkingOptions>(options);
-        
+
         // Act - Constructor should not throw
         var service = new MicrosoftMlTokenizerService(monitor);
 

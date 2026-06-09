@@ -22,7 +22,7 @@ public sealed class StructureAwareTokenChunker(
         }
 
         ChunkingOptions config = options.CurrentValue;
-        ITextStructureParser parser = parsers.FirstOrDefault(p => p.CanParse(text)) 
+        ITextStructureParser parser = parsers.FirstOrDefault(p => p.CanParse(text))
             ?? parsers.First();
 
         IReadOnlyList<DocumentBlock> blocks = parser.Parse(text);
