@@ -1,8 +1,10 @@
 using System.Runtime.InteropServices;
 using System.Numerics.Tensors;
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Search;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Infrastructure.Persistence;
+using KnowledgeApp.Infrastructure.Services.Search;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -32,42 +34,70 @@ public sealed class ExactVectorSearchService(
 
         TensorPrimitives.Divide(normalizedQuery, queryNorm, normalizedQuery);
 
-        var rowsQuery =
-            from embedding in dbContext.DocumentEmbeddings
-            join chunk in dbContext.DocumentChunks on embedding.DocumentChunkId equals chunk.Id
-            join document in dbContext.Documents on chunk.DocumentId equals document.Id
+        var candidateQuery =
+            from embedding in dbContext.DocumentEmbeddings.AsNoTracking()
+            join chunk in dbContext.DocumentChunks.AsNoTracking() on embedding.DocumentChunkId equals chunk.Id
+            join document in dbContext.Documents.AsNoTracking() on chunk.DocumentId equals document.Id
             where document.DeletedAt == null
             select new
             {
-                DocumentId = document.Id,
-                DocumentName = document.Name,
-                DocumentBucketId = document.BucketId,
-                ChunkId = chunk.Id,
-                chunk.PageNumber,
-                chunk.Text,
-                embedding.Dimension,
-                embedding.Embedding,
+                Document = document,
+                Chunk = chunk,
+                Embedding = embedding,
             };
 
         if (options.DocumentId is { } documentId)
         {
-            rowsQuery = rowsQuery.Where(x => x.DocumentId == documentId);
+            candidateQuery = candidateQuery.Where(x => x.Document.Id == documentId);
         }
 
         if (options.BucketId is { } bucketId)
         {
-            rowsQuery = rowsQuery.Where(x => x.DocumentBucketId == bucketId);
+            candidateQuery = candidateQuery.Where(x => x.Document.BucketId == bucketId);
+        }
+
+        if (options.DateFrom.HasValue)
+        {
+            long dateFromUnixTime = SearchDateIndexing.ToUnixTimeMilliseconds(options.DateFrom.Value);
+            candidateQuery = candidateQuery.Where(x =>
+                EF.Property<long>(x.Document, SearchDateIndexing.CreatedAtUnixTimePropertyName) >= dateFromUnixTime);
+        }
+
+        if (options.DateTo.HasValue)
+        {
+            long dateToUnixTime = SearchDateIndexing.ToUnixTimeMilliseconds(
+                SearchDateRange.ToInclusiveEndOfDay(options.DateTo.Value));
+            candidateQuery = candidateQuery.Where(x =>
+                EF.Property<long>(x.Document, SearchDateIndexing.CreatedAtUnixTimePropertyName) <= dateToUnixTime);
+        }
+
+        if (options.FileType is { } fileType)
+        {
+            KnowledgeApp.Domain.Enums.FileType parsedFileType = FileTypeParser.Parse(fileType);
+            candidateQuery = candidateQuery.Where(x =>
+                dbContext.DocumentFiles.Any(df => df.DocumentId == x.Document.Id && df.FileType == parsedFileType));
         }
 
         if (options.Tags is { Count: > 0 } tags)
         {
             foreach (var tag in tags)
             {
-                rowsQuery = rowsQuery.Where(x =>
-                    dbContext.DocumentTags.Any(dt => dt.DocumentId == x.DocumentId && dt.Key == tag.Key && dt.Value == tag.Value) ||
-                    dbContext.DocumentChunkTags.Any(ct => ct.DocumentChunkId == x.ChunkId && ct.Key == tag.Key && ct.Value == tag.Value));
+                candidateQuery = candidateQuery.Where(x =>
+                    dbContext.DocumentTags.Any(dt => dt.DocumentId == x.Document.Id && dt.Key == tag.Key && dt.Value == tag.Value) ||
+                    dbContext.DocumentChunkTags.Any(ct => ct.DocumentChunkId == x.Chunk.Id && ct.Key == tag.Key && ct.Value == tag.Value));
             }
         }
+
+        var rowsQuery = candidateQuery.Select(x => new
+        {
+            DocumentId = x.Document.Id,
+            DocumentName = x.Document.Name,
+            ChunkId = x.Chunk.Id,
+            x.Chunk.PageNumber,
+            x.Chunk.Text,
+            x.Embedding.Dimension,
+            x.Embedding.Embedding,
+        });
 
         // Use a min-heap to keep track of the top K results without sorting the entire dataset
         var topK = new PriorityQueue<RagSourceDto, double>(options.Limit);

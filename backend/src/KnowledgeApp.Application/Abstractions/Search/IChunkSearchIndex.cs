@@ -4,8 +4,8 @@ namespace KnowledgeApp.Application.Abstractions;
 
 public interface IChunkSearchIndex
 {
-    Task<IReadOnlyList<DocumentChunkCandidate>> SearchDocumentCandidatesAsync(string[] terms, Guid? bucketId, Guid? documentId, IReadOnlyDictionary<string, string>? tags, int maxCount, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<NoteCandidate>> SearchNoteCandidatesAsync(string[] terms, Guid? bucketId, Guid? noteId, IReadOnlyDictionary<string, string>? tags, int maxCount, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<DocumentChunkCandidate>> SearchDocumentCandidatesAsync(string[] terms, Guid? bucketId, Guid? documentId, IReadOnlyDictionary<string, string>? tags, int maxCount, DateTimeOffset? dateFrom = null, DateTimeOffset? dateTo = null, string? fileType = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<NoteCandidate>> SearchNoteCandidatesAsync(string[] terms, Guid? bucketId, Guid? noteId, IReadOnlyDictionary<string, string>? tags, int maxCount, DateTimeOffset? dateFrom = null, DateTimeOffset? dateTo = null, CancellationToken cancellationToken = default);
 }
 
 public sealed record DocumentChunkCandidate(

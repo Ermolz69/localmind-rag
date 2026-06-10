@@ -39,6 +39,16 @@ public sealed class ContentSearchRequestValidator
             errors["noteId"] = ["NoteId cannot be used when note search is disabled."];
         }
 
+        if (request.FileType is { } fileType && !FileTypeParser.IsValid(fileType))
+        {
+            errors["fileType"] = ["File type filter must be one of: pdf, docx, pptx, markdown, txt, html."];
+        }
+
+        if (request.DateFrom.HasValue && request.DateTo.HasValue && request.DateFrom.Value > request.DateTo.Value)
+        {
+            errors["dateFrom"] = ["DateFrom must be less than or equal to DateTo."];
+        }
+
         if (errors.Count > 0)
         {
             return Result.Failure(ApplicationErrors.Validation(

@@ -14,6 +14,9 @@ public sealed class EmbeddingModelStore(
     HttpClient httpClient)
 {
     private readonly EmbeddingOptions options = options.Value;
+    private readonly SemaphoreSlim validationLock = new(1, 1);
+    private readonly object cacheLock = new();
+    private ModelValidationCache? validationCache;
 
     public string ModelsDirectory =>
         Path.GetFullPath(options.ModelsPath, paths.AppRootDirectory);
@@ -38,17 +41,49 @@ public sealed class EmbeddingModelStore(
 
         string modelPath = GetModelPath(selected);
 
-        if (!File.Exists(modelPath))
+        FileInfo modelFile = new(modelPath);
+
+        if (!modelFile.Exists)
         {
             return false;
         }
 
-        string actual = await ComputeSha256Async(modelPath, cancellationToken);
+        if (TryGetCachedValidation(selected, modelFile, out bool cachedResult))
+        {
+            return cachedResult;
+        }
 
-        return string.Equals(
-            actual,
-            selected.Sha256,
-            StringComparison.OrdinalIgnoreCase);
+        await validationLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            modelFile.Refresh();
+
+            if (!modelFile.Exists)
+            {
+                return false;
+            }
+
+            if (TryGetCachedValidation(selected, modelFile, out cachedResult))
+            {
+                return cachedResult;
+            }
+
+            string actual = await ComputeSha256Async(modelPath, cancellationToken);
+
+            bool isValid = string.Equals(
+                actual,
+                selected.Sha256,
+                StringComparison.OrdinalIgnoreCase);
+
+            SetCachedValidation(selected, modelFile, actual, isValid);
+
+            return isValid;
+        }
+        finally
+        {
+            validationLock.Release();
+        }
     }
 
     public async Task<string> EnsureDownloadedAsync(
@@ -112,7 +147,57 @@ public sealed class EmbeddingModelStore(
 
         File.Move(tempPath, modelPath);
 
+        SetCachedValidation(
+            selected,
+            new FileInfo(modelPath),
+            actualSha256,
+            isValid: true);
+
         return modelPath;
+    }
+
+    private bool TryGetCachedValidation(
+        EmbeddingModelManifest manifest,
+        FileInfo modelFile,
+        out bool isValid)
+    {
+        lock (cacheLock)
+        {
+            if (validationCache is not null
+                && string.Equals(validationCache.ModelId, manifest.Id, StringComparison.Ordinal)
+                && string.Equals(validationCache.Path, modelFile.FullName, StringComparison.OrdinalIgnoreCase)
+                && validationCache.Length == modelFile.Length
+                && validationCache.LastWriteTimeUtc == modelFile.LastWriteTimeUtc
+                && string.Equals(validationCache.ExpectedSha256, manifest.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                isValid = validationCache.IsValid;
+
+                return true;
+            }
+        }
+
+        isValid = false;
+
+        return false;
+    }
+
+    private void SetCachedValidation(
+        EmbeddingModelManifest manifest,
+        FileInfo modelFile,
+        string actualSha256,
+        bool isValid)
+    {
+        lock (cacheLock)
+        {
+            validationCache = new ModelValidationCache(
+                manifest.Id,
+                modelFile.FullName,
+                modelFile.Length,
+                modelFile.LastWriteTimeUtc,
+                manifest.Sha256,
+                actualSha256,
+                isValid);
+        }
     }
 
     private static async Task<string> ComputeSha256Async(
@@ -125,4 +210,13 @@ public sealed class EmbeddingModelStore(
 
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
+
+    private sealed record ModelValidationCache(
+        string ModelId,
+        string Path,
+        long Length,
+        DateTime LastWriteTimeUtc,
+        string ExpectedSha256,
+        string ActualSha256,
+        bool IsValid);
 }

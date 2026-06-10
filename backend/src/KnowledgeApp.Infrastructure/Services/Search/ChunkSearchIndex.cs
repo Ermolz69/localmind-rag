@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Search;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,9 @@ public sealed class ChunkSearchIndex(AppDbContext dbContext) : IChunkSearchIndex
         Guid? documentId,
         IReadOnlyDictionary<string, string>? tags,
         int maxCount,
+        DateTimeOffset? dateFrom = null,
+        DateTimeOffset? dateTo = null,
+        string? fileType = null,
         CancellationToken cancellationToken = default)
     {
         var query =
@@ -35,6 +39,28 @@ public sealed class ChunkSearchIndex(AppDbContext dbContext) : IChunkSearchIndex
         if (documentId.HasValue)
         {
             query = query.Where(candidate => candidate.Document.Id == documentId.Value);
+        }
+
+        if (dateFrom.HasValue)
+        {
+            long dateFromUnixTime = SearchDateIndexing.ToUnixTimeMilliseconds(dateFrom.Value);
+            query = query.Where(candidate =>
+                EF.Property<long>(candidate.Document, SearchDateIndexing.CreatedAtUnixTimePropertyName) >= dateFromUnixTime);
+        }
+
+        if (dateTo.HasValue)
+        {
+            long dateToUnixTime = SearchDateIndexing.ToUnixTimeMilliseconds(
+                SearchDateRange.ToInclusiveEndOfDay(dateTo.Value));
+            query = query.Where(candidate =>
+                EF.Property<long>(candidate.Document, SearchDateIndexing.CreatedAtUnixTimePropertyName) <= dateToUnixTime);
+        }
+
+        if (fileType is not null)
+        {
+            FileType parsedFileType = FileTypeParser.Parse(fileType);
+            query = query.Where(candidate =>
+                dbContext.DocumentFiles.Any(df => df.DocumentId == candidate.Document.Id && df.FileType == parsedFileType));
         }
 
         if (tags is { Count: > 0 })
@@ -76,6 +102,8 @@ public sealed class ChunkSearchIndex(AppDbContext dbContext) : IChunkSearchIndex
         Guid? noteId,
         IReadOnlyDictionary<string, string>? tags,
         int maxCount,
+        DateTimeOffset? dateFrom = null,
+        DateTimeOffset? dateTo = null,
         CancellationToken cancellationToken = default)
     {
         var query = dbContext.Notes
@@ -90,6 +118,21 @@ public sealed class ChunkSearchIndex(AppDbContext dbContext) : IChunkSearchIndex
         if (noteId.HasValue)
         {
             query = query.Where(note => note.Id == noteId.Value);
+        }
+
+        if (dateFrom.HasValue)
+        {
+            long dateFromUnixTime = SearchDateIndexing.ToUnixTimeMilliseconds(dateFrom.Value);
+            query = query.Where(note =>
+                EF.Property<long>(note, SearchDateIndexing.CreatedAtUnixTimePropertyName) >= dateFromUnixTime);
+        }
+
+        if (dateTo.HasValue)
+        {
+            long dateToUnixTime = SearchDateIndexing.ToUnixTimeMilliseconds(
+                SearchDateRange.ToInclusiveEndOfDay(dateTo.Value));
+            query = query.Where(note =>
+                EF.Property<long>(note, SearchDateIndexing.CreatedAtUnixTimePropertyName) <= dateToUnixTime);
         }
 
         if (tags is { Count: > 0 })

@@ -40,7 +40,13 @@ public sealed class RagContextBuilder(
 
         IReadOnlyList<RagSourceDto> rankedSources = await search.SearchAsync(
             queryVector,
-            new VectorSearchOptions(Limit: request.Limit),
+            new VectorSearchOptions(
+                Limit: request.Limit,
+                BucketId: request.BucketId,
+                Tags: request.Tags,
+                DateFrom: request.DateFrom,
+                DateTo: request.DateTo,
+                FileType: request.FileType),
             cancellationToken);
 
         IReadOnlyList<RagSourceDto> relevantSources = FilterRelevantSources(rankedSources);

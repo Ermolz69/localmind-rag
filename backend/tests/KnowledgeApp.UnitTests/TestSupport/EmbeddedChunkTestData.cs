@@ -12,11 +12,14 @@ internal static class EmbeddedChunkTestData
         string chunkText,
         float[] vector,
         Guid? bucketId = null,
-        DateTimeOffset? deletedAt = null)
+        DateTimeOffset? deletedAt = null,
+        DateTimeOffset? createdAt = null,
+        FileType? fileType = null)
     {
         Document document = new()
         {
             BucketId = bucketId,
+            CreatedAt = createdAt ?? DateTimeOffset.UtcNow,
             DeletedAt = deletedAt,
             Name = documentName,
             Status = DocumentStatus.Indexed,
@@ -33,6 +36,19 @@ internal static class EmbeddedChunkTestData
         context.Documents.Add(document);
         context.DocumentChunks.Add(chunk);
         context.DocumentEmbeddings.Add(embedding);
+        if (fileType.HasValue)
+        {
+            context.DocumentFiles.Add(new DocumentFile
+            {
+                DocumentId = document.Id,
+                FileName = documentName,
+                LocalPath = $"runtime/app/files/{document.Id:N}",
+                ContentHash = document.Id.ToString("N"),
+                FileType = fileType.Value,
+                SizeBytes = chunkText.Length,
+            });
+        }
+
         await context.SaveChangesAsync();
 
         return (document.Id, chunk.Id);

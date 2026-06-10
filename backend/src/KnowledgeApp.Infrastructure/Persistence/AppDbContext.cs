@@ -33,4 +33,41 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.HasDefaultSchema(null);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        SyncSearchDateIndexes();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        SyncSearchDateIndexes();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void SyncSearchDateIndexes()
+    {
+        foreach (var entry in ChangeTracker.Entries<Document>())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Modified))
+            {
+                continue;
+            }
+
+            entry.Property(SearchDateIndexing.CreatedAtUnixTimePropertyName).CurrentValue =
+                SearchDateIndexing.ToUnixTimeMilliseconds(entry.Entity.CreatedAt);
+        }
+
+        foreach (var entry in ChangeTracker.Entries<Note>())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Modified))
+            {
+                continue;
+            }
+
+            entry.Property(SearchDateIndexing.CreatedAtUnixTimePropertyName).CurrentValue =
+                SearchDateIndexing.ToUnixTimeMilliseconds(entry.Entity.CreatedAt);
+        }
+    }
 }

@@ -25,5 +25,11 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", ".storybook", "vite.config.ts", "tailwind.config.ts"]
+  "include": [
+    "src",
+    ".storybook",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "tailwind.config.ts"
+  ]
 }

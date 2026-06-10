@@ -30,6 +30,19 @@ public sealed class ChatRequestValidator
             errors["content"] = [ErrorMessages.Chats.ContentTooLong];
         }
 
+        if (request.Filters is { } filters)
+        {
+            if (filters.FileType is { } fileType && !KnowledgeApp.Application.Search.FileTypeParser.IsValid(fileType))
+            {
+                errors["filters.fileType"] = ["File type filter must be one of: pdf, docx, pptx, markdown, txt, html."];
+            }
+
+            if (filters.DateFrom.HasValue && filters.DateTo.HasValue && filters.DateFrom.Value > filters.DateTo.Value)
+            {
+                errors["filters.dateFrom"] = ["DateFrom must be less than or equal to DateTo."];
+            }
+        }
+
         if (errors.Count > 0)
         {
             return Result.Failure(ApplicationErrors.Validation(

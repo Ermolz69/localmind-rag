@@ -66,6 +66,9 @@ public sealed class ContentSearchHandler(
             request.DocumentId,
             request.Tags,
             MaxCandidateCount,
+            request.DateFrom,
+            request.DateTo,
+            request.FileType,
             cancellationToken);
 
         return candidates
@@ -92,6 +95,8 @@ public sealed class ContentSearchHandler(
             request.NoteId,
             request.Tags,
             MaxCandidateCount,
+            request.DateFrom,
+            request.DateTo,
             cancellationToken);
 
         return candidates
