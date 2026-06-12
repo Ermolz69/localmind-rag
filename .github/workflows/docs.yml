@@ -2,6 +2,8 @@ name: Docs
 
 on:
   push:
+    branches:
+      - master
     paths:
       - "docs/**"
       - "README.md"
@@ -20,12 +22,6 @@ on:
       - "README.md"
       - "AGENTS.md"
       - "GEMINI.md"
-      - "backend/**"
-      - "apps/desktop/**"
-      - ".config/task/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
