@@ -53,7 +53,7 @@ export function DocumentList({
   return (
     <div className="space-y-3">
       <div className="overflow-hidden rounded-md border border-border bg-card">
-        <div className="grid grid-cols-[minmax(0,1fr)_8rem_10rem_auto] border-b border-border px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
+        <div className="grid grid-cols-[minmax(0,1fr)_8rem_10rem_auto] gap-3 border-b border-border px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
           <span>Name</span>
           <span>Status</span>
           <span>Created</span>
@@ -100,10 +100,10 @@ export function DocumentList({
               </div>
               <StatusBadge
                 label={job?.status ?? document.status}
-                className={
+                className={`w-max ${
                   documentStatusStyles[document.status] ??
                   documentStatusStyles.Queued
-                }
+                }`}
               />
               <span className="text-sm text-muted-foreground">
                 {new Date(document.createdAt).toLocaleDateString()}

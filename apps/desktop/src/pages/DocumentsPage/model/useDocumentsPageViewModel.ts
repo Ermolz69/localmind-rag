@@ -5,11 +5,8 @@ import {
   useProcessIngestionJob,
 } from "@features/document-ingestion";
 import { useDocumentUpload } from "@features/document-upload";
-import { useRuntimeStatus } from "@shared/model";
-
 export function useDocumentsPageViewModel() {
   const documents = useDocumentList();
-  const runtime = useRuntimeStatus();
   const upload = useDocumentUpload({
     onError: documents.setDocumentListError,
     onUploaded: async () => {
@@ -40,20 +37,17 @@ export function useDocumentsPageViewModel() {
     await Promise.all([
       documents.reloadDocuments(),
       documents.loadBuckets(),
-      runtime.loadRuntimeStatus(),
     ]);
   }
 
   return {
     ...documents,
-    ...runtime,
     ...upload,
     ...process,
     ...jobs,
     error:
       documents.documentListError ??
       process.processError ??
-      runtime.runtimeError ??
       jobs.retryError ??
       jobs.cancelError,
 

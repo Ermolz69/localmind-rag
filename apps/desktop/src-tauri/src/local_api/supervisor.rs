@@ -159,9 +159,6 @@ impl LocalApiSupervisor {
             process::kill_child(&mut child);
         }
     }
-    
-
-
 
     pub async fn stop_gracefully(&self, app: &AppHandle) {
         let (port, mut child_to_wait) = {

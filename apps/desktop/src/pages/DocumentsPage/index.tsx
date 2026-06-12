@@ -5,7 +5,6 @@ import {
 } from "@features/document-ingestion";
 import { DocumentDropzone } from "@features/document-upload";
 import { BucketPanel } from "@features/bucket-management";
-import { RuntimePanel } from "@features/settings";
 import { Button, ErrorBanner, PageHeader, Select, Toolbar } from "@shared/ui";
 import { useDocumentsPageViewModel } from "./model/useDocumentsPageViewModel";
 
@@ -38,15 +37,6 @@ export function DocumentsPage() {
             </Button>
           </>
         }
-      />
-
-      <RuntimePanel
-        health={page.health}
-        isSettingUpAi={page.isSettingUpAi}
-        onSetupAi={() => void page.setupAiRuntime()}
-        runtime={page.runtime}
-        setupProgress={page.setupProgress}
-        sync={page.sync}
       />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
