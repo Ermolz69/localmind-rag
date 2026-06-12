@@ -161,12 +161,12 @@ jobs:
 
       - name: Add unit coverage summary
         if: always()
-        shell: powershell
+        shell: bash
         run: |
-          $summary = "${{ env.COVERAGE_REPORT_DIR }}/unit/SummaryGithub.md"
-          if (Test-Path $summary) {
-            Get-Content $summary | Add-Content $env:GITHUB_STEP_SUMMARY
-          }
+          summary="${{ env.COVERAGE_REPORT_DIR }}/unit/SummaryGithub.md"
+          if [ -f "$summary" ]; then
+            cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload unit coverage report
         if: always()
@@ -412,7 +412,6 @@ jobs:
       - name: Check generated API contracts
         run: task -t .config/task/Taskfile.yml check:api-contracts
 
-
   check-summary:
     name: Check summary
     runs-on: ubuntu-latest
@@ -428,7 +427,6 @@ jobs:
       - frontend-check
       - frontend-build
       - api-contract-drift
-
 
     steps:
       - name: Summarize job results
@@ -446,7 +444,6 @@ jobs:
           echo "| Frontend check | ${{ needs.frontend-check.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend build | ${{ needs.frontend-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| API contract drift | ${{ needs.api-contract-drift.result }} |" >> "$GITHUB_STEP_SUMMARY"
-
 
       - name: Fail if any check failed
         if: contains(join(needs.*.result, ','), 'failure') || contains(join(needs.*.result, ','), 'cancelled')
