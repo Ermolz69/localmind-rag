@@ -3,18 +3,25 @@ import { useBuckets } from "@features/bucket-management";
 import {
   useDocumentList,
   useSemanticSearch,
+  useContentSearch,
 } from "@features/document-ingestion";
 import type { RetrievalFilters, SearchFilterKey } from "@entities/search";
 import { buildFilterChips, removeFilter } from "@entities/search";
 import { extractLiveCommands } from "@shared/lib/searchFilterCommands";
 
+export type SearchMode = "semantic" | "content";
+export type ContentScope = "all" | "documents" | "notes";
+
 export function useSemanticSearchPageViewModel() {
   const buckets = useBuckets();
   const documents = useDocumentList();
   const semanticSearch = useSemanticSearch();
+  const contentSearch = useContentSearch();
 
   const [query, setQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<RetrievalFilters>({});
+  const [searchMode, setSearchMode] = useState<SearchMode>("semantic");
+  const [contentScope, setContentScope] = useState<ContentScope>("all");
 
   const selectedBucketId = activeFilters.bucketId ?? "";
 
@@ -33,10 +40,19 @@ export function useSemanticSearchPageViewModel() {
         buckets.buckets,
         documents.documents,
       );
-      setActiveFilters(nextDraft.filters);
+
+      const nextFilters = nextDraft.filters;
+
+      if (searchMode === "content") {
+        if (nextFilters.documentId || nextFilters.fileType) {
+          setContentScope("documents");
+        }
+      }
+
+      setActiveFilters(nextFilters);
       setQuery(nextDraft.content);
     },
-    [activeFilters, buckets.buckets, documents.documents],
+    [activeFilters, buckets.buckets, documents.documents, searchMode],
   );
 
   function removeActiveFilter(key: SearchFilterKey, tagKey?: string) {
@@ -44,15 +60,34 @@ export function useSemanticSearchPageViewModel() {
   }
 
   async function runSearch() {
-    await semanticSearch.search(query, {
-      filters: activeFilters,
-    });
+    if (searchMode === "semantic") {
+      await semanticSearch.search(query, {
+        filters: activeFilters,
+      });
+    } else {
+      let includeDocuments = true;
+      let includeNotes = true;
+
+      if (contentScope === "documents") {
+        includeNotes = false;
+      } else if (contentScope === "notes") {
+        includeDocuments = false;
+      }
+
+      await contentSearch.search(query, {
+        filters: activeFilters,
+        includeDocuments,
+        includeNotes,
+      });
+    }
   }
 
   function clearSearch() {
     semanticSearch.clear();
+    contentSearch.clear();
     setQuery("");
     setActiveFilters({});
+    setContentScope("all");
   }
 
   const activeFilterChips = buildFilterChips(activeFilters, buckets.buckets);
@@ -63,18 +98,33 @@ export function useSemanticSearchPageViewModel() {
     buckets,
     documents,
     clearSearch,
-    error: buckets.error ?? documents.documentListError ?? semanticSearch.error,
-    isSearching: semanticSearch.isSearching,
+    error:
+      buckets.error ??
+      documents.documentListError ??
+      semanticSearch.error ??
+      contentSearch.error,
+    isSearching:
+      searchMode === "semantic"
+        ? semanticSearch.isSearching
+        : contentSearch.isSearching,
     query,
-    results: semanticSearch.results,
+    semanticResults: semanticSearch.results,
+    contentResults: contentSearch.results,
     removeActiveFilter,
     runSearch,
-    searchSubmitted: semanticSearch.searchSubmitted,
+    searchSubmitted:
+      searchMode === "semantic"
+        ? semanticSearch.searchSubmitted
+        : contentSearch.searchSubmitted,
     selectedBucketId,
     selectedBucketName:
       buckets.buckets.find((bucket) => bucket.id === selectedBucketId)?.name ??
       "All buckets",
     setQuery: handleQueryChange,
     setSelectedBucketId,
+    searchMode,
+    setSearchMode,
+    contentScope,
+    setContentScope,
   };
 }

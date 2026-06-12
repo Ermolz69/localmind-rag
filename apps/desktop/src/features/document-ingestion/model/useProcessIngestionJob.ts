@@ -17,16 +17,8 @@ export function useProcessIngestionJob({
   >(null);
 
   const processMutation = useApiMutation(
-    async (documentId: string, ingestionJobId?: string | null) => {
-      let jobId = ingestionJobId;
-      if (!jobId) {
-        const reindex = await documentsApi.reindexDocument(documentId);
-        jobId = reindex.ingestionJobId;
-      }
-      if (!jobId) {
-        throw new Error("Backend did not return an ingestion job identifier.");
-      }
-      await ingestionApi.processJob(jobId);
+    async (documentId: string) => {
+      await documentsApi.reindexDocument(documentId);
     },
     { fallbackError: "Ingestion failed." },
   );
@@ -54,27 +46,12 @@ export function useProcessIngestionJob({
     }
   }
 
-  async function processUploadedDocument(
-    documentId: string,
-    ingestionJobId: string | null,
-    onComplete: () => void,
-  ) {
-    setProcessingDocumentId(documentId);
-    try {
-      const success = await processMutation.mutate(documentId, ingestionJobId);
-      if (success !== null) {
-        onComplete();
-        await refreshAfterProcessing();
-      }
-    } finally {
-      setProcessingDocumentId(null);
-    }
-  }
+
 
   return {
     processDocument,
     processError: processMutation.error,
     processingDocumentId,
-    processUploadedDocument,
+
   };
 }

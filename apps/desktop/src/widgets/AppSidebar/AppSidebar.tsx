@@ -44,11 +44,6 @@ export function AppSidebar() {
         "group/sidebar sticky top-0 flex h-dvh min-h-dvh shrink-0 flex-col overflow-visible border-r border-border bg-card text-card-foreground shadow-sm transition-[width] duration-300 ease-out",
         isExpanded ? "w-64" : "w-16",
       )}
-      onClick={() => {
-        if (!isExpanded) {
-          setExpanded(true);
-        }
-      }}
     >
       <button
         type="button"
@@ -71,9 +66,11 @@ export function AppSidebar() {
       </button>
 
       <div className="flex h-full min-w-0 flex-col overflow-hidden p-3">
-        <div
+        <button
+          type="button"
+          onClick={() => setExpanded(!isExpanded)}
           className={cn(
-            "mb-3 flex h-11 items-center rounded-md transition-[justify-content,padding]",
+            "mb-3 flex w-full h-11 items-center rounded-md transition-[justify-content,padding] cursor-ew-resize hover:bg-muted/50",
             isExpanded ? "justify-start px-2" : "justify-center px-0",
           )}
         >
@@ -82,7 +79,7 @@ export function AppSidebar() {
           </div>
           <div
             className={cn(
-              "min-w-0 overflow-hidden transition-[opacity,transform] duration-200",
+              "min-w-0 overflow-hidden transition-[opacity,transform] duration-200 text-left",
               isExpanded
                 ? "ml-3 translate-x-0 opacity-100"
                 : "pointer-events-none ml-0 w-0 -translate-x-2 opacity-0",
@@ -95,7 +92,7 @@ export function AppSidebar() {
               Local RAG
             </p>
           </div>
-        </div>
+        </button>
 
         <nav className="flex flex-col gap-1">
           {items.map((item) => (

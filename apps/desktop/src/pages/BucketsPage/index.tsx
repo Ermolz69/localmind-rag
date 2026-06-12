@@ -20,6 +20,10 @@ export function BucketsPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteBucketId, setDeleteBucketId] = useState("");
 
+  const filteredBuckets = bucketsPage.buckets.filter((bucket) =>
+    bucket.name.toLowerCase().includes(bucketsPage.name.toLowerCase().trim()),
+  );
+
   return (
     <section className="space-y-5">
       <PageHeader
@@ -40,7 +44,7 @@ export function BucketsPage() {
         <div className="flex flex-wrap gap-2">
           <Input
             className="min-w-64 flex-1"
-            placeholder="Bucket name"
+            placeholder="Search or create bucket..."
             value={bucketsPage.name}
             onChange={(event) => bucketsPage.setName(event.target.value)}
             onKeyDown={(event) => {
@@ -71,9 +75,15 @@ export function BucketsPage() {
           title="No buckets yet"
           description="Create a bucket to group documents for focused local work."
         />
+      ) : filteredBuckets.length === 0 && bucketsPage.name.trim() !== "" ? (
+        <div className="rounded-md border border-border bg-card p-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            No buckets found matching "{bucketsPage.name}". Click "New bucket" to create it!
+          </p>
+        </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {bucketsPage.buckets.map((bucket) => {
+          {filteredBuckets.map((bucket) => {
             const isSelected = bucketsPage.selectedBucketId === bucket.id;
             const bucketWithCount = bucket as typeof bucket & {
               documentCount?: number;
@@ -90,8 +100,8 @@ export function BucketsPage() {
                 onClick={() => bucketsPage.setSelectedBucketId(bucket.id)}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <h2 className="truncate text-sm font-semibold">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate text-sm font-semibold" title={bucket.name}>
                       {bucket.name}
                     </h2>
                     <p
@@ -142,17 +152,19 @@ export function BucketsPage() {
                       <Pencil size={16} aria-hidden />
                     </Button>
 
-                    <Button
-                      variant="ghost"
-                      className="h-9 w-9 rounded-md bg-transparent p-0 text-rose-400 hover:bg-transparent hover:text-rose-500"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteBucketId(bucket.id);
-                        setDeleteConfirmOpen(true);
-                      }}
-                    >
-                      <Trash2 size={16} aria-hidden />
-                    </Button>
+                    {bucket.name !== "Default" && (
+                      <Button
+                        variant="ghost"
+                        className="h-9 w-9 rounded-md bg-transparent p-0 text-rose-400 hover:bg-transparent hover:text-rose-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteBucketId(bucket.id);
+                          setDeleteConfirmOpen(true);
+                        }}
+                      >
+                        <Trash2 size={16} aria-hidden />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

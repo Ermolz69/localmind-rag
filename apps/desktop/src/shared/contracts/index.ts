@@ -101,3 +101,4 @@ export type CursorPageRequest = Pick<
 >;
 
 export type IngestionJobDto = Schema<"IngestionJobDto">;
+export type ContentSearchHitDto = Schema<"ContentSearchHitDto">;

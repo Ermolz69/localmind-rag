@@ -43,6 +43,8 @@ public static partial class DependencyInjection
         services.AddSingleton<IAiModelRegistry>(provider =>
             provider.GetRequiredService<AiRuntimeManager>());
 
+        services.AddSingleton<IAiRuntimeSetupCoordinator, AiRuntimeSetupCoordinator>();
+
         services.AddSingleton<IAiRuntimeSetupService>(provider =>
             new LlamaCppRuntimeSetupService(
                 provider.GetRequiredService<IAppPathProvider>(),

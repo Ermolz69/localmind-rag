@@ -74,10 +74,30 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Sets up the AI runtime.
-     * @description Downloads or prepares local AI runtime assets and returns the resulting runtime status.
+     * Starts the AI runtime setup.
+     * @description Starts a background task to download or prepare local AI runtime assets.
      */
-    post: operations["SetupAiRuntime"];
+    post: operations["StartAiRuntimeSetup"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/runtime/ai/setup/{setupId}/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Watches AI runtime setup progress.
+     * @description Streams Server-Sent Events (SSE) representing the progress of the AI runtime setup.
+     */
+    get: operations["WatchAiRuntimeSetup"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1165,10 +1185,10 @@ export interface components {
       metadata: components["schemas"]["ApiMetadata"];
     };
     /** @description Standard LocalApi response envelope. */
-    ApiResponseOfRuntimeSetupResponse: {
+    ApiResponseOfRuntimeSetupStartedResponse: {
       /** @description True when the operation completed successfully. */
       success: boolean;
-      data: null | components["schemas"]["RuntimeSetupResponse"];
+      data: null | components["schemas"]["RuntimeSetupStartedResponse"];
       error: null | components["schemas"]["ApiError"];
       /** @description Response metadata shared by success and error responses. */
       metadata: components["schemas"]["ApiMetadata"];
@@ -1807,16 +1827,15 @@ export interface components {
       /** @description Known providers with capabilities and status. */
       providers: components["schemas"]["RuntimeProviderDto"][];
     };
-    /** @description Result returned after attempting local AI runtime setup. */
-    RuntimeSetupResponse: {
-      /** @description True when the runtime executable is installed. */
-      runtimeInstalled: boolean;
-      /** @description True when the required model files are installed. */
-      modelInstalled: boolean;
-      /** @description Human-readable setup result. */
-      message: string;
-      /** @description Updated runtime status after setup. */
-      status: components["schemas"]["RuntimeStatusDto"];
+    /** @description Represents the response from starting an AI runtime setup. */
+    RuntimeSetupStartedResponse: {
+      /**
+       * Format: uuid
+       * @description The unique identifier of the started setup session.
+       */
+      setupId: string;
+      /** @description True if the setup was already running, false if a new session was started. */
+      alreadyRunning: boolean;
     };
     /** @description Current status of LocalApi and the local AI runtime. */
     RuntimeStatusDto: {
@@ -2137,7 +2156,7 @@ export interface operations {
       };
     };
   };
-  SetupAiRuntime: {
+  StartAiRuntimeSetup: {
     parameters: {
       query?: never;
       header?: never;
@@ -2152,17 +2171,28 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ApiResponseOfRuntimeSetupResponse"];
+          "application/json": components["schemas"]["ApiResponseOfRuntimeSetupStartedResponse"];
         };
       };
-      /** @description Bad Request */
-      400: {
+    };
+  };
+  WatchAiRuntimeSetup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        setupId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
         headers: {
           [name: string]: unknown;
         };
-        content: {
-          "application/json": components["schemas"]["ApiResponseOfObject"];
-        };
+        content?: never;
       };
     };
   };

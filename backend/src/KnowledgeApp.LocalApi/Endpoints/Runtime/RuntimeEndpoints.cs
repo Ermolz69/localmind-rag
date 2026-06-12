@@ -36,31 +36,47 @@ public static class RuntimeEndpoints
             .Produces<ApiResponse<object?>>(StatusCodes.Status202Accepted)
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapPost("/runtime/ai/setup", async (
-            [FromServices] IAiRuntimeSetupService setup,
-            [FromServices] IAiRuntimeProviderRegistry providers,
+        app.MapPost("/runtime/ai/setup", (
+            [FromServices] IAiRuntimeSetupCoordinator coordinator,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            await setup.SetupAsync(cancellationToken);
+            RuntimeSetupStartedResponse response = coordinator.StartSetup(cancellationToken);
 
-            RuntimeStatusDto status = await providers.GetSelectedProvider().GetStatusAsync(cancellationToken);
-
-            return ApiResults.Ok(new RuntimeSetupResponse(
-                RuntimeInstalled: status.AiRuntimeStatus != "RuntimeMissing",
-                ModelInstalled: status.ModelsAvailable,
-                Message: status.SetupRequired
-                    ? status.SetupReason ?? "AI setup is incomplete."
-                    : "Local AI runtime setup completed.",
-                Status: status),
-                context);
+            return ApiResults.Ok(response, context);
         })
-            .WithName("SetupAiRuntime")
+            .WithName("StartAiRuntimeSetup")
             .WithTags("Runtime")
-            .WithSummary("Sets up the AI runtime.")
-            .WithDescription("Downloads or prepares local AI runtime assets and returns the resulting runtime status.")
-            .Produces<ApiResponse<RuntimeSetupResponse>>()
-            .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
+            .WithSummary("Starts the AI runtime setup.")
+            .WithDescription("Starts a background task to download or prepare local AI runtime assets.")
+            .Produces<ApiResponse<RuntimeSetupStartedResponse>>();
+
+        app.MapGet("/runtime/ai/setup/{setupId}/events", async (
+            Guid setupId,
+            [FromServices] IAiRuntimeSetupCoordinator coordinator,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+        {
+            context.Response.Headers.ContentType = "text/event-stream";
+            context.Response.Headers.CacheControl = "no-cache";
+            context.Response.Headers.Connection = "keep-alive";
+
+            await foreach (RuntimeSetupProgress progress in coordinator.WatchProgressAsync(setupId, cancellationToken))
+            {
+                string data = System.Text.Json.JsonSerializer.Serialize(progress);
+                string eventName = progress.IsCompleted ? "completed" : (progress.IsFailed ? "failed" : "progress");
+                
+                await context.Response.WriteAsync($"event: {eventName}\n", cancellationToken);
+                await context.Response.WriteAsync($"data: {data}\n\n", cancellationToken);
+                await context.Response.Body.FlushAsync(cancellationToken);
+            }
+        })
+            .WithName("WatchAiRuntimeSetup")
+            .WithTags("Runtime")
+            .WithSummary("Watches AI runtime setup progress.")
+            .WithDescription("Streams Server-Sent Events (SSE) representing the progress of the AI runtime setup.")
+            // Using raw SSE, no ApiResponse wrapper
+            .Produces(StatusCodes.Status200OK);
 
         app.MapGet("/runtime/models", async (
             [FromServices] IAiRuntimeProviderRegistry providers,

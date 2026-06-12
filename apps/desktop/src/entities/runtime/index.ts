@@ -7,7 +7,8 @@ export type {
   DiagnosticsStorage,
   DiagnosticsVectorIndex,
   HealthStatus,
-  RuntimeSetupResponse,
+  RuntimeSetupProgress,
+  RuntimeSetupStartedResponse,
   RuntimeStatus,
   SyncStatus,
 } from "./model/types";

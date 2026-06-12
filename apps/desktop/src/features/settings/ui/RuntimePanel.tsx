@@ -1,9 +1,10 @@
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
 import type { ReactNode } from "react";
 import type {
   HealthStatus,
   RuntimeStatus,
   SyncStatus,
+  RuntimeSetupProgress,
 } from "@entities/runtime";
 import { runtimeStateStyles } from "@shared/constants/ui";
 import { Button, StatusBadge } from "@shared/ui";
@@ -13,12 +14,14 @@ export function RuntimePanel({
   isSettingUpAi = false,
   onSetupAi,
   runtime,
+  setupProgress,
   sync,
 }: {
   health: HealthStatus | null;
   isSettingUpAi?: boolean;
   onSetupAi?: () => void;
   runtime: RuntimeStatus | null;
+  setupProgress?: RuntimeSetupProgress | null;
   sync: SyncStatus | null;
 }) {
   const apiState = health?.status === "OK" ? "ready" : "warning";
@@ -45,19 +48,45 @@ export function RuntimePanel({
         className={runtimeStateStyles[aiState]}
         detail={runtime?.setupReason ?? undefined}
         action={
-          runtime?.setupRequired && onSetupAi ? (
+          isSettingUpAi ? (
+            <div className="mt-3 space-y-2">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span className="truncate pr-2">
+                  {setupProgress?.message || "Installing..."}
+                </span>
+                {setupProgress?.speedBytesPerSecond && (
+                  <span className="shrink-0">
+                    {(setupProgress.speedBytesPerSecond / 1024 / 1024).toFixed(1)} MB/s
+                  </span>
+                )}
+              </div>
+              <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+                {setupProgress?.totalBytes && setupProgress?.downloadedBytes ? (
+                  <div
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{
+                      width: `${Math.round((setupProgress.downloadedBytes / setupProgress.totalBytes) * 100)}%`,
+                    }}
+                  />
+                ) : (
+                  <div className="h-full w-1/3 animate-[pulse_1.5s_ease-in-out_infinite] bg-primary" />
+                )}
+              </div>
+              <div className="text-right text-xs text-muted-foreground">
+                {setupProgress?.downloadedBytes && setupProgress?.totalBytes
+                  ? `${(setupProgress.downloadedBytes / 1024 / 1024).toFixed(1)} MB / ${(setupProgress.totalBytes / 1024 / 1024).toFixed(1)} MB`
+                  : null}
+              </div>
+            </div>
+          ) : runtime?.setupRequired && onSetupAi ? (
             <Button
               className="mt-3 w-full"
               variant="secondary"
               onClick={onSetupAi}
               disabled={isSettingUpAi}
             >
-              {isSettingUpAi ? (
-                <Loader2 className="animate-spin" size={16} aria-hidden />
-              ) : (
-                <Download size={16} aria-hidden />
-              )}
-              {isSettingUpAi ? "Installing..." : "Install local AI runtime"}
+              <Download size={16} aria-hidden />
+              Install local AI runtime
             </Button>
           ) : null
         }

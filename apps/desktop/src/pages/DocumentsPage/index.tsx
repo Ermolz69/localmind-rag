@@ -45,6 +45,7 @@ export function DocumentsPage() {
         isSettingUpAi={page.isSettingUpAi}
         onSetupAi={() => void page.setupAiRuntime()}
         runtime={page.runtime}
+        setupProgress={page.setupProgress}
         sync={page.sync}
       />
 
@@ -110,11 +111,7 @@ export function DocumentsPage() {
                       )
                   : undefined
               }
-              onProcess={
-                page.lastUpload.ingestionJobId
-                  ? () => void page.processLastUpload()
-                  : undefined
-              }
+
             />
           ) : null}
 

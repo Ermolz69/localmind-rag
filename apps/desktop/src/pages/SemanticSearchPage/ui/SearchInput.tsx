@@ -138,7 +138,7 @@ export function SearchInput({
       )}
     >
       {showSuggestions && (
-        <div className="bg-popover absolute bottom-full left-0 right-0 z-50 mb-1 flex max-h-60 flex-col gap-0.5 overflow-y-auto rounded-md border border-border p-1 shadow-md">
+        <div className="absolute bottom-full left-0 right-0 z-50 mb-1 flex max-h-60 flex-col gap-0.5 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-md">
           {autocomplete.suggestions.map((suggestion, index) => {
             const isActive = index === activeSuggestionIndex;
             return (
@@ -148,8 +148,8 @@ export function SearchInput({
                 className={cn(
                   "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm transition-colors",
                   isActive
-                    ? "bg-accent font-medium text-accent-foreground"
-                    : "text-popover-foreground hover:bg-accent/50 hover:text-accent-foreground",
+                    ? "bg-muted font-medium text-foreground"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                 )}
                 onClick={() => selectSuggestion(suggestion.text)}
               >

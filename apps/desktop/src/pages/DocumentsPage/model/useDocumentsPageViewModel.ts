@@ -44,17 +44,7 @@ export function useDocumentsPageViewModel() {
     ]);
   }
 
-  async function processLastUpload() {
-    if (!upload.lastUpload) {
-      return;
-    }
 
-    await process.processUploadedDocument(
-      upload.lastUpload.documentId,
-      upload.lastUpload.ingestionJobId,
-      () => upload.setLastUpload(null),
-    );
-  }
 
   return {
     ...documents,
@@ -68,7 +58,7 @@ export function useDocumentsPageViewModel() {
       runtime.runtimeError ??
       jobs.retryError ??
       jobs.cancelError,
-    processLastUpload,
+
     reload,
     uploadFile: upload.uploadFile,
   };

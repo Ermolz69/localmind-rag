@@ -4,6 +4,8 @@ using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Exceptions;
+using KnowledgeApp.Contracts.Runtime;
+using KnowledgeApp.Infrastructure.Extensions;
 using KnowledgeApp.Infrastructure.Options;
 
 using Microsoft.Extensions.Logging;
@@ -22,7 +24,7 @@ public sealed class LlamaCppRuntimeSetupService(
 {
     private readonly RuntimeOptions options = options.Value;
 
-    public async Task SetupAsync(CancellationToken cancellationToken = default)
+    public async Task SetupAsync(IProgress<RuntimeSetupProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         Guid operationId = diagnostics?.BeginOperation(
             DiagnosticNames.Areas.Runtime,
@@ -30,17 +32,21 @@ public sealed class LlamaCppRuntimeSetupService(
 
         try
         {
-            await EnsureRuntimeAsync(cancellationToken);
+            progress?.Report(new RuntimeSetupProgress("checking", "Ensuring runtime is installed..."));
+            await EnsureRuntimeAsync(progress, cancellationToken);
 
             diagnostics?.LogStep(operationId, DiagnosticNames.Steps.RuntimeReady);
 
-            await embeddingModelStore.EnsureDownloadedAsync(cancellationToken: cancellationToken);
+            progress?.Report(new RuntimeSetupProgress("checking", "Ensuring embedding model is installed..."));
+            await embeddingModelStore.EnsureDownloadedAsync(progress: progress, cancellationToken: cancellationToken);
 
             diagnostics?.LogStep(operationId, DiagnosticNames.Steps.ModelReady);
 
-            await chatModelStore.EnsureDownloadedAsync(cancellationToken: cancellationToken);
+            progress?.Report(new RuntimeSetupProgress("checking", "Ensuring chat model is installed..."));
+            await chatModelStore.EnsureDownloadedAsync(progress: progress, cancellationToken: cancellationToken);
 
             diagnostics?.LogStep(operationId, DiagnosticNames.Steps.ModelReady);
+            progress?.Report(new RuntimeSetupProgress("verifying", "Verifying installation..."));
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -53,7 +59,7 @@ public sealed class LlamaCppRuntimeSetupService(
         }
     }
 
-    private async Task EnsureRuntimeAsync(CancellationToken cancellationToken)
+    private async Task EnsureRuntimeAsync(IProgress<RuntimeSetupProgress>? progress, CancellationToken cancellationToken)
     {
         string runtimePath = ResolvePath(options.RuntimePath);
 
@@ -95,6 +101,8 @@ public sealed class LlamaCppRuntimeSetupService(
 
             response.EnsureSuccessStatusCode();
 
+            long? totalBytes = response.Content.Headers.ContentLength;
+
             await using (Stream remote =
                 await response.Content.ReadAsStreamAsync(cancellationToken))
             await using (FileStream local = new(
@@ -103,8 +111,22 @@ public sealed class LlamaCppRuntimeSetupService(
                 FileAccess.Write,
                 FileShare.None))
             {
-                await remote.CopyToAsync(local, cancellationToken);
+                await remote.CopyToWithProgressAsync(
+                    local,
+                    totalBytes,
+                    onProgress: (downloaded, total, speed) =>
+                    {
+                        progress?.Report(new RuntimeSetupProgress(
+                            Stage: "downloading-runtime",
+                            Message: "Downloading llama.cpp runtime...",
+                            DownloadedBytes: downloaded,
+                            TotalBytes: total,
+                            SpeedBytesPerSecond: speed));
+                    },
+                    cancellationToken);
             }
+
+            progress?.Report(new RuntimeSetupProgress("extracting-runtime", "Extracting llama.cpp archive..."));
 
             ZipFile.ExtractToDirectory(
                 archivePath,
