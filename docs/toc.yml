@@ -117,6 +117,8 @@
       href: development/setup.md
     - name: Testing
       href: development/testing.md
+    - name: Demo 3 test plan
+      href: development/demo-3-test-plan.md
     - name: RAG evaluation tests
       href: development/rag-evaluation-tests.md
     - name: Documentation workflow
