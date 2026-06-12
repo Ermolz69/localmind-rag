@@ -53,7 +53,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
-      docker: ${{ steps.filter.outputs.docker }}
+
       docs: ${{ steps.filter.outputs.docs }}
 
     steps:
@@ -76,12 +76,7 @@ jobs:
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - '.config/task/**'
-            docker:
-              - 'infra/**'
-              - '.dockerignore'
-              - 'backend/.dockerignore'
-              - 'apps/desktop/.dockerignore'
-              - '.config/task/**'
+
             docs:
               - 'docs/**'
               - 'README.md'
@@ -417,25 +412,6 @@ jobs:
       - name: Check generated API contracts
         run: task -t .config/task/Taskfile.yml check:api-contracts
 
-  docker-compose:
-    name: Docker compose config
-    runs-on: ubuntu-latest
-    needs:
-      - changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.docker == 'true'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Validate remote compose file
-        run: task -t .config/task/Taskfile.yml check:docker
 
   check-summary:
     name: Check summary
@@ -452,7 +428,7 @@ jobs:
       - frontend-check
       - frontend-build
       - api-contract-drift
-      - docker-compose
+
 
     steps:
       - name: Summarize job results
@@ -470,7 +446,7 @@ jobs:
           echo "| Frontend check | ${{ needs.frontend-check.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend build | ${{ needs.frontend-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| API contract drift | ${{ needs.api-contract-drift.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Docker compose config | ${{ needs.docker-compose.result }} |" >> "$GITHUB_STEP_SUMMARY"
+
 
       - name: Fail if any check failed
         if: contains(join(needs.*.result, ','), 'failure') || contains(join(needs.*.result, ','), 'cancelled')

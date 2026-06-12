@@ -1,9 +1,0 @@
-.dockerignore
-.gitignore
-.git
-.gradle/
-build/
-.idea
-*.iml
-.vscode
-*.log

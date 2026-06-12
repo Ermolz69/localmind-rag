@@ -1,9 +1,6 @@
 version: "3"
 
-includes:
-  services:
-    taskfile: ./Services.Taskfile.yml
-    dir: ../..
+
 
 vars:
   ROOT_DIR: "{{.TASKFILE_DIR}}/../.."
@@ -209,7 +206,7 @@ tasks:
         check:api-contracts,
         check:rust,
         check:colors,
-        check:docker,
+
       ]
 
   check:format:
@@ -263,10 +260,6 @@ tasks:
     cmds:
       - cd "{{.ROOT_DIR}}" && cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 
-  check:docker:
-    desc: Validates Docker Compose configuration files
-    cmds:
-      - cd "{{.ROOT_DIR}}" && docker compose -f infra/docker-compose.remote.yml config
 
   # === DOCUMENTATION & OPENAPI ===
   docs:build:

@@ -14,8 +14,7 @@
     "setup:ai": "task -t .config/task/Taskfile.yml setup:ai",
     "setup:ai-runtime": "task -t .config/task/Taskfile.yml setup:ai-runtime",
     "setup:ai-models": "task -t .config/task/Taskfile.yml setup:ai-models",
-    "setup:ocr": "task -t .config/task/Taskfile.yml setup:ocr",
-    "docker:up": "docker compose -f infra/docker-compose.remote.yml up -d"
+    "setup:ocr": "task -t .config/task/Taskfile.yml setup:ocr"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

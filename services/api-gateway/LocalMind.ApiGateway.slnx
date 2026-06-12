@@ -1,8 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/LocalMind.ApiGateway.Api/LocalMind.ApiGateway.Api.csproj" />
-    <Project Path="src/LocalMind.ApiGateway.Application/LocalMind.ApiGateway.Application.csproj" />
-    <Project Path="src/LocalMind.ApiGateway.Domain/LocalMind.ApiGateway.Domain.csproj" />
-    <Project Path="src/LocalMind.ApiGateway.Infrastructure/LocalMind.ApiGateway.Infrastructure.csproj" />
-  </Folder>
-</Solution>
