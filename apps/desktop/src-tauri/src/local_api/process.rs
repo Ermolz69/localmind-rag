@@ -39,7 +39,8 @@ pub fn spawn_local_api(
         .command
         .current_dir(root)
         .env("KNOWLEDGE_APP_ROOT", root)
-        .env("ASPNETCORE_URLS", base_url)
+        .env("ASPNETCORE_URLS", &base_url)
+        .env("LOCALMIND_LOCAL_API_PORT", port.to_string())
         .env("LOCALMIND_SUPERVISOR_TOKEN", token)
         .env("LocalRuntime__DataPath", paths::data_dir(root))
         .env("LocalRuntime__FilesPath", paths::files_dir(root))
@@ -70,8 +71,10 @@ pub fn kill_child(child: &mut Child) {
 
 fn build_local_api_command(root: &Path) -> Option<LocalApiLaunch> {
     let sidecar_path = paths::local_api_binary_path(root);
+
     if sidecar_path.exists() {
         let mut command = Command::new(&sidecar_path);
+
         command
             .env("ASPNETCORE_ENVIRONMENT", "Production")
             .env("DOTNET_ENVIRONMENT", "Production");
@@ -83,10 +86,13 @@ fn build_local_api_command(root: &Path) -> Option<LocalApiLaunch> {
     }
 
     let project_path = paths::local_api_project_path(root);
+
     if project_path.exists() {
         let mut command = Command::new("dotnet");
+
         command
             .arg("run")
+            .arg("--no-launch-profile")
             .arg("--project")
             .arg(&project_path)
             .env("ASPNETCORE_ENVIRONMENT", "Development")
