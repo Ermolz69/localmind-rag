@@ -65,7 +65,7 @@ public static class RuntimeEndpoints
             {
                 string data = System.Text.Json.JsonSerializer.Serialize(progress);
                 string eventName = progress.IsCompleted ? "completed" : (progress.IsFailed ? "failed" : "progress");
-                
+
                 await context.Response.WriteAsync($"event: {eventName}\n", cancellationToken);
                 await context.Response.WriteAsync($"data: {data}\n\n", cancellationToken);
                 await context.Response.Body.FlushAsync(cancellationToken);

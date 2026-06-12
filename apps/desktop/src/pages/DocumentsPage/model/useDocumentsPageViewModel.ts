@@ -44,8 +44,6 @@ export function useDocumentsPageViewModel() {
     ]);
   }
 
-
-
   return {
     ...documents,
     ...runtime,

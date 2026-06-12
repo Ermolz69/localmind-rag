@@ -70,7 +70,7 @@ export function AppSidebar() {
           type="button"
           onClick={() => setExpanded(!isExpanded)}
           className={cn(
-            "mb-3 flex w-full h-11 items-center rounded-md transition-[justify-content,padding] cursor-ew-resize hover:bg-muted/50",
+            "mb-3 flex h-11 w-full cursor-ew-resize items-center rounded-md transition-[justify-content,padding] hover:bg-muted/50",
             isExpanded ? "justify-start px-2" : "justify-center px-0",
           )}
         >
@@ -79,7 +79,7 @@ export function AppSidebar() {
           </div>
           <div
             className={cn(
-              "min-w-0 overflow-hidden transition-[opacity,transform] duration-200 text-left",
+              "min-w-0 overflow-hidden text-left transition-[opacity,transform] duration-200",
               isExpanded
                 ? "ml-3 translate-x-0 opacity-100"
                 : "pointer-events-none ml-0 w-0 -translate-x-2 opacity-0",

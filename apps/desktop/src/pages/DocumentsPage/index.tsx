@@ -111,7 +111,6 @@ export function DocumentsPage() {
                       )
                   : undefined
               }
-
             />
           ) : null}
 

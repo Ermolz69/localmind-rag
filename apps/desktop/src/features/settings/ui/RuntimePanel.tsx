@@ -56,11 +56,14 @@ export function RuntimePanel({
                 </span>
                 {setupProgress?.speedBytesPerSecond && (
                   <span className="shrink-0">
-                    {(setupProgress.speedBytesPerSecond / 1024 / 1024).toFixed(1)} MB/s
+                    {(setupProgress.speedBytesPerSecond / 1024 / 1024).toFixed(
+                      1,
+                    )}{" "}
+                    MB/s
                   </span>
                 )}
               </div>
-              <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+              <div className="bg-secondary relative h-2 w-full overflow-hidden rounded-full">
                 {setupProgress?.totalBytes && setupProgress?.downloadedBytes ? (
                   <div
                     className="h-full bg-primary transition-all duration-300"

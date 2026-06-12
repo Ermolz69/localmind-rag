@@ -78,7 +78,8 @@ export function BucketsPage() {
       ) : filteredBuckets.length === 0 && bucketsPage.name.trim() !== "" ? (
         <div className="rounded-md border border-border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            No buckets found matching "{bucketsPage.name}". Click "New bucket" to create it!
+            No buckets found matching "{bucketsPage.name}". Click "New bucket"
+            to create it!
           </p>
         </div>
       ) : (
@@ -101,7 +102,10 @@ export function BucketsPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <h2 className="truncate text-sm font-semibold" title={bucket.name}>
+                    <h2
+                      className="truncate text-sm font-semibold"
+                      title={bucket.name}
+                    >
                       {bucket.name}
                     </h2>
                     <p
