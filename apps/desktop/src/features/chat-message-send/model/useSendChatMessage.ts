@@ -1,16 +1,18 @@
 import { useCallback, useState } from "react";
 import type { BucketDto } from "@entities/bucket";
-import type { ChatConversation, RetrievalFilters } from "@entities/chat";
-import { chatsApi } from "@shared/api";
-import { useApiMutation } from "@shared/lib/hooks";
+import type { ChatConversation } from "@entities/chat";
+import type { RetrievalFilters, SearchFilterKey } from "@entities/search";
 import {
   buildFilterChips,
-  extractLiveCommands,
   hasActiveFilters,
-  prepareChatSubmission,
   removeFilter,
-  type ChatFilterKey,
-} from "./commandFilters";
+} from "@entities/search";
+import {
+  extractLiveCommands,
+  prepareChatSubmission,
+} from "@shared/lib/searchFilterCommands";
+import { chatsApi } from "@shared/api";
+import { useApiMutation } from "@shared/lib/hooks";
 import type { ChatMessageView } from "./useConversationMessages";
 
 type UseSendChatMessageOptions = {
@@ -52,7 +54,12 @@ export function useSendChatMessage({
     (nextValue: string) => {
       setFilterError(null);
 
-      const nextDraft = extractLiveCommands(nextValue, activeFilters, buckets);
+      const nextDraft = extractLiveCommands(
+        nextValue,
+        activeFilters,
+        buckets,
+        [],
+      );
       setActiveFilters(nextDraft.filters);
       setQuestion(nextDraft.content);
     },
@@ -60,7 +67,7 @@ export function useSendChatMessage({
   );
 
   const sendQuestion = useCallback(async () => {
-    const parsed = prepareChatSubmission(question, activeFilters, buckets);
+    const parsed = prepareChatSubmission(question, activeFilters, buckets, []);
 
     if (parsed.error) {
       setFilterError(parsed.error);
@@ -153,9 +160,9 @@ export function useSendChatMessage({
     sendMutation,
   ]);
 
-  function removeActiveFilter(key: ChatFilterKey) {
+  function removeActiveFilter(key: SearchFilterKey, tagKey?: string) {
     setFilterError(null);
-    setActiveFilters((current) => removeFilter(current, key));
+    setActiveFilters((current) => removeFilter(current, key, tagKey));
   }
 
   return {

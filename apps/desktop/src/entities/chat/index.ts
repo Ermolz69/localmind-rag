@@ -3,6 +3,5 @@ export type {
   ChatMessageDto,
   CreateConversationRequest,
   RagAnswerDto,
-  RetrievalFilters,
   UpdateConversationRequest,
 } from "./model/types";

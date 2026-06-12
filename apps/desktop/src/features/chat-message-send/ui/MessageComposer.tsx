@@ -5,16 +5,16 @@ import { Button } from "@shared/ui";
 import { cn } from "@shared/lib/cn";
 import type { BucketDto } from "@entities/bucket";
 import { getAutocompleteContext } from "../model";
-import type { ChatFilterChip, ChatFilterKey } from "../model";
+import type { SearchFilterChip, SearchFilterKey } from "../model";
 
 type MessageComposerProps = {
   value: string;
   disabled: boolean;
   error?: string | null;
-  filters: ChatFilterChip[];
+  filters: SearchFilterChip[];
   buckets: BucketDto[];
   onChange: (value: string) => void;
-  onRemoveFilter: (key: ChatFilterKey) => void;
+  onRemoveFilter: (key: SearchFilterKey, tagKey?: string) => void;
   onSubmit: () => void;
 };
 
@@ -35,7 +35,7 @@ export function MessageComposer({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const autocomplete = getAutocompleteContext(value, cursorPos, buckets);
+  const autocomplete = getAutocompleteContext(value, cursorPos, buckets, []);
   const showSuggestions =
     autocomplete.type !== "none" &&
     autocomplete.suggestions.length > 0 &&
@@ -170,7 +170,7 @@ export function MessageComposer({
                   <button
                     type="button"
                     className="rounded-sm text-muted-foreground transition hover:text-foreground"
-                    onClick={() => onRemoveFilter(filter.key)}
+                    onClick={() => onRemoveFilter(filter.key, filter.tagKey)}
                     title={`Remove ${filter.label}`}
                   >
                     <X size={13} aria-hidden />

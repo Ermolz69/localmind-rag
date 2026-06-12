@@ -4,11 +4,11 @@ import {
   Button,
   EmptyState,
   ErrorBanner,
-  Input,
   PageHeader,
   Select,
   Toolbar,
 } from "@shared/ui";
+import { SearchInput } from "./ui/SearchInput";
 
 export function SemanticSearchPage() {
   const page = useSemanticSearchPageViewModel();
@@ -30,18 +30,17 @@ export function SemanticSearchPage() {
 
       <div className="rounded-md border border-border bg-card p-3 shadow-sm">
         <Toolbar className="items-end gap-2 border-0 bg-transparent p-0">
-          <Input
+          <SearchInput
             id="semantic-search-query"
             className="min-w-0 flex-1"
             value={page.query}
-            onChange={(event) => page.setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                void page.runSearch();
-              }
-            }}
-            placeholder="Search snippets"
-            aria-label="Search snippets"
+            onChange={page.setQuery}
+            onSubmit={() => void page.runSearch()}
+            placeholder="Search snippets (type / for filters)"
+            filters={page.activeFilterChips}
+            buckets={page.buckets.buckets}
+            documents={page.documents.documents}
+            onRemoveFilter={page.removeActiveFilter}
           />
 
           <Select

@@ -1759,6 +1759,8 @@ export interface components {
     RetrievalFilters: {
       /** Format: uuid */
       bucketId?: null | string;
+      /** Format: uuid */
+      documentId?: null | string;
       /** Format: date-time */
       dateFrom?: null | string;
       /** Format: date-time */

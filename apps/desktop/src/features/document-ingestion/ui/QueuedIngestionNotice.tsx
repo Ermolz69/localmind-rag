@@ -22,7 +22,7 @@ export function QueuedIngestionNotice({
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card p-3">
       <div>
         <p className="text-sm font-medium">{fileName}</p>
-        <div className="text-xs text-muted-foreground mt-1">
+        <div className="mt-1 text-xs text-muted-foreground">
           {job && ACTIVE_INGESTION_JOB_STATUSES.has(job.status) ? (
             <span className="flex items-center gap-2">
               <Loader2 className="animate-spin" size={14} aria-hidden />
