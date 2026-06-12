@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { DocumentSummary } from "@entities/document";
-import { documentsApi } from "@shared/api";
+import { documentsApi, ingestionApi } from "@shared/api";
 import { useApiMutation } from "@shared/lib/hooks";
 
 const refreshAttempts = 4;
@@ -26,7 +26,7 @@ export function useProcessIngestionJob({
       if (!jobId) {
         throw new Error("Backend did not return an ingestion job identifier.");
       }
-      await documentsApi.processIngestionJob(jobId);
+      await ingestionApi.processJob(jobId);
     },
     { fallbackError: "Ingestion failed." },
   );

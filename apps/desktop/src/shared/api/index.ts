@@ -18,6 +18,7 @@ export { diagnosticsApi } from "./diagnostics";
 export { documentsApi } from "./documents";
 export { setApiBaseUrl } from "./http";
 export { healthApi } from "./health";
+export { ingestionApi } from "./ingestion";
 export { notesApi } from "./notes";
 export { runtimeApi } from "./runtime";
 export { searchApi } from "./search";

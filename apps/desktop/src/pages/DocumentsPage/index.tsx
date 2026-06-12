@@ -101,6 +101,15 @@ export function DocumentsPage() {
               isProcessing={
                 page.processingDocumentId === page.lastUpload.documentId
               }
+              job={page.jobsByDocumentId[page.lastUpload.documentId]}
+              onCancel={
+                page.jobsByDocumentId[page.lastUpload.documentId]?.canCancel
+                  ? () =>
+                      void page.cancelJob(
+                        page.jobsByDocumentId[page.lastUpload!.documentId].id,
+                      )
+                  : undefined
+              }
               onProcess={
                 page.lastUpload.ingestionJobId
                   ? () => void page.processLastUpload()
@@ -117,7 +126,10 @@ export function DocumentsPage() {
             processingDocumentId={page.processingDocumentId}
             hasMore={page.hasMore}
             isLoadingMore={page.isLoadingMore}
+            jobsByDocumentId={page.jobsByDocumentId}
             onProcess={(document) => void page.processDocument(document)}
+            onRetry={(jobId) => void page.retryJob(jobId)}
+            onCancel={(jobId) => void page.cancelJob(jobId)}
             onLoadMore={() => void page.loadMore()}
           />
         </div>

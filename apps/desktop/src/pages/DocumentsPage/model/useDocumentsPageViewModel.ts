@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import {
   useDocumentList,
+  useIngestionJobs,
   useProcessIngestionJob,
 } from "@features/document-ingestion";
 import { useDocumentUpload } from "@features/document-upload";
@@ -19,6 +21,19 @@ export function useDocumentsPageViewModel() {
     onProcessed: async () => {
       await documents.reloadDocuments();
     },
+  });
+
+  const shouldPollJobs = useMemo(() => {
+    return (
+      upload.lastUpload !== null ||
+      documents.documents.some(
+        (d) => d.status === "Queued" || d.status === "Processing",
+      )
+    );
+  }, [upload.lastUpload, documents.documents]);
+
+  const jobs = useIngestionJobs(shouldPollJobs, () => {
+    void documents.reloadDocuments();
   });
 
   async function reload() {
@@ -46,10 +61,13 @@ export function useDocumentsPageViewModel() {
     ...runtime,
     ...upload,
     ...process,
+    ...jobs,
     error:
       documents.documentListError ??
       process.processError ??
-      runtime.runtimeError,
+      runtime.runtimeError ??
+      jobs.retryError ??
+      jobs.cancelError,
     processLastUpload,
     reload,
     uploadFile: upload.uploadFile,
