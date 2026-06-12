@@ -33,7 +33,10 @@ public sealed class ApplicationValidationTests
         NoteRequestValidator validator = new();
         string markdown = new('a', 1_000_001);
 
-        Result result = validator.Validate(new CreateNoteRequest(Guid.Empty, null, "Title", markdown));
+        Result result = validator.Validate(new CreateNoteRequest("Title", markdown)
+        {
+            BucketId = Guid.Empty,
+        });
         ApplicationError error = result.AssertFailure(ErrorType.Validation);
 
         Assert.Equal(ErrorCodes.Notes.ValidationFailed, error.Code);

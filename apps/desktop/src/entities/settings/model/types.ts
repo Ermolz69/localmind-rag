@@ -22,6 +22,10 @@ export type RescanWatchedFoldersRequest =
 export type RescanWatchedFoldersResponse =
   OperationData<"RescanWatchedFolders">;
 
-export type AppSettings = Omit<AppSettingsDto, "watchedFolders"> & {
+export type AppSettings = Omit<
+  AppSettingsDto,
+  "diagnostics" | "watchedFolders"
+> & {
+  diagnostics: NonNullable<AppSettingsDto["diagnostics"]>;
   watchedFolders: WatchedFoldersSettings;
 };

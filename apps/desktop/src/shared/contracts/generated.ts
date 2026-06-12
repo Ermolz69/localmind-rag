@@ -1397,8 +1397,7 @@ export interface components {
       runtimePaths: components["schemas"]["RuntimePathsSettingsDto"];
       /** @description Remote sync settings. */
       sync: components["schemas"]["SyncSettingsDto"];
-      /** @description Diagnostics settings. */
-      diagnostics: components["schemas"]["DiagnosticsSettingsDto"];
+      diagnostics?: null | components["schemas"]["DiagnosticsSettingsDto"];
       watchedFolders?:
         | null
         | components["schemas"]["WatchedFoldersSettingsDto"];
@@ -1554,16 +1553,6 @@ export interface components {
     };
     /** @description Request used to create a local note. */
     CreateNoteRequest: {
-      /**
-       * Format: uuid
-       * @description The bucket that should contain the note.
-       */
-      bucketId: string;
-      /**
-       * Format: uuid
-       * @description Optional folder that should contain the note.
-       */
-      folderId: null | string;
       /** @description Note title. */
       title: string;
       /** @description Markdown note body. */
@@ -1572,6 +1561,16 @@ export interface components {
       tags?: null | {
         [key: string]: string;
       };
+      /**
+       * Format: uuid
+       * @description The bucket that should contain the note.
+       */
+      bucketId?: null | string;
+      /**
+       * Format: uuid
+       * @description Optional folder that should contain the note.
+       */
+      folderId?: null | string;
     };
     /** @description Cursor-paged API response. */
     CursorPageOfBucketDto: {
@@ -2073,6 +2072,22 @@ export interface components {
       setupId: string;
       /** @description True if the setup was already running, false if a new session was started. */
       alreadyRunning: boolean;
+      /**
+       * @description True when the runtime executable is installed.
+       * @default true
+       */
+      runtimeInstalled: boolean;
+      /**
+       * @description True when the configured model is installed.
+       * @default true
+       */
+      modelInstalled: boolean;
+      /**
+       * @description A user-safe setup status message.
+       * @default Background setup started
+       */
+      message: string;
+      status?: null | components["schemas"]["RuntimeStatusDto"];
     };
     /** @description Current status of LocalApi and the local AI runtime. */
     RuntimeStatusDto: {

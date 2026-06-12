@@ -21,7 +21,10 @@ public sealed class NoteHandlersTests
         UpdateNoteHandler update = new(noteRepository, unitOfWork, validator);
         DeleteNoteHandler delete = new(noteRepository, unitOfWork, new FixedDateTimeProvider());
 
-        NoteDto? note = (await create.HandleAsync(new CreateNoteRequest(Guid.Empty, null, "Draft", "Body"))).AssertSuccess();
+        NoteDto? note = (await create.HandleAsync(new CreateNoteRequest("Draft", "Body")
+        {
+            BucketId = Guid.Empty,
+        })).AssertSuccess();
         Contracts.Common.CursorPage<NoteDto> notes = (await list.HandleAsync(new GetNotesQuery())).AssertSuccess();
         Result updateResult = await update.HandleAsync(note.Id, new UpdateNoteRequest("Done", "Updated", null));
         Result missingUpdateResult = await update.HandleAsync(Guid.NewGuid(), new UpdateNoteRequest("Missing", "Body", null));

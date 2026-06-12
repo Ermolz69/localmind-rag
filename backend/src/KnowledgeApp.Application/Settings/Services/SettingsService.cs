@@ -24,6 +24,14 @@ public sealed class SettingsService(
             .ToDictionaryAsync(x => x.Key, x => x.Value, cancellationToken);
 
         AppSettingsDto? defaults = defaultsProvider.GetDefaults();
+        DiagnosticsSettingsDto defaultDiagnostics =
+            defaults.Diagnostics ?? new DiagnosticsSettingsDto(Enabled: true);
+        WatchedFoldersSettingsDto defaultWatchedFolders =
+            defaults.WatchedFolders ?? new WatchedFoldersSettingsDto(
+                Enabled: false,
+                DebounceMilliseconds: 1000,
+                DeletePolicy: "MarkDeleted",
+                Folders: []);
 
         return new AppSettingsDto(
             Appearance: new AppearanceSettingsDto(
@@ -44,49 +52,55 @@ public sealed class SettingsService(
                 Enabled: GetBool(storedSettings, SettingsKeys.SyncEnabled, defaults.Sync.Enabled),
                 AutoSync: GetBool(storedSettings, SettingsKeys.SyncAutoSync, defaults.Sync.AutoSync)),
             Diagnostics: new DiagnosticsSettingsDto(
-                Enabled: GetBool(storedSettings, SettingsKeys.DiagnosticsEnabled, defaults.Diagnostics.Enabled)),
+                Enabled: GetBool(storedSettings, SettingsKeys.DiagnosticsEnabled, defaultDiagnostics.Enabled)),
             WatchedFolders: new WatchedFoldersSettingsDto(
                 Enabled: GetBool(
                     storedSettings,
                     SettingsKeys.WatchedFoldersEnabled,
-                    defaults.WatchedFolders!.Enabled),
+                    defaultWatchedFolders.Enabled),
                 DebounceMilliseconds: GetInt(
                     storedSettings,
                     SettingsKeys.WatchedFoldersDebounceMilliseconds,
-                    defaults.WatchedFolders.DebounceMilliseconds),
+                    defaultWatchedFolders.DebounceMilliseconds),
                 DeletePolicy: GetString(
                     storedSettings,
                     SettingsKeys.WatchedFoldersDeletePolicy,
-                    defaults.WatchedFolders.DeletePolicy),
+                    defaultWatchedFolders.DeletePolicy),
                 Folders: GetWatchedFolders(
                     storedSettings,
                     SettingsKeys.WatchedFoldersFoldersJson,
-                    defaults.WatchedFolders.Folders),
+                    defaultWatchedFolders.Folders),
                 IgnoredFolders: GetStringList(
                     storedSettings,
                     SettingsKeys.WatchedFoldersIgnoredFoldersJson,
-                    defaults.WatchedFolders.IgnoredFolders),
+                    defaultWatchedFolders.IgnoredFolders),
                 IgnoredPatterns: GetStringList(
                     storedSettings,
                     SettingsKeys.WatchedFoldersIgnoredPatternsJson,
-                    defaults.WatchedFolders.IgnoredPatterns),
+                    defaultWatchedFolders.IgnoredPatterns),
                 MaxFileSizeMb: GetNullableInt(
                     storedSettings,
                     SettingsKeys.WatchedFoldersMaxFileSizeMb,
-                    defaults.WatchedFolders.MaxFileSizeMb),
+                    defaultWatchedFolders.MaxFileSizeMb),
                 AllowedExtensions: GetStringList(
                     storedSettings,
                     SettingsKeys.WatchedFoldersAllowedExtensionsJson,
-                    defaults.WatchedFolders.AllowedExtensions),
+                    defaultWatchedFolders.AllowedExtensions),
                 StorageMode: GetString(
                     storedSettings,
                     SettingsKeys.WatchedFoldersStorageMode,
-                    defaults.WatchedFolders.StorageMode)));
+                    defaultWatchedFolders.StorageMode)));
     }
 
     public async Task<Result> UpdateAsync(AppSettingsDto request, CancellationToken cancellationToken = default)
     {
         AppSettingsDto normalizedRequest = NormalizeRequest(request);
+        DiagnosticsSettingsDto diagnostics =
+            normalizedRequest.Diagnostics
+            ?? throw new InvalidOperationException("Normalized diagnostics settings are required.");
+        WatchedFoldersSettingsDto watchedFolders =
+            normalizedRequest.WatchedFolders
+            ?? throw new InvalidOperationException("Normalized watched folder settings are required.");
 
         Result validation = validator.Validate(normalizedRequest);
 
@@ -116,38 +130,38 @@ public sealed class SettingsService(
         Upsert(storedSettings, SettingsKeys.SyncEnabled, normalizedRequest.Sync.Enabled.ToString());
         Upsert(storedSettings, SettingsKeys.SyncAutoSync, normalizedRequest.Sync.AutoSync.ToString());
 
-        Upsert(storedSettings, SettingsKeys.DiagnosticsEnabled, normalizedRequest.Diagnostics.Enabled.ToString());
+        Upsert(storedSettings, SettingsKeys.DiagnosticsEnabled, diagnostics.Enabled.ToString());
 
-        Upsert(storedSettings, SettingsKeys.WatchedFoldersEnabled, normalizedRequest.WatchedFolders!.Enabled.ToString());
+        Upsert(storedSettings, SettingsKeys.WatchedFoldersEnabled, watchedFolders.Enabled.ToString());
         Upsert(
             storedSettings,
             SettingsKeys.WatchedFoldersDebounceMilliseconds,
-            normalizedRequest.WatchedFolders.DebounceMilliseconds.ToString());
-        Upsert(storedSettings, SettingsKeys.WatchedFoldersDeletePolicy, normalizedRequest.WatchedFolders.DeletePolicy);
+            watchedFolders.DebounceMilliseconds.ToString());
+        Upsert(storedSettings, SettingsKeys.WatchedFoldersDeletePolicy, watchedFolders.DeletePolicy);
         Upsert(
             storedSettings,
             SettingsKeys.WatchedFoldersFoldersJson,
-            JsonSerializer.Serialize(normalizedRequest.WatchedFolders.Folders, JsonOptions));
+            JsonSerializer.Serialize(watchedFolders.Folders, JsonOptions));
         Upsert(
             storedSettings,
             SettingsKeys.WatchedFoldersIgnoredFoldersJson,
-            JsonSerializer.Serialize(normalizedRequest.WatchedFolders.IgnoredFolders, JsonOptions));
+            JsonSerializer.Serialize(watchedFolders.IgnoredFolders, JsonOptions));
         Upsert(
             storedSettings,
             SettingsKeys.WatchedFoldersIgnoredPatternsJson,
-            JsonSerializer.Serialize(normalizedRequest.WatchedFolders.IgnoredPatterns, JsonOptions));
+            JsonSerializer.Serialize(watchedFolders.IgnoredPatterns, JsonOptions));
         Upsert(
             storedSettings,
             SettingsKeys.WatchedFoldersMaxFileSizeMb,
-            normalizedRequest.WatchedFolders.MaxFileSizeMb?.ToString() ?? string.Empty);
+            watchedFolders.MaxFileSizeMb?.ToString() ?? string.Empty);
         Upsert(
             storedSettings,
             SettingsKeys.WatchedFoldersAllowedExtensionsJson,
-            JsonSerializer.Serialize(normalizedRequest.WatchedFolders.AllowedExtensions, JsonOptions));
+            JsonSerializer.Serialize(watchedFolders.AllowedExtensions, JsonOptions));
         Upsert(
             storedSettings,
             SettingsKeys.WatchedFoldersStorageMode,
-            normalizedRequest.WatchedFolders.StorageMode);
+            watchedFolders.StorageMode);
 
         await operationLogRepository.AddAsync(new OperationLog
         {
@@ -169,6 +183,7 @@ public sealed class SettingsService(
 
         return request with
         {
+            Diagnostics = request.Diagnostics ?? defaults.Diagnostics,
             WatchedFolders = request.WatchedFolders ?? defaults.WatchedFolders
         };
     }

@@ -14,11 +14,16 @@ const defaultWatchedFolders: AppSettings["watchedFolders"] = {
   storageMode: "LinkOnly",
 };
 
+const defaultDiagnostics: AppSettings["diagnostics"] = {
+  enabled: true,
+};
+
 export function toAppSettings(
   settings: OperationData<"GetSettings">,
 ): AppSettings {
   return {
     ...settings,
+    diagnostics: settings.diagnostics ?? defaultDiagnostics,
     watchedFolders: settings.watchedFolders ?? {
       ...defaultWatchedFolders,
       folders: [],
