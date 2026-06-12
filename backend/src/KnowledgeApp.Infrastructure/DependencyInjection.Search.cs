@@ -12,6 +12,9 @@ public static partial class DependencyInjection
         services.AddScoped<IVectorSearchService>(provider => provider.GetRequiredService<ExactVectorSearchService>());
         services.AddScoped<IVectorIndex>(provider => provider.GetRequiredService<ExactVectorSearchService>());
         services.AddScoped<IChunkSearchIndex, Services.Search.ChunkSearchIndex>();
+        services.AddScoped<Services.Search.SqliteFullTextChunkSearchService>();
+        services.AddScoped<IFullTextChunkSearchService>(provider => provider.GetRequiredService<Services.Search.SqliteFullTextChunkSearchService>());
+        services.AddScoped<IFullTextChunkIndex>(provider => provider.GetRequiredService<Services.Search.SqliteFullTextChunkSearchService>());
 
         return services;
     }

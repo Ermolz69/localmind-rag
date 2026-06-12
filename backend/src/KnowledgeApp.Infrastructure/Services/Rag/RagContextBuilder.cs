@@ -12,13 +12,45 @@ using Microsoft.Extensions.Options;
 namespace KnowledgeApp.Infrastructure.Services;
 
 public sealed class RagContextBuilder(
-    IVectorSearchService search,
+    IHybridRetrievalService search,
     IEmbeddingGenerator embeddings,
     IOptions<RagOptions> options,
     IAppDiagnosticLogger? diagnostics = null) : IRagContextBuilder
 {
+    private const int StrongKeywordRankCutoff = 10;
     private const int SnippetCharacterLimit = 700;
     private const int ContextCharacterLimit = 6_000;
+
+    private static readonly HashSet<string> KeywordGuardStopWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "about",
+        "after",
+        "before",
+        "company",
+        "does",
+        "employee",
+        "employees",
+        "and",
+        "are",
+        "for",
+        "from",
+        "have",
+        "how",
+        "into",
+        "that",
+        "the",
+        "this",
+        "through",
+        "required",
+        "requires",
+        "should",
+        "was",
+        "what",
+        "when",
+        "where",
+        "which",
+        "with"
+    };
 
     private readonly RagOptions options = options.Value;
 
@@ -38,9 +70,10 @@ public sealed class RagContextBuilder(
         float[] queryVector =
             await embeddings.GenerateAsync(request.Question, cancellationToken);
 
-        IReadOnlyList<RagSourceDto> rankedSources = await search.SearchAsync(
+        IReadOnlyList<HybridSearchResult> rankedSources = await search.SearchAsync(
+            request.Question,
             queryVector,
-            new VectorSearchOptions(
+            new HybridSearchOptions(
                 Limit: request.Limit,
                 BucketId: request.BucketId,
                 Tags: request.Tags,
@@ -49,7 +82,9 @@ public sealed class RagContextBuilder(
                 FileType: request.FileType),
             cancellationToken);
 
-        IReadOnlyList<RagSourceDto> relevantSources = FilterRelevantSources(rankedSources);
+        IReadOnlyList<RagSourceDto> relevantSources = FilterRelevantSources(
+            rankedSources,
+            request.Question);
 
         string contextText = BuildContextText(relevantSources, request.Question);
 
@@ -66,24 +101,59 @@ public sealed class RagContextBuilder(
     }
 
     private IReadOnlyList<RagSourceDto> FilterRelevantSources(
-        IReadOnlyList<RagSourceDto> rankedSources)
+        IReadOnlyList<HybridSearchResult> rankedSources,
+        string question)
     {
-        RagSourceDto[] aboveMinimum = rankedSources
-            .Where(source => source.Score >= options.MinimumSourceScore)
-            .ToArray();
+        string[] distinctiveTerms = ExtractDistinctiveTerms(question);
 
-        if (aboveMinimum.Length == 0)
+        return rankedSources
+            .Where(source => IsRelevantForContext(source, distinctiveTerms))
+            .Select(source => source.ToRagSource())
+            .ToArray();
+    }
+
+    private bool IsRelevantForContext(
+        HybridSearchResult source,
+        IReadOnlyList<string> distinctiveTerms)
+    {
+        if (source.VectorScore is { } vectorScore && vectorScore >= options.MinimumSourceScore)
         {
-            return aboveMinimum;
+            return true;
         }
 
-        double topScore = aboveMinimum[0].Score;
-        double scoreCutoff = Math.Max(
-            options.MinimumSourceScore,
-            topScore - options.MaxSourceScoreDistance);
+        if (source.FullTextRank is not { } fullTextRank || fullTextRank > StrongKeywordRankCutoff)
+        {
+            return false;
+        }
 
-        return aboveMinimum
-            .Where(source => source.Score >= scoreCutoff)
+        return HasStrongKeywordOverlap(source.Snippet, distinctiveTerms);
+    }
+
+    private static bool HasStrongKeywordOverlap(
+        string snippet,
+        IReadOnlyList<string> distinctiveTerms)
+    {
+        if (distinctiveTerms.Count == 0)
+        {
+            return false;
+        }
+
+        int matchCount = distinctiveTerms.Count(term =>
+            snippet.Contains(term, StringComparison.OrdinalIgnoreCase));
+
+        int requiredMatches = distinctiveTerms.Count == 1 ? 1 : 2;
+
+        return matchCount >= requiredMatches;
+    }
+
+    private static string[] ExtractDistinctiveTerms(string question)
+    {
+        return Regex
+            .Matches(question, @"[\p{L}\p{N}]+")
+            .Select(match => match.Value)
+            .Where(term => term.Length > 2)
+            .Where(term => !KeywordGuardStopWords.Contains(term))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
 

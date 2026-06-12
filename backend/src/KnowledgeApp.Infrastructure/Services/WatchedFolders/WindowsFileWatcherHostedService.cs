@@ -21,13 +21,16 @@ public sealed class WindowsFileWatcherHostedService(
     private static readonly TimeSpan SettingsReloadInterval = TimeSpan.FromSeconds(5);
 
     private readonly Dictionary<string, WatcherRegistration> watchers = new(PathComparer);
+    private readonly HashSet<string> startupReconciledFolderKeys = new(PathComparer);
 
     private DateTimeOffset lastSettingsReloadAt = DateTimeOffset.MinValue;
+
     private WatchedFoldersSettingsDto currentSettings = new(
         Enabled: false,
         DebounceMilliseconds: 1000,
         DeletePolicy: "MarkDeleted",
         Folders: []);
+
     private WatchedFileFilterContext? currentFilterContext;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -90,16 +93,23 @@ public sealed class WindowsFileWatcherHostedService(
         currentSettings = settings.WatchedFolders ?? CreateDisabledWatchedFolderSettings();
         currentFilterContext = filterService.CreateContext(currentSettings);
 
-        ApplyWatcherSettings(currentSettings);
+        IReadOnlyList<StartupReconciliationRequest> foldersToReconcile =
+            ApplyWatcherSettings(currentSettings);
+
+        await RunStartupReconciliationAsync(foldersToReconcile, cancellationToken);
     }
 
-    private void ApplyWatcherSettings(WatchedFoldersSettingsDto settings)
+    private IReadOnlyList<StartupReconciliationRequest> ApplyWatcherSettings(WatchedFoldersSettingsDto settings)
     {
+        List<StartupReconciliationRequest> foldersToReconcile = [];
+
         if (!settings.Enabled)
         {
             DisposeWatchers();
+            startupReconciledFolderKeys.Clear();
             statusStore.SetGlobalPendingEvents(debounceBuffer.PendingCount);
-            return;
+
+            return foldersToReconcile;
         }
 
         HashSet<string> desiredFolderKeys = new(PathComparer);
@@ -111,10 +121,12 @@ public sealed class WindowsFileWatcherHostedService(
             if (folderKey is null)
             {
                 statusStore.SetFolderWatching(folder.Path, isWatching: false);
+
                 statusStore.RecordFolderError(
                     folder.Path,
                     "Unable to watch folder. Check that the folder path is valid.",
                     dateTimeProvider.UtcNow);
+
                 continue;
             }
 
@@ -123,6 +135,7 @@ public sealed class WindowsFileWatcherHostedService(
                 desiredFolderKeys.Add(folderKey);
                 StopWatcher(folderKey);
                 statusStore.SetFolderWatching(folder.Path, isWatching: false);
+
                 continue;
             }
 
@@ -131,10 +144,19 @@ public sealed class WindowsFileWatcherHostedService(
             if (watchers.ContainsKey(folderKey))
             {
                 statusStore.SetFolderWatching(folder.Path, isWatching: true);
+
+                if (!startupReconciledFolderKeys.Contains(folderKey))
+                {
+                    foldersToReconcile.Add(new StartupReconciliationRequest(folder, folderKey));
+                }
+
                 continue;
             }
 
-            TryStartWatcher(folder, folderKey);
+            if (TryStartWatcher(folder, folderKey))
+            {
+                foldersToReconcile.Add(new StartupReconciliationRequest(folder, folderKey));
+            }
         }
 
         string[] staleWatcherKeys = watchers.Keys
@@ -147,18 +169,22 @@ public sealed class WindowsFileWatcherHostedService(
         }
 
         statusStore.SetGlobalPendingEvents(debounceBuffer.PendingCount);
+
+        return foldersToReconcile;
     }
 
-    private void TryStartWatcher(WatchedFolderDto folder, string folderKey)
+    private bool TryStartWatcher(WatchedFolderDto folder, string folderKey)
     {
         if (!Directory.Exists(folder.Path))
         {
             statusStore.SetFolderWatching(folder.Path, isWatching: false);
+
             statusStore.RecordFolderError(
                 folder.Path,
                 "Unable to watch folder. Check that the folder exists and permissions are available.",
                 dateTimeProvider.UtcNow);
-            return;
+
+            return false;
         }
 
         try
@@ -167,18 +193,18 @@ public sealed class WindowsFileWatcherHostedService(
             {
                 IncludeSubdirectories = folder.IncludeSubdirectories,
                 Filter = "*.*",
-                NotifyFilter =
-                    NotifyFilters.FileName |
-                    NotifyFilters.DirectoryName |
-                    NotifyFilters.LastWrite |
-                    NotifyFilters.Size |
-                    NotifyFilters.CreationTime
+                NotifyFilter = NotifyFilters.FileName
+                    | NotifyFilters.DirectoryName
+                    | NotifyFilters.LastWrite
+                    | NotifyFilters.Size
+                    | NotifyFilters.CreationTime
             };
 
             watcher.Created += (_, args) => EnqueueCreatedOrChanged(folder.Path, args.FullPath);
             watcher.Changed += (_, args) => EnqueueCreatedOrChanged(folder.Path, args.FullPath);
             watcher.Deleted += (_, args) => EnqueueDeleted(folder.Path, args.FullPath);
             watcher.Renamed += (_, args) => EnqueueRenamed(folder.Path, args.OldFullPath, args.FullPath);
+
             watcher.Error += (_, args) =>
             {
                 logger.LogWarning(args.GetException(), "Watched folder FileSystemWatcher error.");
@@ -195,21 +221,72 @@ public sealed class WindowsFileWatcherHostedService(
 
             statusStore.SetFolderWatching(folder.Path, isWatching: true);
 
-            using IServiceScope scope = scopeFactory.CreateScope();
-            IWatchedFolderReconciliationService reconciliationService =
-                scope.ServiceProvider.GetRequiredService<IWatchedFolderReconciliationService>();
-
-            _ = Task.Run(() => reconciliationService.ReconcileFolderAsync(folder));
+            return true;
         }
         catch (Exception exception)
         {
             logger.LogWarning(exception, "Failed to start watched folder watcher.");
 
             statusStore.SetFolderWatching(folder.Path, isWatching: false);
+
             statusStore.RecordFolderError(
                 folder.Path,
                 "Unable to watch folder. Check that the folder exists and permissions are available.",
                 dateTimeProvider.UtcNow);
+
+            return false;
+        }
+    }
+
+    private async Task RunStartupReconciliationAsync(
+        IReadOnlyList<StartupReconciliationRequest> foldersToReconcile,
+        CancellationToken cancellationToken)
+    {
+        if (foldersToReconcile.Count == 0)
+        {
+            return;
+        }
+
+        using IServiceScope scope = scopeFactory.CreateScope();
+
+        IWatchedFolderReconciliationService reconciliationService =
+            scope.ServiceProvider.GetRequiredService<IWatchedFolderReconciliationService>();
+
+        foreach (StartupReconciliationRequest request in foldersToReconcile)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            DateTimeOffset startedAt = dateTimeProvider.UtcNow;
+            statusStore.RecordScanStarted(request.Folder.Path, startedAt);
+
+            try
+            {
+                WatchedFolderReconciliationResult result =
+                    await reconciliationService.ReconcileFolderAsync(request.Folder, cancellationToken);
+
+                DateTimeOffset completedAt = dateTimeProvider.UtcNow;
+                statusStore.RecordScanCompleted(request.Folder.Path, completedAt, result);
+
+                startupReconciledFolderKeys.Add(request.FolderKey);
+
+                statusStore.SetGlobalPendingEvents(debounceBuffer.PendingCount);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(
+                    exception,
+                    "Failed to perform startup reconciliation scan for watched folder {FolderPath}.",
+                    request.Folder.Path);
+
+                statusStore.RecordFolderError(
+                    request.Folder.Path,
+                    "Unable to scan watched folder on startup.",
+                    dateTimeProvider.UtcNow);
+            }
         }
     }
 
@@ -223,6 +300,7 @@ public sealed class WindowsFileWatcherHostedService(
         if (currentFilterContext is not null)
         {
             WatchedFileFilterResult result = filterService.Evaluate(filePath, currentFilterContext);
+
             if (!result.IsAllowed)
             {
                 return;
@@ -292,6 +370,7 @@ public sealed class WindowsFileWatcherHostedService(
         if (readyChanges.Count == 0)
         {
             statusStore.SetGlobalPendingEvents(debounceBuffer.PendingCount);
+
             return;
         }
 
@@ -346,12 +425,15 @@ public sealed class WindowsFileWatcherHostedService(
 
     private void StopWatcher(string folderKey)
     {
+        startupReconciledFolderKeys.Remove(folderKey);
+
         if (!watchers.Remove(folderKey, out WatcherRegistration? registration))
         {
             return;
         }
 
         statusStore.SetFolderWatching(registration.FolderPath, isWatching: false);
+
         registration.Watcher.Dispose();
     }
 
@@ -361,6 +443,8 @@ public sealed class WindowsFileWatcherHostedService(
         {
             StopWatcher(watcherKey);
         }
+
+        startupReconciledFolderKeys.Clear();
     }
 
     private static string? TryNormalizePath(string path)
@@ -385,10 +469,9 @@ public sealed class WindowsFileWatcherHostedService(
         }
     }
 
-    private static StringComparer PathComparer =>
-        OperatingSystem.IsWindows()
-            ? StringComparer.OrdinalIgnoreCase
-            : StringComparer.Ordinal;
+    private static StringComparer PathComparer => OperatingSystem.IsWindows()
+        ? StringComparer.OrdinalIgnoreCase
+        : StringComparer.Ordinal;
 
     private static WatchedFoldersSettingsDto CreateDisabledWatchedFolderSettings()
     {
@@ -398,6 +481,10 @@ public sealed class WindowsFileWatcherHostedService(
             DeletePolicy: "MarkDeleted",
             Folders: []);
     }
+
+    private sealed record StartupReconciliationRequest(
+        WatchedFolderDto Folder,
+        string FolderKey);
 
     private sealed record WatcherRegistration(
         string FolderPath,

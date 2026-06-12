@@ -1,33 +1,12 @@
+using System.Net;
+using System.Net.Sockets;
 using KnowledgeApp.Bootstrap;
 using KnowledgeApp.LocalApi;
 using KnowledgeApp.LocalApi.Endpoints;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-string? configuredUrls =
-    Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
-    ?? Environment.GetEnvironmentVariable("URLS")
-    ?? Environment.GetEnvironmentVariable("Urls");
-
-if (!string.IsNullOrWhiteSpace(configuredUrls))
-{
-    builder.WebHost.UseUrls(configuredUrls);
-}
-else
-{
-    int port = 49321;
-    try
-    {
-        using var socket = new System.Net.Sockets.Socket(System.Net.Sockets.AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
-        socket.Bind(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, port));
-    }
-    catch
-    {
-        port = 0; // Fallback to dynamic port
-    }
-
-    builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
-}
+ConfigureLocalApiUrls(builder);
 
 builder.AddKnowledgeAppBootstrap();
 
@@ -37,12 +16,12 @@ builder.Services.AddOpenApi(ApiVersions.V1DocumentName, options =>
     {
         document.Info.Title = "LocalMind Local API";
         document.Info.Version = ApiVersions.V1DocumentName;
-        document.Info.Description =
-            "Local desktop backend for documents, notes, semantic search, RAG chat, runtime diagnostics, and settings.";
+        document.Info.Description = "Local desktop backend for documents, notes, semantic search, RAG chat, runtime diagnostics, and settings.";
 
         return Task.CompletedTask;
     });
 });
+
 builder.Services.AddHostedService<KnowledgeApp.LocalApi.Services.SidecarPortWriter>();
 
 WebApplication app = builder.Build();
@@ -67,5 +46,56 @@ apiV1.MapWatchedFolderEndpoints();
 apiV1.MapSyncEndpoints();
 
 app.Run();
+
+static void ConfigureLocalApiUrls(WebApplicationBuilder builder)
+{
+    string? supervisedPort = Environment.GetEnvironmentVariable("LOCALMIND_LOCAL_API_PORT");
+
+    if (ushort.TryParse(supervisedPort, out ushort port) && port > 0)
+    {
+        builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
+        return;
+    }
+
+    if (HasConfiguredUrls(builder))
+    {
+        return;
+    }
+
+    int fallbackPort = 49321;
+
+    if (!IsPortAvailable(fallbackPort))
+    {
+        fallbackPort = 0;
+    }
+
+    builder.WebHost.UseUrls($"http://127.0.0.1:{fallbackPort}");
+}
+
+static bool HasConfiguredUrls(WebApplicationBuilder builder)
+{
+    return !string.IsNullOrWhiteSpace(builder.Configuration["urls"])
+        || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URLS"))
+        || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DOTNET_URLS"));
+}
+
+static bool IsPortAvailable(int port)
+{
+    try
+    {
+        using Socket socket = new Socket(
+            AddressFamily.InterNetwork,
+            SocketType.Stream,
+            ProtocolType.Tcp);
+
+        socket.Bind(new IPEndPoint(IPAddress.Loopback, port));
+
+        return true;
+    }
+    catch
+    {
+        return false;
+    }
+}
 
 public partial class Program;

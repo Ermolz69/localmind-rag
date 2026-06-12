@@ -25,7 +25,7 @@ SQLite is the local database for buckets, documents, notes, chats, ingestion job
 | `buckets` | User-created document/note grouping. |
 | `documents`, `document_files` | Document metadata and managed local file references. |
 | `ingestion_jobs` | Durable ingestion lifecycle, progress, retry/cancel state, and sanitized failures. |
-| `document_chunks`, `document_embeddings` | Searchable chunks and local embedding vectors. |
+| `document_chunks`, `document_embeddings`, `document_chunks_fts` | Searchable chunks, local embedding vectors, and SQLite FTS/BM25 keyword index rows. |
 | `notes`, `note_links` | Local notes and note relationships. |
 | `conversations`, `chat_messages` | RAG chat history. |
 | `app_settings` | Local settings such as selected bucket and runtime preferences. |
@@ -33,7 +33,7 @@ SQLite is the local database for buckets, documents, notes, chats, ingestion job
 
 ## Files And Indexes
 
-Portable mode stores runtime data under `runtime/app`:
+SQLite stores the FTS virtual table in the local database. Portable mode stores runtime files under `runtime/app`:
 
 ```text
 runtime/app/data      SQLite database

@@ -27,13 +27,17 @@ impl LocalApiSupervisor {
 
         AppRuntimeInfo {
             local_api_status: state.status,
-            base_url: state.override_url.clone().or_else(|| state.port.map(local_api_base_url)),
+            base_url: state
+                .override_url
+                .clone()
+                .or_else(|| state.port.map(local_api_base_url)),
             pid: state.child.as_ref().map(std::process::Child::id),
             logs_path: paths::logs_dir(&root).display().to_string(),
             app_data_path: paths::app_data_dir(&root).display().to_string(),
             last_error: state.last_error.clone(),
             desktop_mode: state.desktop_mode,
-            api_available: state.status == LocalApiStatus::Ready && (state.port.is_some() || state.override_url.is_some()),
+            api_available: state.status == LocalApiStatus::Ready
+                && (state.port.is_some() || state.override_url.is_some()),
         }
     }
 
@@ -57,7 +61,7 @@ impl LocalApiSupervisor {
                 &root,
                 &format!("Using external LocalApi override from environment: {override_url}"),
             );
-            
+
             let (generation, token) = {
                 let mut state = self.state.lock().expect("supervisor state poisoned");
                 state.status = LocalApiStatus::Ready;
@@ -68,7 +72,7 @@ impl LocalApiSupervisor {
                 state.instance_token = None;
                 (state.monitor_generation, String::new())
             };
-            
+
             self.emit_status(&app);
             self.spawn_monitor(app, root, override_url, token, generation, attempt);
             return;
@@ -86,7 +90,10 @@ impl LocalApiSupervisor {
             Ok((child, description)) => {
                 paths::write_sidecar_log(
                     &root,
-                    &format!("Starting LocalApi with command: {description} (Attempt {})", attempt),
+                    &format!(
+                        "Starting LocalApi with command: {description} (Attempt {})",
+                        attempt
+                    ),
                 );
 
                 let generation = {
@@ -102,7 +109,14 @@ impl LocalApiSupervisor {
                 };
 
                 self.emit_status(&app);
-                self.spawn_monitor(app, root, local_api_base_url(port), token, generation, attempt);
+                self.spawn_monitor(
+                    app,
+                    root,
+                    local_api_base_url(port),
+                    token,
+                    generation,
+                    attempt,
+                );
             }
             Err(error) => {
                 paths::write_sidecar_log(&root, &format!("Spawn failed: {}", error.message()));
@@ -231,7 +245,7 @@ impl LocalApiSupervisor {
             {
                 let supervisor = app.state::<LocalApiSupervisor>();
                 let mut state = supervisor.state.lock().expect("supervisor state poisoned");
-                
+
                 if !state.monitor_running || state.monitor_generation != generation {
                     return;
                 }

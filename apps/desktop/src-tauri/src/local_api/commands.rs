@@ -70,8 +70,14 @@ pub fn copy_diagnostics_to_clipboard(
 
     let os_name = std::env::consts::OS;
     let arch = std::env::consts::ARCH;
-    let cwd = std::env::current_dir().unwrap_or_default().display().to_string();
-    let exe = std::env::current_exe().unwrap_or_default().display().to_string();
+    let cwd = std::env::current_dir()
+        .unwrap_or_default()
+        .display()
+        .to_string();
+    let exe = std::env::current_exe()
+        .unwrap_or_default()
+        .display()
+        .to_string();
 
     let binary_exists = paths::local_api_binary_path(&root).exists();
     let project_exists = paths::local_api_project_path(&root).exists();
@@ -83,7 +89,9 @@ pub fn copy_diagnostics_to_clipboard(
         .as_secs();
 
     let mut log_tail = String::new();
-    if let Ok(content) = std::fs::read_to_string(paths::logs_dir(&root).join("localapi-sidecar.log")) {
+    if let Ok(content) =
+        std::fs::read_to_string(paths::logs_dir(&root).join("localapi-sidecar.log"))
+    {
         let lines: Vec<&str> = content.lines().collect();
         let tail = if lines.len() > 20 {
             &lines[lines.len() - 20..]
@@ -119,7 +127,8 @@ pub fn copy_diagnostics_to_clipboard(
         {}",
         timestamp,
         version,
-        os_name, arch,
+        os_name,
+        arch,
         cwd,
         exe,
         root.display(),
@@ -129,7 +138,9 @@ pub fn copy_diagnostics_to_clipboard(
         binary_exists,
         project_exists,
         info.local_api_status,
-        info.pid.map(|p| p.to_string()).unwrap_or_else(|| "None".to_string()),
+        info.pid
+            .map(|p| p.to_string())
+            .unwrap_or_else(|| "None".to_string()),
         info.base_url.unwrap_or_else(|| "None".to_string()),
         info.logs_path,
         info.app_data_path,

@@ -1,3 +1,4 @@
+use serde::Serialize;
 use std::{
     env,
     fs::{self, File, OpenOptions},
@@ -5,12 +6,12 @@ use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
-use serde::Serialize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum RuntimeRootMode {
     DevelopmentRepository,
     Portable,
+    #[allow(dead_code)]
     InstalledAppData,
 }
 

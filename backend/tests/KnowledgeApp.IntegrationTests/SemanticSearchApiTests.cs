@@ -69,7 +69,53 @@ public sealed class SemanticSearchApiTests : IClassFixture<LocalApiTestFactory>
         Assert.Equal(relevant.DocumentId, results.Sources[0].DocumentId);
         Assert.Equal(relevant.ChunkId, results.Sources[0].ChunkId);
         Assert.Equal("Semantic needle snippet", results.Sources[0].Snippet);
-        Assert.True(results.Sources[0].Score > 0.99);
+        Assert.True(results.Sources[0].Score > 0);
+    }
+
+    [Fact]
+    public async Task SemanticSearch_Should_Promote_Exact_Keyword_Match_From_FullText_Index()
+    {
+        using HttpClient? client = factory.CreateClient();
+
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
+        AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        IEmbeddingGenerator? embeddings =
+            scope.ServiceProvider.GetRequiredService<IEmbeddingGenerator>();
+        IFullTextChunkIndex fullTextIndex =
+            scope.ServiceProvider.GetRequiredService<IFullTextChunkIndex>();
+
+        string token = $"UniqueToken{Guid.NewGuid():N}";
+        float[] queryVector = await embeddings.GenerateAsync(token);
+
+        await AddEmbeddedChunkAsync(
+            db,
+            "Vector-only document",
+            "Semantically close but does not contain the token.",
+            queryVector);
+
+        (Guid DocumentId, Guid ChunkId) keywordMatch = await AddEmbeddedChunkAsync(
+            db,
+            "Keyword document",
+            $"Use {token} when calling protected local endpoints.",
+            new float[queryVector.Length]);
+
+        await fullTextIndex.SyncDocumentAsync(keywordMatch.DocumentId);
+
+        using HttpResponseMessage? response =
+            await client.PostAsJsonAsync(
+                "/api/v1/search/semantic",
+                new SemanticSearchRequest(token, Limit: 2));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        SemanticSearchResponse? results =
+            await response.Content.ReadApiDataAsync<SemanticSearchResponse>();
+
+        Assert.NotNull(results);
+        Assert.NotEmpty(results.Sources);
+        Assert.Equal(keywordMatch.DocumentId, results.Sources[0].DocumentId);
+        Assert.Equal(keywordMatch.ChunkId, results.Sources[0].ChunkId);
     }
 
     [Fact]
