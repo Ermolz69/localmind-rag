@@ -1,12 +1,4 @@
-export type RagSource = {
-  documentId: string;
-  documentName: string;
-  chunkId: string;
-  pageNumber: number | null;
-  score: number;
-  snippet: string;
-};
+import type { Schema } from "@shared/contracts";
 
-export type SemanticSearchResponse = {
-  sources: RagSource[];
-};
+export type RagSource = Schema<"RagSourceDto">;
+export type SemanticSearchResponse = Schema<"SemanticSearchResponse">;

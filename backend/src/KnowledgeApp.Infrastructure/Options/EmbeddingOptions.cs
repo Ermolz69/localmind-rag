@@ -13,4 +13,6 @@ public sealed class EmbeddingOptions
     public string ModelsPath { get; set; } = "runtime/ai/models";
 
     public int TopK { get; set; } = 40;
+
+    public int EmbeddingBatchSize { get; set; } = 16;
 }

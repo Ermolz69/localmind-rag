@@ -15,7 +15,7 @@ public sealed class LlamaCppEmbeddingGenerator(
     HttpClient httpClient,
     IOptions<RuntimeOptions> runtimeOptions,
     IOptions<EmbeddingOptions> embeddingOptions,
-    EmbeddingModelCatalog catalog) : IEmbeddingGenerator
+    EmbeddingModelCatalog catalog) : IBatchEmbeddingGenerator
 {
     private static readonly JsonSerializerOptions SerializerOptions =
         new(JsonSerializerDefaults.Web);
@@ -37,10 +37,27 @@ public sealed class LlamaCppEmbeddingGenerator(
             return [];
         }
 
+        IReadOnlyList<float[]> embeddings = await GenerateBatchAsync([text], cancellationToken);
+        return embeddings[0];
+    }
+
+    public async Task<IReadOnlyList<float[]>> GenerateBatchAsync(
+        IReadOnlyList<string> texts,
+        CancellationToken cancellationToken = default)
+    {
+        if (texts.Count == 0)
+        {
+            return [];
+        }
+
+        if (texts.Any(string.IsNullOrWhiteSpace))
+        {
+            throw CreateExternalDependencyException(
+                "llama.cpp embeddings request cannot include empty input.");
+        }
+
         Uri requestUri = BuildUri("/v1/embeddings");
-
-        EmbeddingRequest request = new(ModelName, text);
-
+        EmbeddingRequest request = new(ModelName, texts);
         using HttpResponseMessage response = await httpClient.PostAsJsonAsync(
             requestUri,
             request,
@@ -60,21 +77,49 @@ public sealed class LlamaCppEmbeddingGenerator(
                 SerializerOptions,
                 cancellationToken);
 
-        float[]? result = payload?.Data.FirstOrDefault()?.Embedding;
+        IReadOnlyList<EmbeddingResponseData>? data = payload?.Data;
 
-        if (result is null || result.Length == 0)
+        if (data is null || data.Count != texts.Count)
         {
             throw CreateExternalDependencyException(
-                "llama.cpp embeddings response did not contain an embedding vector.");
+                $"llama.cpp embeddings response count mismatch. Expected {texts.Count}, got {data?.Count ?? 0}.");
         }
 
-        if (result.Length != manifest.Dimension)
+        List<float[]> results = new(data.Count);
+        bool[] seen = new bool[texts.Count];
+
+        foreach (EmbeddingResponseData item in data.OrderBy(item => item.Index))
+        {
+            if (item.Index < 0 || item.Index >= texts.Count || seen[item.Index])
+            {
+                throw CreateExternalDependencyException(
+                    $"llama.cpp embeddings response contained invalid or duplicate index {item.Index}.");
+            }
+
+            seen[item.Index] = true;
+
+            if (item.Embedding.Length == 0)
+            {
+                throw CreateExternalDependencyException(
+                    "llama.cpp embeddings response did not contain an embedding vector.");
+            }
+
+            if (item.Embedding.Length != manifest.Dimension)
+            {
+                throw CreateExternalDependencyException(
+                    $"llama.cpp embeddings response dimension mismatch. Expected {manifest.Dimension}, got {item.Embedding.Length}.");
+            }
+
+            results.Add(item.Embedding);
+        }
+
+        if (results.Count != texts.Count)
         {
             throw CreateExternalDependencyException(
-                $"llama.cpp embeddings response dimension mismatch. Expected {manifest.Dimension}, got {result.Length}.");
+                $"llama.cpp embeddings response count mismatch. Expected {texts.Count}, got {results.Count}.");
         }
 
-        return result;
+        return results;
     }
 
     private Uri BuildUri(string path)
@@ -96,12 +141,13 @@ public sealed class LlamaCppEmbeddingGenerator(
 
     private sealed record EmbeddingRequest(
         [property: JsonPropertyName("model")] string Model,
-        [property: JsonPropertyName("input")] string Input);
+        [property: JsonPropertyName("input")] IReadOnlyList<string> Input);
 
     private sealed record EmbeddingResponse(
         [property: JsonPropertyName("data")]
         IReadOnlyList<EmbeddingResponseData> Data);
 
     private sealed record EmbeddingResponseData(
+        [property: JsonPropertyName("index")] int Index,
         [property: JsonPropertyName("embedding")] float[] Embedding);
 }

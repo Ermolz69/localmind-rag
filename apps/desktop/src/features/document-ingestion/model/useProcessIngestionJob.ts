@@ -17,11 +17,14 @@ export function useProcessIngestionJob({
   >(null);
 
   const processMutation = useApiMutation(
-    async (documentId: string, ingestionJobId?: string) => {
+    async (documentId: string, ingestionJobId?: string | null) => {
       let jobId = ingestionJobId;
       if (!jobId) {
         const reindex = await documentsApi.reindexDocument(documentId);
         jobId = reindex.ingestionJobId;
+      }
+      if (!jobId) {
+        throw new Error("Backend did not return an ingestion job identifier.");
       }
       await documentsApi.processIngestionJob(jobId);
     },
@@ -53,7 +56,7 @@ export function useProcessIngestionJob({
 
   async function processUploadedDocument(
     documentId: string,
-    ingestionJobId: string,
+    ingestionJobId: string | null,
     onComplete: () => void,
   ) {
     setProcessingDocumentId(documentId);

@@ -19,7 +19,7 @@ export function useConversationList() {
     error: queryError,
     loadMore: loadMoreChats,
   } = useCursorPage<ChatConversation>(
-    (cursor) => chatsApi.getChats({ cursor, limit: 30 }),
+    (cursor) => chatsApi.getChats({ cursor: cursor ?? undefined, limit: 30 }),
     "Failed to load conversations.",
   );
 

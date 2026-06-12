@@ -55,13 +55,3 @@ Request logging captures method, path, endpoint display name, status code, elaps
 
 Portable production keeps error/warning logs and moderate advanced events. Debug trace remains opt-in.
 
-## Scripts
-
-Scripts are grouped by purpose:
-
-- `scripts/check`: checks, color guard, local coverage.
-- `scripts/setup`: AI/runtime/OCR setup.
-- `scripts/package`: portable packaging and smoke tests.
-- `scripts/dev`: development startup helpers.
-
-Root wrapper scripts are preserved for compatibility, so existing commands like `scripts/check.ps1`, `scripts/package.ps1`, and `pnpm check` still work.

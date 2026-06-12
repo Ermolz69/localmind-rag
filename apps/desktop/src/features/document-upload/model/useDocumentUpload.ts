@@ -23,7 +23,8 @@ export function useDocumentUpload({
   const [isDragging, setIsDragging] = useState(false);
 
   const uploadMutation = useApiMutation(
-    (file: File) => documentsApi.uploadDocument(file, selectedBucketId || null),
+    (file: File) =>
+      documentsApi.uploadDocument(file, selectedBucketId || undefined),
     { fallbackError: "Upload failed." },
   );
 

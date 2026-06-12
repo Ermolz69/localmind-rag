@@ -3,12 +3,8 @@ import type {
   AppSettings,
   WatchedFolderStatusResponse,
 } from "@entities/settings";
-import {
-  diagnosticsApi,
-  getFieldErrors,
-  settingsApi,
-  watchedFoldersApi,
-} from "@shared/api";
+import { toAppSettings, toAppSettingsDto } from "@entities/settings";
+import { getFieldErrors, settingsApi, watchedFoldersApi } from "@shared/api";
 import { useApiMutation, useApiQuery } from "@shared/lib/hooks";
 import { useTheme } from "@shared/theme/theme-provider";
 
@@ -28,16 +24,13 @@ export function useSettingsForm() {
     reload: load,
   } = useApiQuery(
     async () => {
-      const [nextSettings, nextDiagnostics, nextWatchedFolderStatus] =
-        await Promise.all([
-          settingsApi.getSettings(),
-          diagnosticsApi.getDiagnostics(),
-          watchedFoldersApi.getStatus().catch(() => null),
-        ]);
+      const [nextSettings, nextWatchedFolderStatus] = await Promise.all([
+        settingsApi.getSettings().then(toAppSettings),
+        watchedFoldersApi.getStatus().catch(() => null),
+      ]);
 
       return {
         settings: nextSettings,
-        diagnostics: nextDiagnostics,
         watchedFolderStatus: nextWatchedFolderStatus,
       };
     },
@@ -61,7 +54,8 @@ export function useSettingsForm() {
   }, [data, hasLocalChanges]);
 
   const saveMutation = useApiMutation(
-    (nextSettings: AppSettings) => settingsApi.saveSettings(nextSettings),
+    (nextSettings: AppSettings) =>
+      settingsApi.saveSettings(toAppSettingsDto(nextSettings)),
     { fallbackError: "Unable to save settings." },
   );
 
@@ -96,7 +90,6 @@ export function useSettingsForm() {
   }
 
   return {
-    diagnostics: data?.diagnostics ?? null,
     draft,
     error: queryError ?? saveMutation.error,
     fieldErrors,

@@ -1,28 +1,10 @@
-export type NoteDto = {
-  id: string;
-  title: string;
-  markdown: string;
-  bucketId: string | null;
-  tags?: Record<string, string> | null;
-};
+import type {
+  OperationJsonBody,
+  OperationQuery,
+  Schema,
+} from "@shared/contracts";
 
-export type GetNotesRequest = {
-  bucketId?: string | null;
-  query?: string | null;
-  cursor?: string | null;
-  limit?: number;
-};
-
-export type CreateNoteRequest = {
-  title: string;
-  markdown: string;
-  bucketId?: string | null;
-  tags?: Record<string, string> | null;
-};
-
-export type UpdateNoteRequest = {
-  title: string;
-  markdown: string;
-  bucketId?: string | null;
-  tags?: Record<string, string> | null;
-};
+export type NoteDto = Schema<"NoteDto">;
+export type GetNotesRequest = OperationQuery<"ListNotes">;
+export type CreateNoteRequest = OperationJsonBody<"CreateNote">;
+export type UpdateNoteRequest = OperationJsonBody<"UpdateNote">;

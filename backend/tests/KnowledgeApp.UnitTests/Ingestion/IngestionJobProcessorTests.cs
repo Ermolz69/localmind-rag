@@ -3,6 +3,7 @@ using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Abstractions.Ingestion;
 using KnowledgeApp.Application.Ingestion.IncrementalIndexing;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
@@ -289,7 +290,7 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
                     Options.Create(new OcrOptions { Enabled = false })),
                 new DocxTextExtractor(),
                 new PptxTextExtractor()),
-            new SimpleDocumentChunker(),
+            new FakeDocumentChunker(),
             new DocumentEmbeddingService(
                 new StubEmbeddingGenerator(),
                 new FixedDateTimeProvider()),
@@ -441,6 +442,30 @@ public sealed class IngestionJobProcessorTests : IAsyncDisposable
         }
 
         return stream.ToArray();
+    }
+
+    private sealed class FakeDocumentChunker : IDocumentChunker
+    {
+        public IReadOnlyList<DocumentChunkText> SplitDetailed(string text)
+        {
+            return new[]
+            {
+                new DocumentChunkText(
+                    Text: text,
+                    CoreText: text,
+                    HasOverlap: false,
+                    HeadingPath: null,
+                    SectionTitle: null,
+                    ChunkType: "unknown",
+                    SourceStartOffset: null,
+                    SourceEndOffset: null,
+                    TokenCount: 10,
+                    TokenizerId: "test-tokenizer",
+                    ChunkingAlgorithmId: "test-alg",
+                    ChunkIdentityHash: text,
+                    EmbeddingTextHash: text)
+            };
+        }
     }
 
     private sealed class FixedDateTimeProvider : IDateTimeProvider

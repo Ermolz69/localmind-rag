@@ -1,6 +1,5 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
 import { EventsService } from '../events/events.service';
 
 @Injectable()
@@ -31,7 +30,11 @@ export class UsersService {
       },
     });
 
-    this.events.emitEvent('auth.user.created', { id: user.id, email: user.email, role: user.role });
+    this.events.emitEvent('auth.user.created', {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
     return user;
   }
 }

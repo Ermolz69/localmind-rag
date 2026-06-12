@@ -3,12 +3,14 @@ import { Select } from "@shared/ui";
 
 type BucketSelectorProps = {
   buckets: BucketDto[];
+  disabled?: boolean;
   value: string | null;
   onChange: (bucketId: string | null) => void;
 };
 
 export function BucketSelector({
   buckets,
+  disabled = false,
   value,
   onChange,
 }: BucketSelectorProps) {
@@ -16,6 +18,7 @@ export function BucketSelector({
     <label className="flex flex-col gap-2 text-sm">
       <span className="font-medium">Bucket</span>
       <Select
+        disabled={disabled}
         value={value ?? ""}
         onChange={(event) => onChange(event.target.value || null)}
       >

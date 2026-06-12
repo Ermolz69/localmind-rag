@@ -24,27 +24,41 @@ export class SessionsService {
       },
     });
 
-    this.events.emitEvent('auth.session.created', { sessionId: session.id, userId, deviceId });
+    this.events.emitEvent('auth.session.created', {
+      sessionId: session.id,
+      userId,
+      deviceId,
+    });
     return session;
   }
 
   async validateSession(sessionId: string, plainRefreshToken: string) {
-    const session = await this.prisma.session.findUnique({ where: { id: sessionId } });
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+    });
     if (!session || session.expiresAt < new Date()) {
       return null;
     }
-    
-    const isValid = await bcrypt.compare(plainRefreshToken, session.refreshTokenHash);
+
+    const isValid = await bcrypt.compare(
+      plainRefreshToken,
+      session.refreshTokenHash,
+    );
     if (!isValid) {
       return null;
     }
-    
+
     return session;
   }
 
   async revokeSession(sessionId: string) {
-    const session = await this.prisma.session.delete({ where: { id: sessionId } });
-    this.events.emitEvent('auth.session.revoked', { sessionId: session.id, userId: session.userId });
+    const session = await this.prisma.session.delete({
+      where: { id: sessionId },
+    });
+    this.events.emitEvent('auth.session.revoked', {
+      sessionId: session.id,
+      userId: session.userId,
+    });
     return session;
   }
 

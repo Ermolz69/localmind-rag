@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Abstractions.Ingestion;
 using KnowledgeApp.Application.Ingestion.IncrementalIndexing;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
@@ -330,11 +331,25 @@ public sealed class IncrementalIngestionJobProcessorTests : IAsyncDisposable
 
     private sealed class PipeSeparatedChunker : IDocumentChunker
     {
-        public IReadOnlyList<string> Split(string text)
+        public IReadOnlyList<DocumentChunkText> SplitDetailed(string text)
         {
             return text
                 .Split("||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Where(chunk => !string.IsNullOrWhiteSpace(chunk))
+                .Select(chunk => new DocumentChunkText(
+                    Text: chunk,
+                    CoreText: chunk,
+                    HasOverlap: false,
+                    HeadingPath: null,
+                    SectionTitle: null,
+                    ChunkType: "unknown",
+                    SourceStartOffset: null,
+                    SourceEndOffset: null,
+                    TokenCount: 10,
+                    TokenizerId: "test-tokenizer",
+                    ChunkingAlgorithmId: "test-alg",
+                    ChunkIdentityHash: chunk,
+                    EmbeddingTextHash: chunk))
                 .ToArray();
         }
     }

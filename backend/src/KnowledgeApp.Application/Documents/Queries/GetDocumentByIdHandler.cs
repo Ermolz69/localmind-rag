@@ -32,6 +32,7 @@ public sealed class GetDocumentByIdHandler(
 
         return Result<DocumentDto>.Success(new DocumentDto(
             document.Id,
+            document.BucketId,
             document.Name,
             document.Status.ToString(),
             document.CreatedAt,

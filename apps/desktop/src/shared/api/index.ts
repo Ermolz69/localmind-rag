@@ -11,12 +11,12 @@ export type {
   ApiResponse,
   CursorPage,
   CursorPageRequest,
-  ProblemDetails,
 } from "./common";
 export { bucketsApi } from "./buckets";
 export { chatsApi } from "./chats";
 export { diagnosticsApi } from "./diagnostics";
 export { documentsApi } from "./documents";
+export { setApiBaseUrl } from "./http";
 export { healthApi } from "./health";
 export { notesApi } from "./notes";
 export { runtimeApi } from "./runtime";

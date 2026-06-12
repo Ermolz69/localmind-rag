@@ -124,7 +124,7 @@ OpenAPI is generated from `KnowledgeApp.LocalApi` during build and is not edited
 The shared generation script is:
 
 ```text
-scripts/openapi/generate-local-api-spec.ps1
+task openapi:generate
 ```
 
 Documentation generation uses the same script and writes its generated specification under:

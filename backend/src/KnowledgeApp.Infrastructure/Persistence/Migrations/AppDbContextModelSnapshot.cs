@@ -207,6 +207,9 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("CreatedAtUnixTimeMs")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("TEXT");
 
@@ -242,6 +245,8 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("BucketId");
 
+                    b.HasIndex("CreatedAtUnixTimeMs");
+
                     b.HasIndex("DeletedAt");
 
                     b.HasIndex("IndexedContentHash");
@@ -257,15 +262,46 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ChunkIdentityHash")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<string>("ChunkType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("unknown");
+
                     b.Property<int>("ChunkVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0);
 
+                    b.Property<string>("ChunkingAlgorithmId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("DocumentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EmbeddingTextHash")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<string>("HeadingPath")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Index")
@@ -277,11 +313,23 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.Property<int?>("PageNumber")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("SectionTitle")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("SourceEndOffset")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("SourceStartOffset")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Text")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("TextHash")
+                    b.Property<int>("TokenCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TokenizerId")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(64)
@@ -293,11 +341,21 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ChunkType");
+
                     b.HasIndex("DocumentId");
 
-                    b.HasIndex("TextHash");
+                    b.HasIndex("EmbeddingTextHash");
 
-                    b.HasIndex("DocumentId", "TextHash");
+                    b.HasIndex("TokenizerId");
+
+                    b.HasIndex("DocumentId", "ChunkIdentityHash");
+
+                    b.HasIndex("DocumentId", "ChunkVersion");
+
+                    b.HasIndex("DocumentId", "Index");
+
+                    b.HasIndex("EmbeddingTextHash", "ChunkVersion");
 
                     b.ToTable("document_chunks", (string)null);
                 });
@@ -547,6 +605,9 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("CreatedAtUnixTimeMs")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("TEXT");
 
@@ -573,6 +634,8 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BucketId");
+
+                    b.HasIndex("CreatedAtUnixTimeMs");
 
                     b.HasIndex("DeletedAt");
 

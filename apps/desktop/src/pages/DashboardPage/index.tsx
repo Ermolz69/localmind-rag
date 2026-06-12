@@ -1,4 +1,5 @@
 import { Activity, Database, HardDrive, WifiOff } from "lucide-react";
+import { DiagnosticsPanel } from "@features/diagnostics";
 
 const cards = [
   { label: "Local API", value: "Ready", icon: Activity },
@@ -30,6 +31,7 @@ export function DashboardPage() {
           </article>
         ))}
       </div>
+      <DiagnosticsPanel />
     </section>
   );
 }

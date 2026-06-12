@@ -35,7 +35,14 @@ public sealed class SemanticSearchHandler(
             }
 
             float[] vector = await embeddings.GenerateAsync(request.Query.Trim(), cancellationToken);
-            HybridSearchOptions options = new(request.Limit, request.BucketId, request.DocumentId, request.Tags);
+            HybridSearchOptions options = new(
+                request.Limit,
+                request.BucketId,
+                request.DocumentId,
+                request.Tags,
+                request.DateFrom,
+                request.DateTo,
+                request.FileType);
             IReadOnlyList<HybridSearchResult> results = await search.SearchAsync(
                 request.Query.Trim(),
                 vector,

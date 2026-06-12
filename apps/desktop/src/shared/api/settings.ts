@@ -1,12 +1,12 @@
-import type { AppSettings } from "@entities/settings";
+import type { OperationData, OperationJsonBody } from "@shared/contracts";
 
 import { request } from "./http";
 
 export const settingsApi = {
-  getSettings: () => request<AppSettings>("/settings"),
+  getSettings: () => request<OperationData<"GetSettings">>("/settings"),
 
-  saveSettings: (settings: AppSettings) =>
-    request<void>("/settings", {
+  saveSettings: (settings: OperationJsonBody<"UpdateSettings">) =>
+    request<OperationData<"UpdateSettings">>("/settings", {
       method: "PUT",
       body: JSON.stringify(settings),
     }),

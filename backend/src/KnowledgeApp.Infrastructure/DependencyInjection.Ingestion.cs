@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Abstractions.Ingestion;
 using KnowledgeApp.Application.Ingestion.IncrementalIndexing;
 using KnowledgeApp.Application.Ingestion.WatchedFolders;
 using KnowledgeApp.Infrastructure.Services.WatchedFolders;
@@ -28,7 +29,12 @@ public static partial class DependencyInjection
         services.AddSingleton<DocxTextExtractor>();
         services.AddSingleton<PptxTextExtractor>();
         services.AddSingleton<IDocumentTextExtractorFactory, DocumentTextExtractorFactory>();
-        services.AddSingleton<IDocumentChunker, SimpleDocumentChunker>();
+
+        services.AddSingleton<KnowledgeApp.Application.Abstractions.Ingestion.ITokenizerService, KnowledgeApp.Infrastructure.Services.Ingestion.Tokenizers.MicrosoftMlTokenizerService>();
+        services.AddSingleton<KnowledgeApp.Application.Abstractions.Ingestion.IChunkTextNormalizer, KnowledgeApp.Infrastructure.Services.Ingestion.Chunking.ChunkTextNormalizer>();
+        services.AddSingleton<KnowledgeApp.Infrastructure.Services.Ingestion.Chunking.ITextStructureParser, KnowledgeApp.Infrastructure.Services.Ingestion.Chunking.MarkdownBlockParser>();
+        services.AddSingleton<IDocumentChunker, KnowledgeApp.Infrastructure.Services.Ingestion.Chunking.StructureAwareTokenChunker>();
+
         services.AddSingleton<IContentHashService, Sha256ContentHashService>();
         services.AddSingleton<IFileWatcherDebounceBuffer, FileWatcherDebounceBuffer>();
 

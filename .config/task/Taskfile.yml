@@ -16,7 +16,7 @@ tasks:
   # === SETUP TASKS ===
   setup:
     desc: Complete developer environment setup
-    deps: [setup:backend, setup:frontend, setup:ai, setup:ocr]
+    deps: [setup:backend, setup:frontend, setup:rust, setup:ai, setup:ocr]
 
   setup:backend:
     desc: Restore backend projects and tools
@@ -29,6 +29,26 @@ tasks:
     cmds:
       - cd "{{.ROOT_DIR}}" && pnpm install --frozen-lockfile
 
+  setup:rust:
+    desc: Installs Rust formatter and clippy components
+    cmds:
+      - rustup component add rustfmt clippy
+
+  # === DEVELOPMENT TASKS ===
+  dev:
+    desc: Runs the desktop app through Tauri; Rust supervises LocalApi
+    deps: [dev:desktop]
+
+  dev:desktop:
+    desc: Runs the Tauri desktop app with LocalApi supervision
+    cmds:
+      - cd "{{.ROOT_DIR}}" && pnpm --filter desktop tauri dev
+
+  dev:frontend:
+    desc: Runs only the Vite frontend without the Tauri desktop shell
+    cmds:
+      - cd "{{.ROOT_DIR}}" && pnpm --filter desktop dev
+
   setup:ai:
     desc: Sets up AI runtime and models
     deps: [setup:ai-runtime, setup:ai-models]
@@ -36,7 +56,15 @@ tasks:
   setup:ai-runtime:
     desc: Sets up local AI runtime binaries (llama.cpp)
     cmds:
-      - cmd: cd "{{.ROOT_DIR}}" && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup/setup-ai-runtime.ps1
+      - cmd: |
+          cd "{{.ROOT_DIR}}"
+          mkdir -p runtime/ai/bin runtime/ai/.tmp
+          if [ ! -f runtime/ai/bin/llama-server.exe ]; then
+            curl -L -f --retry 3 --retry-delay 2 -o runtime/ai/.tmp/llama.zip https://github.com/ggml-org/llama.cpp/releases/download/b9222/llama-b9222-bin-win-vulkan-x64.zip
+            tar -xf runtime/ai/.tmp/llama.zip -C runtime/ai/.tmp/
+            cp -r runtime/ai/.tmp/llama-b9222-bin-win-vulkan-x64/* runtime/ai/bin/ || true
+            rm -rf runtime/ai/.tmp
+          fi
         platforms: [windows]
       - cmd: echo "On Linux/macOS, please ensure llama-server is installed in your PATH or compiled."
         platforms: [linux, darwin]
@@ -44,20 +72,35 @@ tasks:
   setup:ai-models:
     desc: Download required local AI GGUF models
     cmds:
-      - cmd: cd "{{.ROOT_DIR}}" && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup/setup-ai-models.ps1
-        platforms: [windows]
       - cmd: |
           cd "{{.ROOT_DIR}}"
           mkdir -p runtime/ai/models
           if [ ! -f runtime/ai/models/bge-m3-Q4_K_M.gguf ]; then
-            curl -L -o runtime/ai/models/bge-m3-Q4_K_M.gguf https://huggingface.co/gpustack/bge-m3-GGUF/resolve/main/bge-m3-Q4_K_M.gguf
+            curl -L -f --retry 3 --retry-delay 2 -o runtime/ai/models/bge-m3-Q4_K_M.gguf https://huggingface.co/gpustack/bge-m3-GGUF/resolve/main/bge-m3-Q4_K_M.gguf
           fi
-        platforms: [linux, darwin]
 
   setup:ocr:
     desc: Sets up portable Tesseract OCR engine (Windows only)
     cmds:
-      - cmd: cd "{{.ROOT_DIR}}" && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup/setup-ocr.ps1
+      - cmd: |
+          cd "{{.ROOT_DIR}}"
+          mkdir -p runtime/ocr/bin runtime/ocr/tessdata
+          for lang in eng osd ukr; do
+            if [ ! -f runtime/ocr/tessdata/$lang.traineddata ]; then
+              curl -L -f -o runtime/ocr/tessdata/$lang.traineddata https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/$lang.traineddata
+            fi
+          done
+          if [ ! -f runtime/ocr/bin/tesseract.exe ]; then
+            if [ -f "C:/Program Files/Tesseract-OCR/tesseract.exe" ]; then
+              cp "C:/Program Files/Tesseract-OCR/tesseract.exe" runtime/ocr/bin/
+              cp "C:/Program Files/Tesseract-OCR/"*.dll runtime/ocr/bin/ || true
+            elif [ -f "C:/Program Files (x86)/Tesseract-OCR/tesseract.exe" ]; then
+              cp "C:/Program Files (x86)/Tesseract-OCR/tesseract.exe" runtime/ocr/bin/
+              cp "C:/Program Files (x86)/Tesseract-OCR/"*.dll runtime/ocr/bin/ || true
+            else
+              echo "Tesseract not found in Program Files. Install it manually or add to PATH."
+            fi
+          fi
         platforms: [windows]
       - cmd: echo "On Linux/macOS, please install tesseract-ocr using apt or brew."
         platforms: [linux, darwin]
@@ -76,6 +119,11 @@ tasks:
     desc: Builds the React desktop UI
     cmds:
       - cd "{{.ROOT_DIR}}" && pnpm --filter desktop build
+
+  build:tauri:
+    desc: Builds the Tauri desktop shell
+    cmds:
+      - cd "{{.ROOT_DIR}}" && pnpm --filter desktop tauri build
 
   # === TEST TASKS ===
   test:
@@ -158,6 +206,8 @@ tasks:
         check:frontend:format,
         check:frontend:lint,
         check:frontend:typecheck,
+        check:api-contracts,
+        check:rust,
         check:colors,
         check:docker,
       ]
@@ -189,7 +239,29 @@ tasks:
   check:colors:
     desc: Validates frontend files for hardcoded color values
     cmds:
-      - cd "{{.ROOT_DIR}}" && node scripts/check/check-colors.js
+      - cd "{{.ROOT_DIR}}" && node apps/desktop/scripts/check-colors.cjs
+
+  check:rust:
+    desc: Runs Rust formatting, clippy, and cargo check for the Tauri shell
+    cmds:
+      - task: check:rust:format
+      - task: check:rust:clippy
+      - task: check:rust:check
+
+  check:rust:format:
+    desc: Verifies Rust formatting
+    cmds:
+      - cd "{{.ROOT_DIR}}" && cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
+
+  check:rust:clippy:
+    desc: Lints Rust code with clippy
+    cmds:
+      - cd "{{.ROOT_DIR}}" && cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings
+
+  check:rust:check:
+    desc: Type-checks the Tauri Rust shell
+    cmds:
+      - cd "{{.ROOT_DIR}}" && cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 
   check:docker:
     desc: Validates Docker Compose configuration files
@@ -232,18 +304,101 @@ tasks:
       Ai__ModelsPath: "{{.RUNTIME_ROOT}}/ai/models"
       IngestionWorker__Enabled: "false"
     cmds:
-      - cmd: rm -rf {{dir .OUTPUT_FILE}} && mkdir -p {{dir .OUTPUT_FILE}} {{.RUNTIME_ROOT}}
+      - cmd: rm -rf "{{dir .OUTPUT_FILE}}" && mkdir -p "{{dir .OUTPUT_FILE}}" "{{.RUNTIME_ROOT}}"
       - cmd: dotnet build "{{.REPO_ROOT}}/backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj" -c Release --no-incremental /p:OpenApiGenerateDocuments=true /p:OpenApiOutputFolder="{{dir .OUTPUT_FILE}}"
       # Find generated JSON and move to final target path
-      - cmd: mv {{dir .OUTPUT_FILE}}/KnowledgeApp.LocalApi.json {{.OUTPUT_FILE}}
+      - cmd: mv "{{dir .OUTPUT_FILE}}/KnowledgeApp.LocalApi.json" "{{.OUTPUT_FILE}}"
+
+  api:generate:
+    desc: Generates the LocalApi OpenAPI specification and frontend TypeScript contracts
+    cmds:
+      - task: openapi:generate
+        vars:
+          OUTPUT_FILE: "{{.ROOT_DIR}}/artifacts/openapi/frontend/local-api-v1.json"
+          RUNTIME_ROOT: "{{.ROOT_DIR}}/artifacts/openapi/runtime/frontend"
+          DBNAME: "knowledge-app-frontend-openapi.db"
+      - cd "{{.ROOT_DIR}}" && pnpm --filter desktop generate:api
+
+  check:api-contracts:
+    desc: Verifies that committed frontend contracts match the generated LocalApi OpenAPI specification
+    cmds:
+      - task: api:generate
+      - cd "{{.ROOT_DIR}}" && git diff --exit-code -- apps/desktop/src/shared/contracts/generated.ts
 
   # === PACKAGING ===
   package:
     desc: Packages localmind into a portable Windows distribution (Windows only)
+    vars:
+      CONFIGURATION: '{{.CONFIGURATION | default "Release"}}'
+      RUNTIME_IDENTIFIER: '{{.RUNTIME_IDENTIFIER | default "win-x64"}}'
+      OUTPUT_DIR: '{{.OUTPUT_DIR | default "artifacts/localmind-portable-win-x64"}}'
     cmds:
-      - cd "{{.ROOT_DIR}}" && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package/package.ps1 -Configuration Release -RuntimeIdentifier win-x64 -OutputPath artifacts/localmind-portable-win-x64
+      - cmd: cd "{{.ROOT_DIR}}" && rm -rf "{{.OUTPUT_DIR}}"
+      - cmd: cd "{{.ROOT_DIR}}" && mkdir -p "{{.OUTPUT_DIR}}/bin" "{{.OUTPUT_DIR}}/config" "{{.OUTPUT_DIR}}/runtime/app/data" "{{.OUTPUT_DIR}}/runtime/app/files" "{{.OUTPUT_DIR}}/runtime/app/indexes" "{{.OUTPUT_DIR}}/runtime/app/logs" "{{.OUTPUT_DIR}}/runtime/ai/bin" "{{.OUTPUT_DIR}}/runtime/ai/models"
+      - cmd: cd "{{.ROOT_DIR}}" && dotnet publish backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj -c {{.CONFIGURATION}} -r {{.RUNTIME_IDENTIFIER}} --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o "{{.OUTPUT_DIR}}/bin"
+      - cmd: cd "{{.ROOT_DIR}}" && pnpm --filter desktop run tauri build --no-bundle
+      - cmd: cd "{{.ROOT_DIR}}" && cp apps/desktop/src-tauri/target/release/localmind.exe "{{.OUTPUT_DIR}}/localmind.exe"
+      - cmd: cd "{{.ROOT_DIR}}" && cp backend/src/KnowledgeApp.LocalApi/appsettings.json "{{.OUTPUT_DIR}}/config/appsettings.json"
+      - cmd: cd "{{.ROOT_DIR}}" && cp backend/src/KnowledgeApp.LocalApi/appsettings.json "{{.OUTPUT_DIR}}/appsettings.json"
+      - cmd: cd "{{.ROOT_DIR}}" && cp -r runtime/ai/bin/* "{{.OUTPUT_DIR}}/runtime/ai/bin/" 2>/dev/null || true
+      - cmd: cd "{{.ROOT_DIR}}" && cp -r runtime/ai/models/* "{{.OUTPUT_DIR}}/runtime/ai/models/" 2>/dev/null || true
+      - cmd: |
+          cd "{{.ROOT_DIR}}"
+          cat << 'EOF' > "{{.OUTPUT_DIR}}/README.txt"
+          localmind portable
+
+          Contents:
+          - localmind.exe: Tauri desktop shell
+          - bin/KnowledgeApp.LocalApi.exe: local API sidecar
+          - runtime/app/: portable SQLite, files, indexes, logs
+          - runtime/ai/: local AI runtime binaries and models after first-run setup
+          - config/appsettings.json: portable runtime settings
+
+          Run localmind.exe. The desktop shell starts the LocalApi sidecar automatically.
+          If local AI assets are missing, use the in-app first-run AI setup action.
+          EOF
+      - cmd: |
+          cd "{{.ROOT_DIR}}"
+          cat << 'EOF' > "{{.OUTPUT_DIR}}/.env.example"
+          KNOWLEDGE_APP_PORTABLE=true
+          LOCAL_API_URL=http://127.0.0.1:49321
+          LOCAL_STORAGE_PATH=runtime/app/files
+          LOCAL_DATABASE_PATH=runtime/app/data/knowledge-app.db
+          LOCAL_INDEX_PATH=runtime/app/indexes
+          EOF
+      - cmd: cd "{{.ROOT_DIR}}" && cd "{{dir .OUTPUT_DIR}}" && tar -a -c -f "{{base .OUTPUT_DIR}}.zip" "{{base .OUTPUT_DIR}}"
 
   package:smoke-test:
     desc: Smoke tests the packaged portable folder and zip (Windows only)
+    vars:
+      OUTPUT_DIR: '{{.OUTPUT_DIR | default "artifacts/localmind-portable-win-x64"}}'
     cmds:
-      - cd "{{.ROOT_DIR}}" && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package/test-portable-package.ps1 -PackagePath artifacts/localmind-portable-win-x64 -ZipPath artifacts/localmind-portable-win-x64.zip
+      - cmd: |
+          cd "{{.ROOT_DIR}}"
+          for path in \
+            "{{.OUTPUT_DIR}}/localmind.exe" \
+            "{{.OUTPUT_DIR}}/bin/KnowledgeApp.LocalApi.exe" \
+            "{{.OUTPUT_DIR}}/config/appsettings.json" \
+            "{{.OUTPUT_DIR}}/appsettings.json" \
+            "{{.OUTPUT_DIR}}/README.txt" \
+            "{{.OUTPUT_DIR}}.zip" \
+          ; do
+            if [ ! -s "$path" ]; then
+              echo "Smoke test failed: $path is missing or empty"
+              exit 1
+            fi
+          done
+          for dir in \
+            "{{.OUTPUT_DIR}}/runtime/app/data" \
+            "{{.OUTPUT_DIR}}/runtime/app/files" \
+            "{{.OUTPUT_DIR}}/runtime/app/indexes" \
+            "{{.OUTPUT_DIR}}/runtime/app/logs" \
+            "{{.OUTPUT_DIR}}/runtime/ai/bin" \
+            "{{.OUTPUT_DIR}}/runtime/ai/models" \
+          ; do
+            if [ ! -d "$dir" ]; then
+              echo "Smoke test failed: directory $dir is missing"
+              exit 1
+            fi
+          done
+          echo "Smoke test passed."

@@ -1,28 +1,18 @@
-import { invoke } from "@tauri-apps/api/core";
 import type { ApiResponse } from "./common";
 import { ApiError } from "./problem-details";
 
 let cachedBaseUrl: string | null = null;
 
-async function getApiBaseUrl(): Promise<string> {
+export function setApiBaseUrl(baseUrl: string) {
+  cachedBaseUrl = baseUrl;
+}
+
+function getApiBaseUrl(): string {
   if (cachedBaseUrl !== null) {
     return cachedBaseUrl;
   }
 
-  if (import.meta.env.VITE_LOCAL_API_URL) {
-    cachedBaseUrl = import.meta.env.VITE_LOCAL_API_URL as string;
-    return cachedBaseUrl;
-  }
-
-  try {
-    const port = await invoke<number>("get_sidecar_port");
-    cachedBaseUrl = `http://127.0.0.1:${port}`;
-  } catch (error) {
-    console.error("Failed to get sidecar port, falling back to 49321", error);
-    cachedBaseUrl = "http://127.0.0.1:49321";
-  }
-
-  return cachedBaseUrl as string;
+  throw new Error("LocalApi base URL is not ready.");
 }
 
 const publicApiPrefix = "/api/v1";
@@ -54,7 +44,7 @@ async function readJson(response: Response) {
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormData = init?.body instanceof FormData;
-  const baseUrl = await getApiBaseUrl();
+  const baseUrl = getApiBaseUrl();
 
   const response = await fetch(`${baseUrl}${publicApiPrefix}${path}`, {
     headers: {

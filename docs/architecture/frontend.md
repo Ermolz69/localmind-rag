@@ -28,6 +28,6 @@ flowchart TB
 - Pages compose feature public APIs; feature hooks own API orchestration and mutation flows.
 - Runtime providers are never called directly from the frontend.
 - API responses are unwrapped by the shared `request<T>` helper, which returns `data` or throws the standard `ApiError`.
-- TypeScript API mirrors live near entities and shared API modules until generated frontend types are introduced.
+- HTTP DTOs come from the committed OpenAPI output in `shared/contracts`; entities expose aliases where stable feature-facing names are useful.
 
-See [Frontend contracts](./frontend-contracts.md) for DTO mirroring rules.
+See [Frontend contracts](./frontend-contracts.md) for generation and contract rules.

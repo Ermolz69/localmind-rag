@@ -540,6 +540,45 @@ jobs:
       - name: Build desktop frontend
         run: task -t .config/task/Taskfile.yml build:frontend
 
+  api-contract-drift:
+    name: API contract drift
+    runs-on: windows-latest
+    needs:
+      - changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: backend/global.json
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install frontend dependencies
+        run: task -t .config/task/Taskfile.yml setup:frontend
+
+      - name: Check generated API contracts
+        run: task -t .config/task/Taskfile.yml check:api-contracts
+
   frontend-color-guard:
     name: Frontend color guard
     runs-on: windows-latest
@@ -596,6 +635,7 @@ jobs:
       - frontend-lint
       - frontend-typecheck
       - frontend-build
+      - api-contract-drift
       - frontend-color-guard
       - docker-compose
 
@@ -616,6 +656,7 @@ jobs:
           echo "| Frontend lint | ${{ needs.frontend-lint.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend typecheck | ${{ needs.frontend-typecheck.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend build | ${{ needs.frontend-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| API contract drift | ${{ needs.api-contract-drift.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend color guard | ${{ needs.frontend-color-guard.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Docker compose config | ${{ needs.docker-compose.result }} |" >> "$GITHUB_STEP_SUMMARY"
 

@@ -5,4 +5,4 @@ pnpm --filter desktop lint
 pnpm --filter desktop typecheck
 pnpm --filter desktop format:check
 pnpm --filter desktop build
-pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-colors.ps1
+node apps/desktop/scripts/check-colors.cjs

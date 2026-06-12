@@ -28,12 +28,26 @@ public sealed class HybridRetrievalService(
             ? Task.FromResult<IReadOnlyList<RagSourceDto>>([])
             : vectorSearch.SearchAsync(
                 queryVector,
-                new VectorSearchOptions(candidateLimit, options.BucketId, options.DocumentId, options.Tags),
+                new VectorSearchOptions(
+                    candidateLimit,
+                    options.BucketId,
+                    options.DocumentId,
+                    options.Tags,
+                    options.DateFrom,
+                    options.DateTo,
+                    options.FileType),
                 cancellationToken);
 
         Task<IReadOnlyList<FullTextChunkSearchResult>> fullTextTask = fullTextSearch.SearchAsync(
             query,
-            new FullTextSearchOptions(candidateLimit, options.BucketId, options.DocumentId, options.Tags),
+            new FullTextSearchOptions(
+                candidateLimit,
+                options.BucketId,
+                options.DocumentId,
+                options.Tags,
+                options.DateFrom,
+                options.DateTo,
+                options.FileType),
             cancellationToken);
 
         await Task.WhenAll(vectorTask, fullTextTask);

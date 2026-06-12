@@ -83,7 +83,7 @@ public sealed class SendChatStreamMessageHandler(
 
         try
         {
-            await foreach (RagAnswerChunkDto chunk in ragAnswerGenerator.AnswerStreamAsync(conversationId, request.Content.Trim(), cancellationToken))
+            await foreach (RagAnswerChunkDto chunk in ragAnswerGenerator.AnswerStreamAsync(conversationId, request.Content.Trim(), request.Filters, cancellationToken))
             {
                 fullAnswer.Append(chunk.Text);
                 yield return chunk;

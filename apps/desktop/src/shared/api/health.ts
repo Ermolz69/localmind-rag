@@ -1,7 +1,7 @@
-import type { HealthStatus } from "@entities/runtime";
+import type { OperationData } from "@shared/contracts";
 
 import { request } from "./http";
 
 export const healthApi = {
-  getHealth: () => request<HealthStatus>("/health"),
+  getHealth: () => request<OperationData<"Health">>("/health"),
 };

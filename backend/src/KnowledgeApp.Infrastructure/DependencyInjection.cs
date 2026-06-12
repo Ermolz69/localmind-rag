@@ -15,6 +15,7 @@ public static partial class DependencyInjection
     {
         services.AddSingleton<IValidateOptions<RuntimeOptions>, RuntimeOptionsValidator>();
         services.AddSingleton<IValidateOptions<EmbeddingOptions>, EmbeddingOptionsValidator>();
+        services.AddSingleton<IValidateOptions<ChunkingOptions>, ChunkingOptionsValidator>();
         services.AddSingleton<IValidateOptions<StorageOptions>, StorageOptionsValidator>();
         services.AddSingleton<IValidateOptions<DatabaseOptions>, DatabaseOptionsValidator>();
         services.AddSingleton<IValidateOptions<VectorIndexOptions>, VectorIndexOptionsValidator>();
@@ -26,6 +27,10 @@ public static partial class DependencyInjection
 
         services.AddOptions<EmbeddingOptions>()
             .Bind(configuration.GetSection(EmbeddingOptions.SectionName))
+            .ValidateOnStart();
+
+        services.AddOptions<ChunkingOptions>()
+            .Bind(configuration.GetSection(ChunkingOptions.SectionName))
             .ValidateOnStart();
 
         services.AddOptions<StorageOptions>()
