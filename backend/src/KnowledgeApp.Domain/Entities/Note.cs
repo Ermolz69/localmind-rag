@@ -5,7 +5,8 @@ namespace KnowledgeApp.Domain.Entities;
 
 public sealed class Note : Entity
 {
-    public Guid? BucketId { get; set; }
+    public Guid BucketId { get; set; }
+    public Guid? FolderId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Markdown { get; set; } = string.Empty;
     public SyncStatus SyncStatus { get; set; } = SyncStatus.LocalOnly;

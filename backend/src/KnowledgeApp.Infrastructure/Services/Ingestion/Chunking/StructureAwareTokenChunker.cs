@@ -102,7 +102,7 @@ public sealed class StructureAwareTokenChunker(
             EmbeddingTextHash: embeddingTextHash
         );
     }
-        private IEnumerable<DocumentBlock> SplitOversizedBlock(DocumentBlock block, ChunkingOptions config)
+    private IEnumerable<DocumentBlock> SplitOversizedBlock(DocumentBlock block, ChunkingOptions config)
     {
         // 1️⃣ Try paragraph split (double newline)
         var paragraphs = block.Text.Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

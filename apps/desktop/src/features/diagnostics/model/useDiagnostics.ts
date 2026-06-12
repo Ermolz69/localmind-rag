@@ -68,7 +68,8 @@ export function useDiagnostics() {
   );
 
   const isDiagnosticsEnabled = settings?.diagnostics?.enabled ?? true;
-  const shouldRefresh = isDiagnosticsEnabled && (!cached || cached.state === "stale");
+  const shouldRefresh =
+    isDiagnosticsEnabled && (!cached || cached.state === "stale");
 
   const { data, isLoading, isFetching, error, reload } = useApiQuery(
     async () => {

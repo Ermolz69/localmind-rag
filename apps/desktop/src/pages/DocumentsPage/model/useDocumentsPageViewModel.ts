@@ -34,10 +34,7 @@ export function useDocumentsPageViewModel() {
   });
 
   async function reload() {
-    await Promise.all([
-      documents.reloadDocuments(),
-      documents.loadBuckets(),
-    ]);
+    await Promise.all([documents.reloadDocuments(), documents.loadBuckets()]);
   }
 
   return {

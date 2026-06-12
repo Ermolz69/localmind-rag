@@ -34,7 +34,9 @@ function isAbortError(error: unknown) {
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "The local API request failed.";
+  return error instanceof Error
+    ? error.message
+    : "The local API request failed.";
 }
 
 export function useSendChatMessage({
@@ -198,8 +200,7 @@ export function useSendChatMessage({
       updateMessage(conversationId, assistantMessageId, (current) => ({
         ...current,
         content:
-          streamedText ||
-          "I couldn't generate an answer for that question.",
+          streamedText || "I couldn't generate an answer for that question.",
         status: "error",
         error: message,
       }));

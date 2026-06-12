@@ -14,6 +14,7 @@ public static class NoteMapper
         return new NoteDto(
             note.Id,
             note.BucketId,
+            note.FolderId,
             note.Title,
             note.Markdown,
             (int)note.SyncStatus,

@@ -23,6 +23,7 @@ public sealed class CreateNoteHandler(
         Note note = new()
         {
             BucketId = request.BucketId,
+            FolderId = request.FolderId,
             Title = request.Title.Trim(),
             Markdown = request.Markdown,
             LocalDeviceId = localDeviceId,

@@ -69,7 +69,7 @@ public sealed class RuntimeProcessManager
             {
                 using CancellationTokenSource cts = new(TimeSpan.FromSeconds(3));
                 logger.LogInformation("Waiting for process pid={Pid} to exit gracefully...", process.Id);
-                
+
                 process.WaitForExitAsync(cts.Token).GetAwaiter().GetResult();
             }
             catch (OperationCanceledException)

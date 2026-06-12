@@ -9,6 +9,12 @@ public static class ErrorCodes
     {
         public const string ValidationFailed = "VALIDATION_FAILED";
         public const string NotFound = "BUCKET_NOT_FOUND";
+        public const string BucketNotFound = "BUCKET_NOT_FOUND";
+        public const string FolderNotFound = "FOLDER_NOT_FOUND";
+        public const string InvalidBucket = "INVALID_BUCKET";
+        public const string NotEmpty = "FOLDER_NOT_EMPTY";
+        public const string CircularDependency = "CIRCULAR_DEPENDENCY";
+        public const string FolderExists = "FOLDER_ALREADY_EXISTS";
     }
 
     public static class Chats

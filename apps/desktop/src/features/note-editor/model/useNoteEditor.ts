@@ -8,6 +8,7 @@ const emptyDraft: NoteDraft = {
   title: "",
   markdown: "",
   bucketId: null,
+  folderId: null,
 };
 
 type UseNoteEditorOptions = {
@@ -29,7 +30,13 @@ export function useNoteEditor({
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const createMutation = useApiMutation(
-    (nextDraft: NoteDraft) => notesApi.createNote(nextDraft),
+    (nextDraft: NoteDraft) =>
+      notesApi.createNote({
+        title: nextDraft.title,
+        markdown: nextDraft.markdown,
+        bucketId: nextDraft.bucketId as string,
+        folderId: nextDraft.folderId,
+      }),
     { fallbackError: "Failed to create note." },
   );
 
@@ -38,6 +45,7 @@ export function useNoteEditor({
       notesApi.updateNote(id, {
         title: nextDraft.title,
         markdown: nextDraft.markdown,
+        folderId: nextDraft.folderId,
       }),
     { fallbackError: "Failed to save note." },
   );
@@ -66,6 +74,7 @@ export function useNoteEditor({
         title: selectedNote.title,
         markdown: selectedNote.markdown,
         bucketId: selectedNote.bucketId,
+        folderId: selectedNote.folderId,
       });
     } else {
       setDraft(emptyDraft);
@@ -81,6 +90,7 @@ export function useNoteEditor({
       title: selectedNote.title,
       markdown: selectedNote.markdown,
       bucketId: selectedNote.bucketId,
+      folderId: selectedNote.folderId,
     });
   }
 
@@ -93,7 +103,8 @@ export function useNoteEditor({
     const note = await createMutation.mutate({
       title,
       markdown: createDraft.markdown,
-      bucketId: createDraft.bucketId,
+      bucketId: createDraft.bucketId as string,
+      folderId: createDraft.folderId,
     });
 
     if (note) {
@@ -115,6 +126,7 @@ export function useNoteEditor({
         title: draft.title,
         markdown: draft.markdown,
         bucketId: selectedNote.bucketId,
+        folderId: draft.folderId,
       });
     }
   }

@@ -21,7 +21,9 @@ type ApiStreamErrorEnvelope = {
   } | null;
 };
 
-function isApiStreamErrorEnvelope(value: unknown): value is ApiStreamErrorEnvelope {
+function isApiStreamErrorEnvelope(
+  value: unknown,
+): value is ApiStreamErrorEnvelope {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -30,7 +32,9 @@ function isApiStreamErrorEnvelope(value: unknown): value is ApiStreamErrorEnvelo
   );
 }
 
-async function* readSseChunks(response: Response): AsyncGenerator<RagAnswerChunkDto> {
+async function* readSseChunks(
+  response: Response,
+): AsyncGenerator<RagAnswerChunkDto> {
   const reader = response.body?.getReader();
 
   if (!reader) {

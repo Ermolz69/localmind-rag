@@ -1,16 +1,14 @@
-import { FileText, FolderPlus, Plus } from "lucide-react";
-import { BucketSelector, NoteEditor, NoteList } from "@features/note-editor";
+import { FileText } from "lucide-react";
+import { BucketSelector, NoteEditor } from "@features/note-editor";
+import { VaultExplorer } from "@features/vault-explorer";
 import {
   Button,
   ConfirmDialog,
-  EmptyState,
   ErrorBanner,
   Input,
   Modal,
   PageHeader,
-  Select,
   Textarea,
-  Toolbar,
 } from "@shared/ui";
 import { useNotesPageViewModel } from "./model/useNotesPageViewModel";
 
@@ -22,56 +20,33 @@ export function NotesPage() {
       <PageHeader
         title="Notes vault"
         description="A local markdown workspace with folders, files, and a focused editor."
-        actions={
-          <Button onClick={() => page.setIsCreateOpen(true)}>
-            <Plus size={16} aria-hidden />
-            New note
-          </Button>
-        }
       />
 
       <ErrorBanner message={page.error} />
 
-      <Toolbar>
-        <Select
-          className="max-w-60"
-          value={page.selectedBucketId}
-          onChange={(event) => page.setSelectedBucketId(event.target.value)}
-        >
-          <option value="">All folders</option>
-          {page.buckets.map((bucket) => (
-            <option key={bucket.id} value={bucket.id}>
-              {bucket.name}
-            </option>
-          ))}
-        </Select>
-        <Button
-          variant="secondary"
-          className="!h-11 px-4"
-          onClick={() => page.setIsCreateOpen(true)}
-        >
-          <FolderPlus size={16} aria-hidden />
-          New file
-        </Button>
-      </Toolbar>
-
       <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
-        <NoteList
-          notes={page.notes}
-          buckets={page.buckets}
-          query={page.query}
-          selectedNoteId={page.selectedNoteId}
-          isLoading={page.isLoading}
-          hasMore={page.hasMore}
-          isLoadingMore={page.isLoadingMore}
-          onQueryChange={page.setQuery}
-          onSelect={page.selectNote}
-          onLoadMore={() => void page.loadMore()}
+        <VaultExplorer
+          explorer={page.explorer}
+          onCreateFile={() => {
+            page.setCreateDraft({
+              ...page.createDraft,
+              bucketId: page.explorer.selectedBucketId,
+              folderId: page.explorer.selectedFolderId,
+            });
+            page.setIsCreateOpen(true);
+          }}
+          onCreateFolder={() => {
+            // MVP: just use window.prompt for creating a folder inside the selected folder.
+            const name = window.prompt("New folder name:");
+            if (name) {
+              void page.explorer.createFolder(name);
+            }
+          }}
         />
 
-        {page.selectedNote ? (
+        {page.explorer.selectedNoteId ? (
           <NoteEditor
-            buckets={page.buckets}
+            buckets={page.explorer.buckets}
             draft={page.draft}
             isDirty={page.isDirty}
             isSubmitting={page.isSubmitting}
@@ -79,15 +54,16 @@ export function NotesPage() {
             onSave={() => void page.saveNote()}
             onCancel={page.cancelEdit}
             onDelete={() =>
-              page.setDeleteTargetId(page.selectedNote?.id ?? null)
+              page.setDeleteTargetId(page.explorer.selectedNoteId)
             }
           />
         ) : (
-          <EmptyState
-            icon={<FileText size={20} aria-hidden />}
-            title="No file selected"
-            description="Select a markdown file from the vault or create a new one."
-          />
+          <div className="flex items-center justify-center rounded-md border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/50">
+            <div className="flex flex-col items-center gap-2 text-neutral-500">
+              <FileText size={32} />
+              <p>Select a markdown file to edit</p>
+            </div>
+          </div>
         )}
       </div>
 
@@ -113,8 +89,8 @@ export function NotesPage() {
             />
           </div>
           <BucketSelector
-            buckets={page.buckets}
-            value={page.createDraft.bucketId}
+            buckets={page.explorer.buckets}
+            value={page.createDraft.bucketId ?? ""}
             onChange={(bucketId) =>
               page.setCreateDraft({ ...page.createDraft, bucketId })
             }
