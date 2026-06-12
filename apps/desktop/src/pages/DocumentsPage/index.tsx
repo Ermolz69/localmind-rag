@@ -5,7 +5,6 @@ import {
 } from "@features/document-ingestion";
 import { DocumentDropzone } from "@features/document-upload";
 import { BucketPanel } from "@features/bucket-management";
-import { RuntimePanel } from "@features/settings";
 import { Button, ErrorBanner, PageHeader, Select, Toolbar } from "@shared/ui";
 import { useDocumentsPageViewModel } from "./model/useDocumentsPageViewModel";
 
@@ -38,14 +37,6 @@ export function DocumentsPage() {
             </Button>
           </>
         }
-      />
-
-      <RuntimePanel
-        health={page.health}
-        isSettingUpAi={page.isSettingUpAi}
-        onSetupAi={() => void page.setupAiRuntime()}
-        runtime={page.runtime}
-        sync={page.sync}
       />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -101,9 +92,13 @@ export function DocumentsPage() {
               isProcessing={
                 page.processingDocumentId === page.lastUpload.documentId
               }
-              onProcess={
-                page.lastUpload.ingestionJobId
-                  ? () => void page.processLastUpload()
+              job={page.jobsByDocumentId[page.lastUpload.documentId]}
+              onCancel={
+                page.jobsByDocumentId[page.lastUpload.documentId]?.canCancel
+                  ? () =>
+                      void page.cancelJob(
+                        page.jobsByDocumentId[page.lastUpload!.documentId].id,
+                      )
                   : undefined
               }
             />
@@ -117,7 +112,10 @@ export function DocumentsPage() {
             processingDocumentId={page.processingDocumentId}
             hasMore={page.hasMore}
             isLoadingMore={page.isLoadingMore}
+            jobsByDocumentId={page.jobsByDocumentId}
             onProcess={(document) => void page.processDocument(document)}
+            onRetry={(jobId) => void page.retryJob(jobId)}
+            onCancel={(jobId) => void page.cancelJob(jobId)}
             onLoadMore={() => void page.loadMore()}
           />
         </div>

@@ -3,10 +3,12 @@ import type { RagSource } from "@entities/source";
 import { searchApi } from "@shared/api";
 import { useApiMutation } from "@shared/lib/hooks";
 
+import type { RetrievalFilters } from "@entities/search";
+
 const DEFAULT_LIMIT = 8;
 
 type SearchOptions = {
-  bucketId?: string | null;
+  filters?: RetrievalFilters;
   limit?: number;
 };
 
@@ -18,7 +20,12 @@ export function useSemanticSearch() {
   const searchMutation = useApiMutation(
     (query: string, options: SearchOptions = {}) =>
       searchApi.semanticSearch(query, {
-        bucketId: options.bucketId ?? null,
+        bucketId: options.filters?.bucketId ?? null,
+        documentId: options.filters?.documentId ?? null,
+        tags: options.filters?.tags ?? null,
+        dateFrom: options.filters?.dateFrom ?? null,
+        dateTo: options.filters?.dateTo ?? null,
+        fileType: options.filters?.fileType ?? null,
         limit: options.limit ?? DEFAULT_LIMIT,
       }),
     { fallbackError: "Unable to run semantic search." },

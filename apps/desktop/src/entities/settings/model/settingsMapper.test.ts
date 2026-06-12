@@ -25,7 +25,10 @@ describe("toAppSettings", () => {
       sync: { enabled: false, autoSync: false },
     };
 
-    expect(toAppSettings(settings).watchedFolders).toEqual({
+    const mappedSettings = toAppSettings(settings);
+
+    expect(mappedSettings.diagnostics).toEqual({ enabled: true });
+    expect(mappedSettings.watchedFolders).toEqual({
       enabled: false,
       debounceMilliseconds: 1000,
       deletePolicy: "MarkDeleted",

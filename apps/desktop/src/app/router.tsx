@@ -7,6 +7,7 @@ import { DocumentsPage } from "@pages/DocumentsPage";
 import { NotesPage } from "@pages/NotesPage";
 import { SemanticSearchPage } from "@pages/SemanticSearchPage";
 import { SettingsPage } from "@pages/SettingsPage";
+import { DiagnosticsPage } from "@pages/DiagnosticsPage";
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { path: "notes", element: <NotesPage /> },
       { path: "chat", element: <ChatPage /> },
       { path: "settings", element: <SettingsPage /> },
+      { path: "diagnostics", element: <DiagnosticsPage /> },
     ],
   },
 ]);

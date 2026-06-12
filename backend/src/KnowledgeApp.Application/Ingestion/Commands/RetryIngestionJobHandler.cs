@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Abstractions.Ingestion;
 using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Ingestion;
@@ -11,7 +12,8 @@ public sealed class RetryIngestionJobHandler(
     IDocumentRepository documentRepository,
     IIngestionJobRepository ingestionJobs,
     IUnitOfWork unitOfWork,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    IIngestionJobSignal signal)
 {
     public async Task<Result<IngestionJobActionResponse>> HandleAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
@@ -41,6 +43,7 @@ public sealed class RetryIngestionJobHandler(
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await signal.PublishAsync(job.Id, cancellationToken);
 
         return Result<IngestionJobActionResponse>.Success(
             new IngestionJobActionResponse(job.Id, IngestionJobStatus.Pending.ToString(), ErrorMessages.Ingestion.RetryQueued));

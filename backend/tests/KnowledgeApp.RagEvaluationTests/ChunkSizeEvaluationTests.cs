@@ -16,8 +16,8 @@ public class ChunkSizeEvaluationTests
 
         var options = new ChunkingOptions();
 
-        Assert.Equal(420, options.Default.TargetTokens);
-        Assert.Equal(700, options.Default.MaxTokens);
-        Assert.Equal(80, options.Default.OverlapTokens);
+        Assert.Equal(300, options.Default.TargetTokens);
+        Assert.Equal(450, options.Default.MaxTokens);
+        Assert.Equal(40, options.Default.OverlapTokens);
     }
 }

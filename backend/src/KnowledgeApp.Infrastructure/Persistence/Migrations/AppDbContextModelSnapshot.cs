@@ -599,7 +599,7 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("BucketId")
+                    b.Property<Guid>("BucketId")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -609,6 +609,9 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("FolderId")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("LocalDeviceId")
@@ -639,9 +642,65 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DeletedAt");
 
+                    b.HasIndex("FolderId");
+
                     b.HasIndex("LocalDeviceId");
 
                     b.ToTable("notes", (string)null);
+                });
+
+            modelBuilder.Entity("KnowledgeApp.Domain.Entities.NoteFolder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("BucketId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LocalDeviceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("LocalVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ParentFolderId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SyncStatus")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BucketId");
+
+                    b.HasIndex("DeletedAt");
+
+                    b.HasIndex("LocalDeviceId");
+
+                    b.HasIndex("ParentFolderId");
+
+                    b.ToTable("note_folders", (string)null);
                 });
 
             modelBuilder.Entity("KnowledgeApp.Domain.Entities.NoteLink", b =>

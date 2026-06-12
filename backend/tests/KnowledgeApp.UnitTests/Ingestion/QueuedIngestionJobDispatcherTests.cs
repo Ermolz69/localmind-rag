@@ -11,7 +11,7 @@ namespace KnowledgeApp.UnitTests.Ingestion;
 public sealed class QueuedIngestionJobDispatcherTests
 {
     [Fact]
-    public async Task ProcessNextBatchAsync_Should_Process_Oldest_Queued_Jobs()
+    public async Task RecoverPendingBatchAsync_Should_Process_Oldest_Queued_Jobs()
     {
         await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
         IngestionJob newerJob = new()
@@ -37,10 +37,10 @@ public sealed class QueuedIngestionJobDispatcherTests
         QueuedIngestionJobDispatcher dispatcher = new(
             new IngestionJobRepository(database.Context),
             processor,
-            Options.Create(new IngestionWorkerOptions { BatchSize = 1 }),
+            Options.Create(new IngestionWorkerOptions { RecoveryBatchSize = 1 }),
             NullLogger<QueuedIngestionJobDispatcher>.Instance);
 
-        int processed = await dispatcher.ProcessNextBatchAsync();
+        int processed = await dispatcher.RecoverPendingBatchAsync();
 
         Assert.Equal(1, processed);
         Assert.Single(processor.ProcessedJobIds);
@@ -49,7 +49,7 @@ public sealed class QueuedIngestionJobDispatcherTests
     }
 
     [Fact]
-    public async Task ProcessNextBatchAsync_Should_Respect_Cancellation()
+    public async Task RecoverPendingBatchAsync_Should_Respect_Cancellation()
     {
         await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
         database.Context.IngestionJobs.Add(new IngestionJob { DocumentId = Guid.NewGuid(), Status = IngestionJobStatus.Pending });
@@ -58,16 +58,17 @@ public sealed class QueuedIngestionJobDispatcherTests
         QueuedIngestionJobDispatcher dispatcher = new(
             new IngestionJobRepository(database.Context),
             processor,
-            Options.Create(new IngestionWorkerOptions { BatchSize = 1 }),
+            Options.Create(new IngestionWorkerOptions { RecoveryBatchSize = 1 }),
             NullLogger<QueuedIngestionJobDispatcher>.Instance);
         using CancellationTokenSource cancellation = new();
         await cancellation.CancelAsync();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() => dispatcher.ProcessNextBatchAsync(cancellation.Token));
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => dispatcher.RecoverPendingBatchAsync(cancellation.Token));
     }
 
     [Fact]
-    public async Task ProcessNextBatchAsync_Should_Process_Up_To_Configured_Batch_Size()
+    public async Task RecoverPendingBatchAsync_Should_Process_Up_To_Configured_Batch_Size()
     {
         await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
         IngestionJob firstJob = new()
@@ -94,14 +95,32 @@ public sealed class QueuedIngestionJobDispatcherTests
         QueuedIngestionJobDispatcher dispatcher = new(
             new IngestionJobRepository(database.Context),
             processor,
-            Options.Create(new IngestionWorkerOptions { BatchSize = 2 }),
+            Options.Create(new IngestionWorkerOptions { RecoveryBatchSize = 2 }),
             NullLogger<QueuedIngestionJobDispatcher>.Instance);
 
-        int processed = await dispatcher.ProcessNextBatchAsync();
+        int processed = await dispatcher.RecoverPendingBatchAsync();
 
         Assert.Equal(2, processed);
         Assert.Equal([firstJob.Id, secondJob.Id], processor.ProcessedJobIds);
         Assert.DoesNotContain(thirdJob.Id, processor.ProcessedJobIds);
+    }
+
+    [Fact]
+    public async Task ProcessJobAsync_Should_Process_Only_Requested_Job()
+    {
+        await using ApplicationTestDatabase database =
+            await ApplicationTestDatabase.CreateAsync();
+        Guid requestedJobId = Guid.NewGuid();
+        FakeIngestionJobProcessor processor = new();
+        QueuedIngestionJobDispatcher dispatcher = new(
+            new IngestionJobRepository(database.Context),
+            processor,
+            Options.Create(new IngestionWorkerOptions()),
+            NullLogger<QueuedIngestionJobDispatcher>.Instance);
+
+        await dispatcher.ProcessJobAsync(requestedJobId);
+
+        Assert.Equal([requestedJobId], processor.ProcessedJobIds);
     }
 
     private sealed class FakeIngestionJobProcessor : IIngestionJobProcessor

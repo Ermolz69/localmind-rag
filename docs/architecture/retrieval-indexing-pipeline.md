@@ -23,6 +23,12 @@ Extraction produces ordered text segments before chunking:
 
 The ingestion job lifecycle remains durable. Upload and reindex create pending jobs, extraction happens inside LocalApi workers, and failed extraction keeps the original uploaded file.
 
+## Event-Driven Ingestion Dispatch
+
+SQLite is the source of truth for ingestion jobs. After upload, reindex, watched-file ingestion, or retry commits a pending job, the producer publishes its job ID to an in-process `Channel<Guid>`. The single ingestion consumer wakes immediately and atomically claims the job before processing it.
+
+The channel deduplicates queued and in-flight job IDs. It is an acceleration mechanism rather than durable storage: at startup and every `IngestionWorker:RecoveryIntervalSeconds` seconds, the worker queries up to `IngestionWorker:RecoveryBatchSize` pending jobs from SQLite. The defaults are 60 seconds and 100 jobs. This recovery pass covers process restarts, publication failures after commit, and future producers that persist work without an in-memory signal.
+
 ## Structure-Aware Chunking
 
 The default strategy is `StructureAware`.

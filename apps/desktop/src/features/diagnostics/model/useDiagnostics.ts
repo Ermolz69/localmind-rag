@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DiagnosticsStatus } from "@entities/runtime";
-import { diagnosticsApi } from "@shared/api";
+import { diagnosticsApi, settingsApi } from "@shared/api";
 import { useApiQuery } from "@shared/lib/hooks";
 import { readAppCache, writeAppCache } from "@app/startup/runtime";
 
 const DIAGNOSTICS_CACHE_KEY = "localmind:diagnostics:v1";
 const DIAGNOSTICS_CACHE_POLICY = {
-  memoryFreshMs: 30_000,
-  persistedFreshMs: 120_000,
-  persistedMaxAgeMs: 10 * 60_000,
+  memoryFreshMs: 15 * 60_000,
+  persistedFreshMs: 15 * 60_000,
+  persistedMaxAgeMs: 60 * 60_000,
 } as const;
 
 type DiagnosticsCacheEntry = {
@@ -17,6 +17,17 @@ type DiagnosticsCacheEntry = {
 };
 
 let memoryCache: DiagnosticsCacheEntry | null = null;
+
+export async function clearDiagnosticsCache() {
+  memoryCache = null;
+  if (typeof window !== "undefined") {
+    try {
+      await writeAppCache(DIAGNOSTICS_CACHE_KEY, "");
+    } catch {
+      // Ignore
+    }
+  }
+}
 
 export function useDiagnostics() {
   const [persistedCache, setPersistedCache] =
@@ -51,7 +62,14 @@ export function useDiagnostics() {
     return null;
   }, [persistedCache]);
 
-  const shouldRefresh = !cached || cached.state === "stale";
+  const { data: settings } = useApiQuery(
+    () => settingsApi.getSettings().catch(() => null),
+    {},
+  );
+
+  const isDiagnosticsEnabled = settings?.diagnostics?.enabled ?? true;
+  const shouldRefresh =
+    isDiagnosticsEnabled && (!cached || cached.state === "stale");
 
   const { data, isLoading, isFetching, error, reload } = useApiQuery(
     async () => {
@@ -75,10 +93,14 @@ export function useDiagnostics() {
   return {
     diagnostics: data ?? null,
     error,
+    isDiagnosticsEnabled,
     isLoading: isLoading && !cached,
     isRefreshing: isFetching && Boolean(data),
     lastUpdatedAt: cached?.cachedAt ?? memoryCache?.cachedAt ?? null,
-    reload,
+    refresh: () => {
+      memoryCache = null;
+      void reload();
+    },
   };
 }
 

@@ -7,7 +7,7 @@ export function setApiBaseUrl(baseUrl: string) {
   cachedBaseUrl = baseUrl;
 }
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   if (cachedBaseUrl !== null) {
     return cachedBaseUrl;
   }

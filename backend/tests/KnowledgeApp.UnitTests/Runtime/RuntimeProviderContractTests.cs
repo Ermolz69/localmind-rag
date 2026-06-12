@@ -5,6 +5,7 @@ using KnowledgeApp.Contracts.Runtime;
 using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Services;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -47,6 +48,7 @@ public sealed class RuntimeProviderContractTests
                 embeddingOptions,
                 chatCatalog,
                 new HttpClient()),
+            new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()),
             NullLogger<AiRuntimeManager>.Instance);
 
         RuntimeStatusDto status = await manager.GetStatusAsync();

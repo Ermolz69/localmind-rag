@@ -6,4 +6,5 @@ export const routes = {
   notes: "/notes",
   chat: "/chat",
   settings: "/settings",
+  diagnostics: "/diagnostics",
 } as const;

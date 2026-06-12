@@ -20,6 +20,7 @@ const settingsNavigation = [
   { href: "#runtime-paths", label: "Runtime paths" },
   { href: "#ai", label: "AI" },
   { href: "#sync", label: "Sync" },
+  { href: "#diagnostics", label: "Diagnostics" },
   { href: "#watched-folders", label: "Watched folders" },
 ];
 
@@ -51,7 +52,7 @@ export function SettingsPage() {
       {page.error ? <ErrorBanner message={page.error} /> : null}
 
       <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-        <aside className="rounded-xl border border-border bg-card p-4">
+        <aside className="sticky top-6 self-start rounded-xl border border-border bg-card p-4">
           <p className="text-sm font-semibold text-foreground">On this page</p>
           <nav className="mt-3 space-y-2">
             {settingsNavigation.map((item) => (

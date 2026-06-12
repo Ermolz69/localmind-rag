@@ -12,6 +12,7 @@ public sealed class NoteConfiguration : IEntityTypeConfiguration<Note>
         builder.Property<long>(SearchDateIndexing.CreatedAtUnixTimePropertyName)
             .HasColumnType("INTEGER");
         builder.HasIndex(note => note.BucketId);
+        builder.HasIndex(note => note.FolderId);
         builder.HasIndex(SearchDateIndexing.CreatedAtUnixTimePropertyName);
         builder.HasIndex(note => note.DeletedAt);
         builder.HasIndex(note => note.LocalDeviceId);

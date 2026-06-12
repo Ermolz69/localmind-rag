@@ -5,10 +5,12 @@ namespace KnowledgeApp.Contracts.Settings;
 /// <param name="Ai">AI provider and model settings.</param>
 /// <param name="RuntimePaths">Local runtime storage paths.</param>
 /// <param name="Sync">Remote sync settings.</param>
+/// <param name="Diagnostics">Diagnostics settings.</param>
 /// <param name="WatchedFolders">Watched folder auto-ingestion settings.</param>
 public sealed record AppSettingsDto(
     AppearanceSettingsDto Appearance,
     AiSettingsDto Ai,
     RuntimePathsSettingsDto RuntimePaths,
     SyncSettingsDto Sync,
+    DiagnosticsSettingsDto? Diagnostics = null,
     WatchedFoldersSettingsDto? WatchedFolders = null);

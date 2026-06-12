@@ -20,4 +20,4 @@ Rules:
 - Pages should not call API slices directly. Feature hooks own API orchestration and pages only compose feature public APIs.
 - LocalApi error envelopes should be surfaced through `ApiError` and shared error UI.
 
-Run `task -t .config/task/Taskfile.yml api:generate` after changing backend contracts or endpoint metadata. CI runs `check:api-contracts`, regenerates OpenAPI and TypeScript, and fails when `generated.ts` has drift.
+Run `task -t .config/task/Taskfile.yml api:generate` after changing backend contracts or endpoint metadata. The task writes its temporary OpenAPI document to `artifacts/openapi/frontend/local-api-v1.json`, then regenerates `generated.ts`. CI runs the same cross-platform command through `check:api-contracts` and fails when the committed TypeScript contracts have drift.

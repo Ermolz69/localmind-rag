@@ -17,6 +17,7 @@ public interface IAppDbContext
     DbSet<IngestionJob> IngestionJobs { get; }
     DbSet<LocalDevice> LocalDevices { get; }
     DbSet<Note> Notes { get; }
+    DbSet<NoteFolder> NoteFolders { get; }
     DbSet<NoteLink> NoteLinks { get; }
     DbSet<SyncOutboxItem> SyncOutbox { get; }
     DbSet<SyncState> SyncStates { get; }

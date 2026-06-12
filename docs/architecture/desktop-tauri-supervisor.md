@@ -161,7 +161,7 @@ Do not hold a mutex while:
 
 Rust code is ready only after these checks pass:
 
-```powershell
+```bash
 cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
 cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings
 cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml

@@ -123,8 +123,8 @@ OpenAPI is generated from `KnowledgeApp.LocalApi` during build and is not edited
 
 The shared generation script is:
 
-```text
-task openapi:generate
+```bash
+task -t .config/task/Taskfile.yml openapi:generate
 ```
 
 Documentation generation uses the same script and writes its generated specification under:
@@ -169,21 +169,21 @@ Before API versioning, LocalApi exposed public routes under the unversioned `/ap
 
 The desktop frontend and LocalApi are distributed together, so this migration performs a direct cutover rather than temporarily maintaining duplicate endpoints.
 
-| Previous route | Versioned route |
-| --- | --- |
-| `/api/health` | `/api/v1/health` |
-| `/api/diagnostics` | `/api/v1/diagnostics` |
-| `/api/runtime/status` | `/api/v1/runtime/status` |
-| `/api/buckets` | `/api/v1/buckets` |
-| `/api/documents` | `/api/v1/documents` |
+| Previous route          | Versioned route            |
+| ----------------------- | -------------------------- |
+| `/api/health`           | `/api/v1/health`           |
+| `/api/diagnostics`      | `/api/v1/diagnostics`      |
+| `/api/runtime/status`   | `/api/v1/runtime/status`   |
+| `/api/buckets`          | `/api/v1/buckets`          |
+| `/api/documents`        | `/api/v1/documents`        |
 | `/api/documents/upload` | `/api/v1/documents/upload` |
-| `/api/ingestion/jobs` | `/api/v1/ingestion/jobs` |
-| `/api/notes` | `/api/v1/notes` |
-| `/api/chats` | `/api/v1/chats` |
-| `/api/search/content` | `/api/v1/search/content` |
-| `/api/search/semantic` | `/api/v1/search/semantic` |
-| `/api/settings` | `/api/v1/settings` |
-| `/api/sync/status` | `/api/v1/sync/status` |
+| `/api/ingestion/jobs`   | `/api/v1/ingestion/jobs`   |
+| `/api/notes`            | `/api/v1/notes`            |
+| `/api/chats`            | `/api/v1/chats`            |
+| `/api/search/content`   | `/api/v1/search/content`   |
+| `/api/search/semantic`  | `/api/v1/search/semantic`  |
+| `/api/settings`         | `/api/v1/settings`         |
+| `/api/sync/status`      | `/api/v1/sync/status`      |
 
 Legacy unversioned routes are not retained. Requests to old paths such as:
 

@@ -2,7 +2,8 @@ namespace KnowledgeApp.Contracts.Notes;
 
 /// <summary>Note returned by note endpoints.</summary>
 /// <param name="Id">Local note identifier.</param>
-/// <param name="BucketId">Optional bucket containing the note.</param>
+/// <param name="BucketId">The bucket containing the note.</param>
+/// <param name="FolderId">Optional folder containing the note.</param>
 /// <param name="Title">Note title.</param>
 /// <param name="Markdown">Markdown note body.</param>
 /// <param name="SyncStatus">Current synchronization status code.</param>
@@ -11,7 +12,8 @@ namespace KnowledgeApp.Contracts.Notes;
 /// <param name="Tags">Optional metadata tags.</param>
 public sealed record NoteDto(
     Guid Id,
-    Guid? BucketId,
+    Guid BucketId,
+    Guid? FolderId,
     string Title,
     string Markdown,
     int SyncStatus,

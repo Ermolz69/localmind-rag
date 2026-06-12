@@ -6,7 +6,7 @@ public sealed class IngestionWorkerOptions
 
     public bool Enabled { get; set; }
 
-    public int PollIntervalSeconds { get; set; } = 2;
+    public int RecoveryIntervalSeconds { get; set; } = 60;
 
-    public int BatchSize { get; set; } = 1;
+    public int RecoveryBatchSize { get; set; } = 100;
 }

@@ -1,40 +1,30 @@
-import { useNoteEditor, useNoteList } from "@features/note-editor";
+import { useNoteEditor } from "@features/note-editor";
+import { useVaultExplorer } from "@features/vault-explorer";
 
 export function useNotesPageViewModel() {
-  const list = useNoteList();
+  const explorer = useVaultExplorer();
+
   const editor = useNoteEditor({
     onCreated: (note) => {
-      list.setNotes((current) => [note, ...current]);
-      list.setSelectedNoteId(note.id);
+      explorer.refetchTree();
+      explorer.selectNote(note.id);
     },
     onDeleted: (noteId) => {
-      list.setNotes((current) => current.filter((note) => note.id !== noteId));
-      list.setSelectedNoteId((current) =>
-        current === noteId ? null : current,
-      );
+      explorer.refetchTree();
+      if (explorer.selectedNoteId === noteId) {
+        explorer.selectNote(null);
+      }
     },
-    onUpdated: (updatedNote) => {
-      list.setNotes((current) =>
-        current.map((note) =>
-          note.id === updatedNote.id ? updatedNote : note,
-        ),
-      );
+    onUpdated: () => {
+      explorer.refetchTree();
     },
-    selectedNote: list.selectedNote,
+    selectedNote:
+      explorer.notes.find((n) => n.id === explorer.selectedNoteId) ?? null,
   });
 
-  function selectNote(noteId: string) {
-    if (editor.isDirty && !window.confirm("Discard unsaved note changes?")) {
-      return;
-    }
-
-    list.setSelectedNoteId(noteId);
-  }
-
   return {
-    ...list,
+    explorer,
     ...editor,
-    error: list.noteListError ?? editor.noteEditorError,
-    selectNote,
+    error: explorer.error ?? editor.noteEditorError,
   };
 }

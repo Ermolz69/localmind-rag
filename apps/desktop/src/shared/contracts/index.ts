@@ -99,3 +99,6 @@ export type CursorPageRequest = Pick<
   OperationQuery<"ListChats">,
   "cursor" | "limit"
 >;
+
+export type IngestionJobDto = Schema<"IngestionJobDto">;
+export type ContentSearchHitDto = Schema<"ContentSearchHitDto">;

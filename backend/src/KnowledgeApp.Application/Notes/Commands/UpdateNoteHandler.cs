@@ -30,6 +30,7 @@ public sealed class UpdateNoteHandler(
 
         note.Title = request.Title.Trim();
         note.Markdown = request.Markdown;
+        note.FolderId = request.FolderId;
         note.Tags.Clear();
         if (request.Tags != null)
         {

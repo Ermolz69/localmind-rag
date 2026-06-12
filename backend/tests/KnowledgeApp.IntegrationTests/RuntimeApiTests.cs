@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Http.Json;
+using KnowledgeApp.Contracts.Runtime;
 using KnowledgeApp.Application.Abstractions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -64,26 +66,21 @@ public sealed class RuntimeApiTests
             await response.Content.ReadApiDataAsync<RuntimeSetupResponse>();
 
         Assert.NotNull(setupResponse);
-        Assert.NotNull(setupResponse.Status);
+        Assert.NotNull(setupResponse.SetupId);
+        Assert.NotEqual(Guid.Empty, setupResponse.SetupId);
     }
 
     private sealed class FakeRuntimeSetupService : IAiRuntimeSetupService
     {
         public bool WasCalled { get; private set; }
 
-        public Task SetupAsync(CancellationToken cancellationToken = default)
+        public Task SetupAsync(IProgress<RuntimeSetupProgress>? progress, CancellationToken cancellationToken = default)
         {
             WasCalled = true;
 
             return Task.CompletedTask;
         }
     }
-
-    private sealed record RuntimeSetupResponse(
-        bool RuntimeInstalled,
-        bool ModelInstalled,
-        string Message,
-        RuntimeStatusResponse Status);
 
     private sealed record RuntimeStatusResponse(
         bool LocalApiReady,

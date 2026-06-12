@@ -11,5 +11,12 @@ public interface IAiRuntimeManager
 
 public interface IAiRuntimeSetupService
 {
-    Task SetupAsync(CancellationToken cancellationToken = default);
+    Task SetupAsync(IProgress<RuntimeSetupProgress>? progress = null, CancellationToken cancellationToken = default);
+}
+
+public interface IAiRuntimeSetupCoordinator
+{
+    RuntimeSetupStartedResponse StartSetup(CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<RuntimeSetupProgress> WatchProgressAsync(Guid setupId, CancellationToken cancellationToken = default);
 }

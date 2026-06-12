@@ -57,8 +57,6 @@ This repository is now a monorepo with the local desktop application, backend si
 - Document ingestion is represented as durable lifecycle jobs.
 - ADRs are maintained under `docs/architecture/decisions`.
 
-
-
 # Backend
 
 Path: `backend`
@@ -251,7 +249,7 @@ pnpm --filter desktop build
 
 Run the color guard when changing UI styling:
 
-```powershell
+```bash
 task -t .config/task/Taskfile.yml check:colors
 ```
 
@@ -336,7 +334,7 @@ Path: `apps/desktop/src-tauri`
 
 For Rust/Tauri changes, run:
 
-```powershell
+```bash
 task -t .config/task/Taskfile.yml check:rust
 ```
 
@@ -410,7 +408,7 @@ Path: `docs`
 
 Run after changing docs, endpoint metadata, DTOs, XML comments, OpenAPI behavior, or DocFX configuration:
 
-```powershell
+```bash
 task -t .config/task/Taskfile.yml docs:build
 ```
 
@@ -544,13 +542,13 @@ GitHub Releases publish portable artifacts through the `Portable Release` workfl
 
 Use the repository Taskfile as the primary command surface:
 
-```powershell
+```bash
 task -t .config/task/Taskfile.yml --list
 ```
 
 Setup:
 
-```powershell
+```bash
 task -t .config/task/Taskfile.yml setup
 task -t .config/task/Taskfile.yml setup:backend
 task -t .config/task/Taskfile.yml setup:frontend
@@ -560,7 +558,7 @@ task -t .config/task/Taskfile.yml setup:ocr
 
 Build:
 
-```powershell
+```bash
 task -t .config/task/Taskfile.yml build
 task -t .config/task/Taskfile.yml build:backend
 task -t .config/task/Taskfile.yml build:frontend
@@ -568,7 +566,7 @@ task -t .config/task/Taskfile.yml build:frontend
 
 Checks:
 
-```powershell
+```bash
 task -t .config/task/Taskfile.yml check
 task -t .config/task/Taskfile.yml check:format
 task -t .config/task/Taskfile.yml check:backend:format
@@ -581,7 +579,7 @@ task -t .config/task/Taskfile.yml check:docker
 
 Tests:
 
-```powershell
+```bash
 task -t .config/task/Taskfile.yml test
 task -t .config/task/Taskfile.yml test:unit
 task -t .config/task/Taskfile.yml test:integration
@@ -592,21 +590,21 @@ task -t .config/task/Taskfile.yml test:coverage
 
 Docs and OpenAPI:
 
-```powershell
+```bash
 task -t .config/task/Taskfile.yml docs:build
 task -t .config/task/Taskfile.yml openapi:generate
 ```
 
 Packaging:
 
-```powershell
+```bash
 task -t .config/task/Taskfile.yml package
 task -t .config/task/Taskfile.yml package:smoke-test
 ```
 
 Microservices:
 
-```powershell
+```bash
 task -t .config/task/Taskfile.yml services:setup
 task -t .config/task/Taskfile.yml services:build
 task -t .config/task/Taskfile.yml services:test
@@ -619,7 +617,7 @@ task -t .config/task/Taskfile.yml services:docker:down
 
 Targeted microservice commands:
 
-```powershell
+```bash
 task -t .config/task/Taskfile.yml services:auth:check
 task -t .config/task/Taskfile.yml services:auth:start:dev
 task -t .config/task/Taskfile.yml services:sync:check

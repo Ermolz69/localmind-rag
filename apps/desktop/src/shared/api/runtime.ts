@@ -1,14 +1,20 @@
 import type { OperationData } from "@shared/contracts";
 
-import { request } from "./http";
+import { getApiBaseUrl, request } from "./http";
 
 export const runtimeApi = {
   getRuntimeStatus: () =>
     request<OperationData<"GetRuntimeStatus">>("/runtime/status"),
 
-  setupAiRuntime: () =>
-    request<OperationData<"SetupAiRuntime">>("/runtime/ai/setup", {
+  startAiRuntimeSetup: () =>
+    request<OperationData<"StartAiRuntimeSetup">>("/runtime/ai/setup", {
       method: "POST",
+    }),
+
+  watchAiRuntimeSetup: (setupId: string, signal?: AbortSignal) =>
+    fetch(`${getApiBaseUrl()}/api/v1/runtime/ai/setup/${setupId}/events`, {
+      signal,
+      headers: { Accept: "text/event-stream" },
     }),
 
   startAiRuntime: () =>

@@ -15,44 +15,52 @@ public sealed class QueuedIngestionJobDispatcher(
 {
     private readonly IngestionWorkerOptions options = options.Value;
 
-    public async Task<int> ProcessNextBatchAsync(CancellationToken cancellationToken = default)
+    public async Task ProcessJobAsync(
+        Guid jobId,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        int batchSize = Math.Max(1, options.BatchSize);
-        IReadOnlyList<Guid> jobIds = await ingestionJobs.ListPendingJobIdsAsync(batchSize, cancellationToken);
+        logger.LogInformation("Processing queued ingestion job {JobId}.", jobId);
+        Guid operationId = diagnostics?.BeginOperation(
+            DiagnosticNames.Areas.Ingestion,
+            DiagnosticNames.Operations.IngestionDispatch,
+            new Dictionary<string, object?> { [DiagnosticNames.Properties.JobId] = jobId }) ?? Guid.Empty;
 
-        int processedCount = 0;
+        try
+        {
+            await processor.ProcessAsync(jobId, cancellationToken);
+            diagnostics?.LogStep(operationId, DiagnosticNames.Steps.DispatchCompleted);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            diagnostics?.LogFailure(operationId, exception);
+            logger.LogError(
+                exception,
+                "Queued ingestion job {JobId} failed before processor could store failure state.",
+                jobId);
+        }
+    }
+
+    public async Task<int> RecoverPendingBatchAsync(
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        int batchSize = Math.Max(1, options.RecoveryBatchSize);
+        IReadOnlyList<Guid> jobIds = await ingestionJobs.ListPendingJobIdsAsync(
+            batchSize,
+            cancellationToken);
+
         foreach (Guid jobId in jobIds)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                logger.LogInformation("Processing queued ingestion job {JobId}.", jobId);
-                Guid operationId = diagnostics?.BeginOperation(
-                    DiagnosticNames.Areas.Ingestion,
-                    DiagnosticNames.Operations.IngestionDispatch,
-                    new Dictionary<string, object?> { [DiagnosticNames.Properties.JobId] = jobId }) ?? Guid.Empty;
-                await processor.ProcessAsync(jobId, cancellationToken);
-                diagnostics?.LogStep(operationId, DiagnosticNames.Steps.DispatchCompleted);
-                processedCount++;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                Guid operationId = diagnostics?.BeginOperation(
-                    DiagnosticNames.Areas.Ingestion,
-                    DiagnosticNames.Operations.IngestionDispatch,
-                    new Dictionary<string, object?> { [DiagnosticNames.Properties.JobId] = jobId }) ?? Guid.Empty;
-                diagnostics?.LogFailure(operationId, exception);
-                logger.LogError(exception, "Queued ingestion job {JobId} failed before processor could store failure state.", jobId);
-            }
+            await ProcessJobAsync(jobId, cancellationToken);
         }
 
-        return processedCount;
+        return jobIds.Count;
     }
 }

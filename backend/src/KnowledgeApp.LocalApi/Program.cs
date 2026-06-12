@@ -39,11 +39,13 @@ apiV1.MapBucketEndpoints();
 apiV1.MapDocumentEndpoints();
 apiV1.MapIngestionEndpoints();
 apiV1.MapNoteEndpoints();
+apiV1.MapNoteFolderEndpoints();
 apiV1.MapChatEndpoints();
 apiV1.MapSearchEndpoints();
 apiV1.MapSettingsEndpoints();
 apiV1.MapWatchedFolderEndpoints();
 apiV1.MapSyncEndpoints();
+apiV1.MapSystemEndpoints();
 
 app.Run();
 

@@ -76,6 +76,8 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
                 Sync: new SyncSettingsDto(
                     Enabled: true,
                     AutoSync: false),
+                Diagnostics: new DiagnosticsSettingsDto(
+                    Enabled: true),
                 WatchedFolders: new WatchedFoldersSettingsDto(
                     Enabled: true,
                     DebounceMilliseconds: 1500,
@@ -176,7 +178,9 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
                 LogsPath: "runtime/app/logs"),
             Sync: new SyncSettingsDto(
                 Enabled: true,
-                AutoSync: false));
+                AutoSync: false),
+            Diagnostics: new DiagnosticsSettingsDto(
+                Enabled: true));
 
         using HttpResponseMessage response = await client.PutAsJsonAsync("/api/v1/settings", request);
 
@@ -217,6 +221,8 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
             Sync: new SyncSettingsDto(
                 Enabled: false,
                 AutoSync: false),
+            Diagnostics: new DiagnosticsSettingsDto(
+                Enabled: true),
             WatchedFolders: CreateDefaultWatchedFoldersSettings());
 
         using HttpResponseMessage response = await client.PutAsJsonAsync("/api/v1/settings", request);
@@ -254,6 +260,8 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
             Sync: new SyncSettingsDto(
                 Enabled: false,
                 AutoSync: false),
+            Diagnostics: new DiagnosticsSettingsDto(
+                Enabled: true),
             WatchedFolders: CreateDefaultWatchedFoldersSettings());
 
         using HttpResponseMessage response = await client.PutAsJsonAsync("/api/v1/settings", request);
@@ -292,6 +300,8 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
             Sync: new SyncSettingsDto(
                 Enabled: false,
                 AutoSync: false),
+            Diagnostics: new DiagnosticsSettingsDto(
+                Enabled: true),
             WatchedFolders: new WatchedFoldersSettingsDto(
                 Enabled: true,
                 DebounceMilliseconds: 1000,

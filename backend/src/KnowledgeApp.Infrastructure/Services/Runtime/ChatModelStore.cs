@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Contracts.Runtime;
+using KnowledgeApp.Infrastructure.Extensions;
 using KnowledgeApp.Infrastructure.Options;
 
 using Microsoft.Extensions.Options;
@@ -88,6 +90,7 @@ public sealed class ChatModelStore(
 
     public async Task<string> EnsureDownloadedAsync(
         ChatModelManifest? manifest = null,
+        IProgress<RuntimeSetupProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         ChatModelManifest selected = manifest ?? catalog.GetDefault();
@@ -115,6 +118,8 @@ public sealed class ChatModelStore(
 
         response.EnsureSuccessStatusCode();
 
+        long? totalBytes = response.Content.Headers.ContentLength;
+
         await using (Stream remote =
             await response.Content.ReadAsStreamAsync(cancellationToken))
         await using (FileStream local = new(
@@ -123,7 +128,19 @@ public sealed class ChatModelStore(
             FileAccess.Write,
             FileShare.None))
         {
-            await remote.CopyToAsync(local, cancellationToken);
+            await remote.CopyToWithProgressAsync(
+                local,
+                totalBytes,
+                onProgress: (downloaded, total, speed) =>
+                {
+                    progress?.Report(new RuntimeSetupProgress(
+                        Stage: "downloading-chat-model",
+                        Message: $"Downloading chat model: {selected.FileName}",
+                        DownloadedBytes: downloaded,
+                        TotalBytes: total,
+                        SpeedBytesPerSecond: speed));
+                },
+                cancellationToken);
         }
 
         string actualSha256 =

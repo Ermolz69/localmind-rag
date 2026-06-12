@@ -33,7 +33,10 @@ public sealed class LocalApiStructureSmokeTests : IClassFixture<LocalApiTestFact
 
         HttpResponseMessage? noteResponse = await client.PostAsJsonAsync(
             "/api/v1/notes",
-            new CreateNoteRequest(BucketId: null, "Note", "Body"));
+            new CreateNoteRequest("Note", "Body")
+            {
+                BucketId = Guid.Empty,
+            });
 
         HttpResponseMessage? chatResponse = await client.PostAsJsonAsync(
             "/api/v1/chats",

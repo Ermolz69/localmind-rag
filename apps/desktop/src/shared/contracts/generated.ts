@@ -74,10 +74,30 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Sets up the AI runtime.
-     * @description Downloads or prepares local AI runtime assets and returns the resulting runtime status.
+     * Starts the AI runtime setup.
+     * @description Starts a background task to download or prepare local AI runtime assets.
      */
-    post: operations["SetupAiRuntime"];
+    post: operations["StartAiRuntimeSetup"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/runtime/ai/setup/{setupId}/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Watches AI runtime setup progress.
+     * @description Streams Server-Sent Events (SSE) representing the progress of the AI runtime setup.
+     */
+    get: operations["WatchAiRuntimeSetup"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -419,6 +439,96 @@ export interface paths {
      * @description Soft-deletes a local note.
      */
     delete: operations["DeleteNote"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/notes/{id}/move": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Moves a note.
+     * @description Moves a local note to a different bucket or folder.
+     */
+    post: operations["MoveNote"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/buckets/{bucketId}/note-folders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Lists note folders in a bucket. */
+    get: operations["ListNoteFolders"];
+    put?: never;
+    /** Creates a note folder. */
+    post: operations["CreateNoteFolder"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/buckets/{bucketId}/notes/tree": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Gets complete tree of folders and notes in a bucket. */
+    get: operations["GetNotesTree"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/note-folders/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Updates a note folder. */
+    put: operations["UpdateNoteFolder"];
+    post?: never;
+    /** Deletes a note folder. */
+    delete: operations["DeleteNoteFolder"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/note-folders/{id}/move": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Moves a note folder. */
+    post: operations["MoveNoteFolder"];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -846,6 +956,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/system/shutdown": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Gracefully shuts down the LocalApi backend. */
+    post: operations["ShutdownSystem"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1071,6 +1198,16 @@ export interface components {
       metadata: components["schemas"]["ApiMetadata"];
     };
     /** @description Standard LocalApi response envelope. */
+    ApiResponseOfIReadOnlyCollectionOfNoteFolderDto: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      /** @description Response payload for successful operations. */
+      data: null | components["schemas"]["NoteFolderDto"][];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
     ApiResponseOfIReadOnlyCollectionOfstring: {
       /** @description True when the operation completed successfully. */
       success: boolean;
@@ -1105,6 +1242,24 @@ export interface components {
       /** @description True when the operation completed successfully. */
       success: boolean;
       data: null | components["schemas"]["NoteDto"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfNoteFolderDto: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["NoteFolderDto"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfNotesTreeResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["NotesTreeResponse"];
       error: null | components["schemas"]["ApiError"];
       /** @description Response metadata shared by success and error responses. */
       metadata: components["schemas"]["ApiMetadata"];
@@ -1242,6 +1397,7 @@ export interface components {
       runtimePaths: components["schemas"]["RuntimePathsSettingsDto"];
       /** @description Remote sync settings. */
       sync: components["schemas"]["SyncSettingsDto"];
+      diagnostics?: null | components["schemas"]["DiagnosticsSettingsDto"];
       watchedFolders?:
         | null
         | components["schemas"]["WatchedFoldersSettingsDto"];
@@ -1380,13 +1536,23 @@ export interface components {
       /** @description Initial conversation title. */
       title: string;
     };
-    /** @description Request used to create a local note. */
-    CreateNoteRequest: {
+    /** @description Request used to create a note folder. */
+    CreateNoteFolderRequest: {
       /**
        * Format: uuid
-       * @description Optional bucket that should contain the note.
+       * @description The bucket that should contain the folder.
        */
-      bucketId: null | string;
+      bucketId: string;
+      /**
+       * Format: uuid
+       * @description Optional parent folder.
+       */
+      parentFolderId: null | string;
+      /** @description Folder name. */
+      name: string;
+    };
+    /** @description Request used to create a local note. */
+    CreateNoteRequest: {
       /** @description Note title. */
       title: string;
       /** @description Markdown note body. */
@@ -1395,6 +1561,16 @@ export interface components {
       tags?: null | {
         [key: string]: string;
       };
+      /**
+       * Format: uuid
+       * @description The bucket that should contain the note.
+       */
+      bucketId?: null | string;
+      /**
+       * Format: uuid
+       * @description Optional folder that should contain the note.
+       */
+      folderId?: null | string;
     };
     /** @description Cursor-paged API response. */
     CursorPageOfBucketDto: {
@@ -1532,6 +1708,11 @@ export interface components {
       localApiVersion: string;
       aiRuntimeStatus: components["schemas"]["RuntimeStatusDto"];
     };
+    /** @description Diagnostics settings. */
+    DiagnosticsSettingsDto: {
+      /** @description Whether diagnostics panel and page are enabled. */
+      enabled: boolean;
+    };
     /** @description Storage size diagnostics in bytes. */
     DiagnosticsStorageDto: {
       status: components["schemas"]["DiagnosticsHealthStatus"];
@@ -1633,6 +1814,32 @@ export interface components {
       /** Format: int32 */
       offset: number | string;
     };
+    /** @description Request used to move a note folder to a new bucket and/or parent folder. */
+    MoveNoteFolderRequest: {
+      /**
+       * Format: uuid
+       * @description The destination bucket id.
+       */
+      bucketId: string;
+      /**
+       * Format: uuid
+       * @description The optional destination parent folder id.
+       */
+      parentFolderId: null | string;
+    };
+    /** @description Request used to move a note to a new bucket and/or folder. */
+    MoveNoteRequest: {
+      /**
+       * Format: uuid
+       * @description The destination bucket id.
+       */
+      bucketId: string;
+      /**
+       * Format: uuid
+       * @description The optional destination folder id.
+       */
+      folderId: null | string;
+    };
     /** @description Note returned by note endpoints. */
     NoteDto: {
       /**
@@ -1642,9 +1849,14 @@ export interface components {
       id: string;
       /**
        * Format: uuid
-       * @description Optional bucket containing the note.
+       * @description The bucket containing the note.
        */
-      bucketId: null | string;
+      bucketId: string;
+      /**
+       * Format: uuid
+       * @description Optional folder containing the note.
+       */
+      folderId: null | string;
       /** @description Note title. */
       title: string;
       /** @description Markdown note body. */
@@ -1668,6 +1880,50 @@ export interface components {
       tags?: null | {
         [key: string]: string;
       };
+    };
+    /** @description Folder returned by note folder endpoints. */
+    NoteFolderDto: {
+      /**
+       * Format: uuid
+       * @description Local folder identifier.
+       */
+      id: string;
+      /**
+       * Format: uuid
+       * @description The bucket containing the folder.
+       */
+      bucketId: string;
+      /**
+       * Format: uuid
+       * @description Optional parent folder.
+       */
+      parentFolderId: null | string;
+      /** @description Folder name. */
+      name: string;
+      /**
+       * Format: int32
+       * @description Current synchronization status code.
+       */
+      syncStatus: number | string;
+      /**
+       * Format: date-time
+       * @description UTC creation timestamp.
+       */
+      createdAt: string;
+      /**
+       * Format: date-time
+       * @description UTC timestamp of the latest update, when available.
+       */
+      updatedAt: null | string;
+    };
+    /** @description A complete tree of folders and notes for a specific bucket. */
+    NotesTreeResponse: {
+      /** @description The current bucket. */
+      bucket: components["schemas"]["BucketDto"];
+      /** @description All folders inside the bucket. */
+      folders: components["schemas"]["NoteFolderDto"][];
+      /** @description All notes inside the bucket. */
+      notes: components["schemas"]["NoteDto"][];
     };
     OperationLogDto: {
       id: string;
@@ -1759,6 +2015,8 @@ export interface components {
     RetrievalFilters: {
       /** Format: uuid */
       bucketId?: null | string;
+      /** Format: uuid */
+      documentId?: null | string;
       /** Format: date-time */
       dateFrom?: null | string;
       /** Format: date-time */
@@ -1815,6 +2073,16 @@ export interface components {
       message: string;
       /** @description Updated runtime status after setup. */
       status: components["schemas"]["RuntimeStatusDto"];
+      /**
+       * Format: uuid
+       * @description Optional identifier used to stream background setup progress.
+       */
+      setupId?: null | string;
+      /**
+       * @description True when an existing background setup session was reused.
+       * @default false
+       */
+      alreadyRunning: boolean;
     };
     /** @description Current status of LocalApi and the local AI runtime. */
     RuntimeStatusDto: {
@@ -1943,6 +2211,16 @@ export interface components {
       /** @description Updated conversation title. */
       title: string;
     };
+    /** @description Request used to update a note folder. */
+    UpdateNoteFolderRequest: {
+      /** @description Folder name. */
+      name: string;
+      /**
+       * Format: uuid
+       * @description Optional parent folder for moving.
+       */
+      parentFolderId?: null | string;
+    };
     /** @description Request used to update a local note. */
     UpdateNoteRequest: {
       /** @description Updated note title. */
@@ -1953,6 +2231,11 @@ export interface components {
       tags?: null | {
         [key: string]: string;
       };
+      /**
+       * Format: uuid
+       * @description Optional updated folder id.
+       */
+      folderId?: null | string;
     };
     /** @description Response returned after a document upload is accepted. */
     UploadDocumentResponse: {
@@ -2135,7 +2418,7 @@ export interface operations {
       };
     };
   };
-  SetupAiRuntime: {
+  StartAiRuntimeSetup: {
     parameters: {
       query?: never;
       header?: never;
@@ -2153,14 +2436,25 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponseOfRuntimeSetupResponse"];
         };
       };
-      /** @description Bad Request */
-      400: {
+    };
+  };
+  WatchAiRuntimeSetup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        setupId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
         headers: {
           [name: string]: unknown;
         };
-        content: {
-          "application/json": components["schemas"]["ApiResponseOfObject"];
-        };
+        content?: never;
       };
     };
   };
@@ -2717,6 +3011,7 @@ export interface operations {
     parameters: {
       query?: {
         bucketId?: string;
+        folderId?: string;
         query?: string;
         cursor?: string;
         limit?: number | string;
@@ -2844,8 +3139,277 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponseOfObject"];
         };
       };
+    };
+  };
+  MoveNote: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MoveNoteRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfNoteDto"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
       /** @description Not Found */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  ListNoteFolders: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        bucketId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfIReadOnlyCollectionOfNoteFolderDto"];
+        };
+      };
+    };
+  };
+  CreateNoteFolder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        bucketId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateNoteFolderRequest"];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfNoteFolderDto"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  GetNotesTree: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        bucketId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfNotesTreeResponse"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  UpdateNoteFolder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateNoteFolderRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfNoteFolderDto"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  DeleteNoteFolder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  MoveNoteFolder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MoveNoteFolderRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfNoteFolderDto"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+      /** @description Conflict */
+      409: {
         headers: {
           [name: string]: unknown;
         };
@@ -3538,6 +4102,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponseOfCursorPageOfOperationLogDto"];
+        };
+      };
+    };
+  };
+  ShutdownSystem: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
         };
       };
     };

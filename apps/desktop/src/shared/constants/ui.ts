@@ -10,3 +10,9 @@ export const runtimeStateStyles: Record<string, string> = {
   warning: "border-border bg-muted text-muted-foreground",
   offline: "border-border bg-card text-muted-foreground",
 };
+export const ACTIVE_INGESTION_JOB_STATUSES = new Set([
+  "Pending",
+  "Processing",
+  "Chunking",
+  "Embedding",
+]);

@@ -10,6 +10,7 @@ public static class NoteEndpoints
     {
         app.MapGet("/notes", async (
             Guid? bucketId,
+            Guid? folderId,
             string? query,
             string? cursor,
             int? limit,
@@ -17,7 +18,7 @@ public static class NoteEndpoints
             HttpContext context,
             CancellationToken cancellationToken) =>
             (await handler.HandleAsync(
-                new GetNotesQuery(bucketId, query, cursor, limit ?? 50),
+                new GetNotesQuery(bucketId, folderId, query, cursor, limit ?? 50),
                 cancellationToken)).ToApiResult(context))
             .WithName("ListNotes")
             .WithTags("Notes")
@@ -71,8 +72,23 @@ public static class NoteEndpoints
             .WithTags("Notes")
             .WithSummary("Deletes a note.")
             .WithDescription("Soft-deletes a local note.")
-            .Produces<ApiResponse<object?>>()
-            .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
+            .Produces<ApiResponse<object?>>();
+        app.MapPost("/notes/{id:guid}/move", async (
+            Guid id,
+            MoveNoteRequest request,
+            MoveNoteHandler handler,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+        {
+            return (await handler.HandleAsync(id, request, cancellationToken)).ToApiResult(context);
+        })
+            .WithName("MoveNote")
+            .WithTags("Notes")
+            .WithSummary("Moves a note.")
+            .WithDescription("Moves a local note to a different bucket or folder.")
+            .Produces<ApiResponse<NoteDto>>()
+            .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound)
+            .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
         return app;
     }

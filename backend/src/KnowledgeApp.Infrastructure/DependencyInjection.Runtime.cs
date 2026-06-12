@@ -14,6 +14,7 @@ public static partial class DependencyInjection
     private static IServiceCollection AddRuntime(this IServiceCollection services)
     {
         services.AddSingleton<IAppPathProvider, AppPathProvider>();
+        services.AddSingleton<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>();
 
         services.AddHostedService<LocalRuntimeInitializer>();
 
@@ -42,6 +43,8 @@ public static partial class DependencyInjection
 
         services.AddSingleton<IAiModelRegistry>(provider =>
             provider.GetRequiredService<AiRuntimeManager>());
+
+        services.AddSingleton<IAiRuntimeSetupCoordinator, AiRuntimeSetupCoordinator>();
 
         services.AddSingleton<IAiRuntimeSetupService>(provider =>
             new LlamaCppRuntimeSetupService(

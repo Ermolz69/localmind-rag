@@ -18,6 +18,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<IngestionJob> IngestionJobs => Set<IngestionJob>();
     public DbSet<LocalDevice> LocalDevices => Set<LocalDevice>();
     public DbSet<Note> Notes => Set<Note>();
+    public DbSet<NoteFolder> NoteFolders => Set<NoteFolder>();
     public DbSet<NoteLink> NoteLinks => Set<NoteLink>();
     public DbSet<SyncOutboxItem> SyncOutbox => Set<SyncOutboxItem>();
     public DbSet<SyncState> SyncStates => Set<SyncState>();

@@ -121,19 +121,19 @@ No relevant local sources were found for this question.
 
 Run only the RAG evaluation suite:
 
-```powershell
+```bash
 dotnet test backend/tests/KnowledgeApp.RagEvaluationTests/KnowledgeApp.RagEvaluationTests.csproj
 ```
 
 Run a focused no-context check:
 
-```powershell
+```bash
 dotnet test backend/tests/KnowledgeApp.RagEvaluationTests/KnowledgeApp.RagEvaluationTests.csproj --filter "NoRelevantContext"
 ```
 
 Run the full local check pipeline:
 
-```powershell
+```bash
 pnpm check
 ```
 

@@ -43,6 +43,7 @@ public sealed class ObservabilityApiTests
             Ai: new AiSettingsDto("Unknown", "", "", "", ""),
             RuntimePaths: new RuntimePathsSettingsDto("", "", "", "", ""),
             Sync: new SyncSettingsDto(false, false),
+            Diagnostics: new DiagnosticsSettingsDto(Enabled: false),
             WatchedFolders: CreateDefaultWatchedFoldersSettings());
 
         using HttpResponseMessage response = await client.PutAsJsonAsync("/api/v1/settings", request);

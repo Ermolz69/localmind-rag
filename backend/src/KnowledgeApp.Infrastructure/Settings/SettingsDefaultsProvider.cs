@@ -36,6 +36,7 @@ public sealed class SettingsDefaultsProvider(
                 vectorIndex.IndexPath,
                 storage.LogsPath),
             Sync: new SyncSettingsDto(false, false),
+            Diagnostics: new DiagnosticsSettingsDto(Enabled: true),
             WatchedFolders: new WatchedFoldersSettingsDto(
                 Enabled: false,
                 DebounceMilliseconds: 1000,

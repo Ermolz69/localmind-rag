@@ -34,14 +34,6 @@ export const documentsApi = {
     );
   },
 
-  processIngestionJob: (jobId: OperationPath<"ProcessIngestionJob">["id"]) =>
-    request<OperationData<"ProcessIngestionJob">>(
-      `/ingestion/jobs/${jobId}/process`,
-      {
-        method: "POST",
-      },
-    ),
-
   reindexDocument: (documentId: OperationPath<"ReindexDocument">["id"]) =>
     request<OperationData<"ReindexDocument">>(
       `/documents/${documentId}/reindex`,

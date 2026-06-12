@@ -5,28 +5,32 @@ import { Button } from "@shared/ui";
 import { cn } from "@shared/lib/cn";
 import type { BucketDto } from "@entities/bucket";
 import { getAutocompleteContext } from "../model";
-import type { ChatFilterChip, ChatFilterKey } from "../model";
+import type { SearchFilterChip, SearchFilterKey } from "../model";
 
 type MessageComposerProps = {
   value: string;
   disabled: boolean;
+  isSending?: boolean;
   error?: string | null;
-  filters: ChatFilterChip[];
+  filters: SearchFilterChip[];
   buckets: BucketDto[];
   onChange: (value: string) => void;
-  onRemoveFilter: (key: ChatFilterKey) => void;
+  onRemoveFilter: (key: SearchFilterKey, tagKey?: string) => void;
   onSubmit: () => void;
+  onCancel?: () => void;
 };
 
 export function MessageComposer({
   value,
   disabled,
+  isSending,
   error,
   filters,
   buckets,
   onChange,
   onRemoveFilter,
   onSubmit,
+  onCancel,
 }: MessageComposerProps) {
   const [cursorPos, setCursorPos] = useState(0);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
@@ -35,7 +39,7 @@ export function MessageComposer({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const autocomplete = getAutocompleteContext(value, cursorPos, buckets);
+  const autocomplete = getAutocompleteContext(value, cursorPos, buckets, []);
   const showSuggestions =
     autocomplete.type !== "none" &&
     autocomplete.suggestions.length > 0 &&
@@ -170,7 +174,7 @@ export function MessageComposer({
                   <button
                     type="button"
                     className="rounded-sm text-muted-foreground transition hover:text-foreground"
-                    onClick={() => onRemoveFilter(filter.key)}
+                    onClick={() => onRemoveFilter(filter.key, filter.tagKey)}
                     title={`Remove ${filter.label}`}
                   >
                     <X size={13} aria-hidden />
@@ -203,11 +207,14 @@ export function MessageComposer({
               disabled={disabled}
             />
             <Button
-              type="submit"
+              type={isSending ? "button" : "submit"}
               className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0"
-              disabled={!value.trim() || disabled}
+              disabled={isSending ? false : !value.trim() || disabled}
+              onClick={isSending ? onCancel : undefined}
             >
-              {disabled ? (
+              {isSending ? (
+                <X size={18} aria-hidden />
+              ) : disabled ? (
                 <Loader2 size={18} className="animate-spin" aria-hidden />
               ) : (
                 <Send size={18} aria-hidden />
