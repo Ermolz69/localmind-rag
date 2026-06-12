@@ -62,10 +62,11 @@ public sealed class RuntimeApiTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(setup.WasCalled);
 
-        RuntimeSetupStartedResponse? setupResponse =
-            await response.Content.ReadApiDataAsync<RuntimeSetupStartedResponse>();
+        RuntimeSetupResponse? setupResponse =
+            await response.Content.ReadApiDataAsync<RuntimeSetupResponse>();
 
         Assert.NotNull(setupResponse);
+        Assert.NotNull(setupResponse.SetupId);
         Assert.NotEqual(Guid.Empty, setupResponse.SetupId);
     }
 

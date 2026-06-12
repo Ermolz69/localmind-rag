@@ -1,8 +1,8 @@
-import type { Schema } from "@shared/contracts";
+import type { OperationData, Schema } from "@shared/contracts";
 
 export type HealthStatus = Schema<"HealthDto">;
 export type RuntimeStatus = Schema<"RuntimeStatusDto">;
-export type RuntimeSetupStartedResponse = Schema<"RuntimeSetupStartedResponse">;
+export type RuntimeSetupStartedResponse = OperationData<"StartAiRuntimeSetup">;
 export type SyncStatus = Schema<"SyncStatusDto">;
 export type DiagnosticsHealthStatus = Schema<"DiagnosticsHealthStatus">;
 export type DiagnosticsDatabase = Schema<"DiagnosticsDatabaseDto">;

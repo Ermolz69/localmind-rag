@@ -5,8 +5,12 @@ namespace KnowledgeApp.Contracts.Runtime;
 /// <param name="ModelInstalled">True when the required model files are installed.</param>
 /// <param name="Message">Human-readable setup result.</param>
 /// <param name="Status">Updated runtime status after setup.</param>
+/// <param name="SetupId">Optional identifier used to stream background setup progress.</param>
+/// <param name="AlreadyRunning">True when an existing background setup session was reused.</param>
 public sealed record RuntimeSetupResponse(
     bool RuntimeInstalled,
     bool ModelInstalled,
     string Message,
-    RuntimeStatusDto Status);
+    RuntimeStatusDto Status,
+    Guid? SetupId = null,
+    bool AlreadyRunning = false);

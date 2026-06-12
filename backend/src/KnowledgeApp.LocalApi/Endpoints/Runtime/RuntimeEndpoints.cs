@@ -36,12 +36,22 @@ public static class RuntimeEndpoints
             .Produces<ApiResponse<object?>>(StatusCodes.Status202Accepted)
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
-        app.MapPost("/runtime/ai/setup", (
+        app.MapPost("/runtime/ai/setup", async (
             [FromServices] IAiRuntimeSetupCoordinator coordinator,
+            [FromServices] IAiRuntimeProviderRegistry providers,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
-            RuntimeSetupStartedResponse response = coordinator.StartSetup(cancellationToken);
+            RuntimeSetupStartedResponse started = coordinator.StartSetup(cancellationToken);
+            RuntimeStatusDto status =
+                await providers.GetSelectedProvider().GetStatusAsync(cancellationToken);
+            RuntimeSetupResponse response = new(
+                RuntimeInstalled: status.AiRuntimeStatus != "RuntimeMissing",
+                ModelInstalled: status.ModelsAvailable,
+                Message: started.Message,
+                Status: status,
+                SetupId: started.SetupId,
+                AlreadyRunning: started.AlreadyRunning);
 
             return ApiResults.Ok(response, context);
         })
@@ -49,7 +59,7 @@ public static class RuntimeEndpoints
             .WithTags("Runtime")
             .WithSummary("Starts the AI runtime setup.")
             .WithDescription("Starts a background task to download or prepare local AI runtime assets.")
-            .Produces<ApiResponse<RuntimeSetupStartedResponse>>();
+            .Produces<ApiResponse<RuntimeSetupResponse>>();
 
         app.MapGet("/runtime/ai/setup/{setupId}/events", async (
             Guid setupId,

@@ -1320,10 +1320,10 @@ export interface components {
       metadata: components["schemas"]["ApiMetadata"];
     };
     /** @description Standard LocalApi response envelope. */
-    ApiResponseOfRuntimeSetupStartedResponse: {
+    ApiResponseOfRuntimeSetupResponse: {
       /** @description True when the operation completed successfully. */
       success: boolean;
-      data: null | components["schemas"]["RuntimeSetupStartedResponse"];
+      data: null | components["schemas"]["RuntimeSetupResponse"];
       error: null | components["schemas"]["ApiError"];
       /** @description Response metadata shared by success and error responses. */
       metadata: components["schemas"]["ApiMetadata"];
@@ -2063,31 +2063,26 @@ export interface components {
       /** @description Known providers with capabilities and status. */
       providers: components["schemas"]["RuntimeProviderDto"][];
     };
-    /** @description Represents the response from starting an AI runtime setup. */
-    RuntimeSetupStartedResponse: {
+    /** @description Result returned after attempting local AI runtime setup. */
+    RuntimeSetupResponse: {
+      /** @description True when the runtime executable is installed. */
+      runtimeInstalled: boolean;
+      /** @description True when the required model files are installed. */
+      modelInstalled: boolean;
+      /** @description Human-readable setup result. */
+      message: string;
+      /** @description Updated runtime status after setup. */
+      status: components["schemas"]["RuntimeStatusDto"];
       /**
        * Format: uuid
-       * @description The unique identifier of the started setup session.
+       * @description Optional identifier used to stream background setup progress.
        */
-      setupId: string;
-      /** @description True if the setup was already running, false if a new session was started. */
+      setupId?: null | string;
+      /**
+       * @description True when an existing background setup session was reused.
+       * @default false
+       */
       alreadyRunning: boolean;
-      /**
-       * @description True when the runtime executable is installed.
-       * @default true
-       */
-      runtimeInstalled: boolean;
-      /**
-       * @description True when the configured model is installed.
-       * @default true
-       */
-      modelInstalled: boolean;
-      /**
-       * @description A user-safe setup status message.
-       * @default Background setup started
-       */
-      message: string;
-      status?: null | components["schemas"]["RuntimeStatusDto"];
     };
     /** @description Current status of LocalApi and the local AI runtime. */
     RuntimeStatusDto: {
@@ -2438,7 +2433,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ApiResponseOfRuntimeSetupStartedResponse"];
+          "application/json": components["schemas"]["ApiResponseOfRuntimeSetupResponse"];
         };
       };
     };
