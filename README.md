@@ -30,15 +30,13 @@ pnpm check
 
 Backend coverage:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/coverage.ps1
+```bash
+task test:coverage
 ```
 
 See [docs/development/testing.md](docs/development/testing.md).
 
-Script entrypoints are grouped by purpose under `scripts/check`,
-`scripts/setup`, `scripts/package`, and `scripts/dev`. Thin root wrappers such
-as `scripts/check.ps1` remain for compatibility.
+Script entrypoints are grouped by purpose inside `.config/task/Taskfile.yml`.
 
 Storybook UI primitives:
 

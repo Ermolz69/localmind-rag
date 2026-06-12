@@ -65,7 +65,7 @@ jobs:
           path: |
             runtime/ai/bin
             runtime/ai/models
-          key: ai-runtime-${{ runner.os }}-${{ hashFiles('scripts/setup/setup-ai*.ps1', 'backend/src/KnowledgeApp.Infrastructure/Resources/AiModels/*.json') }}
+          key: ai-runtime-${{ runner.os }}-${{ hashFiles('.config/task/Taskfile.yml', 'backend/src/KnowledgeApp.Infrastructure/Resources/AiModels/*.json') }}
           restore-keys: |
             ai-runtime-${{ runner.os }}-
 

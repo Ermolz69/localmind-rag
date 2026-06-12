@@ -1,23 +1,20 @@
-import type {
-  RuntimeSetupResponse,
-  RuntimeStatus,
-  SyncStatus,
-} from "@entities/runtime";
+import type { OperationData } from "@shared/contracts";
 
 import { request } from "./http";
 
 export const runtimeApi = {
-  getRuntimeStatus: () => request<RuntimeStatus>("/runtime/status"),
+  getRuntimeStatus: () =>
+    request<OperationData<"GetRuntimeStatus">>("/runtime/status"),
 
   setupAiRuntime: () =>
-    request<RuntimeSetupResponse>("/runtime/ai/setup", {
+    request<OperationData<"SetupAiRuntime">>("/runtime/ai/setup", {
       method: "POST",
     }),
 
   startAiRuntime: () =>
-    request<void>("/runtime/ai/start", {
+    request<OperationData<"StartAiRuntime">>("/runtime/ai/start", {
       method: "POST",
     }),
 
-  getSyncStatus: () => request<SyncStatus>("/sync/status"),
+  getSyncStatus: () => request<OperationData<"GetSyncStatus">>("/sync/status"),
 };

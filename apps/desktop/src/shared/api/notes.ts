@@ -1,17 +1,15 @@
 import type {
-  CreateNoteRequest,
-  GetNotesRequest,
-  NoteDto,
-  UpdateNoteRequest,
-} from "@entities/note";
-
-import type { CursorPage } from "./common";
+  OperationData,
+  OperationJsonBody,
+  OperationPath,
+  OperationQuery,
+} from "@shared/contracts";
 import { toQueryString } from "./common";
 import { request } from "./http";
 
 export const notesApi = {
-  getNotes: (params: GetNotesRequest = {}) =>
-    request<CursorPage<NoteDto>>(
+  getNotes: (params: OperationQuery<"ListNotes"> = {}) =>
+    request<OperationData<"ListNotes">>(
       `/notes${toQueryString({
         bucketId: params.bucketId,
         query: params.query,
@@ -20,20 +18,23 @@ export const notesApi = {
       })}`,
     ),
 
-  createNote: (payload: CreateNoteRequest) =>
-    request<NoteDto>("/notes", {
+  createNote: (payload: OperationJsonBody<"CreateNote">) =>
+    request<OperationData<"CreateNote">>("/notes", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
-  updateNote: (id: string, payload: UpdateNoteRequest) =>
-    request<void>(`/notes/${id}`, {
+  updateNote: (
+    id: OperationPath<"UpdateNote">["id"],
+    payload: OperationJsonBody<"UpdateNote">,
+  ) =>
+    request<OperationData<"UpdateNote">>(`/notes/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
 
-  deleteNote: (id: string) =>
-    request<void>(`/notes/${id}`, {
+  deleteNote: (id: OperationPath<"DeleteNote">["id"]) =>
+    request<OperationData<"DeleteNote">>(`/notes/${id}`, {
       method: "DELETE",
     }),
 };

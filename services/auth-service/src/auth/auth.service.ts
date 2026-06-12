@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { SessionsService } from '../sessions/sessions.service';
 import { DevicesService } from '../devices/devices.service';
+import { User } from '@prisma/client';
 import { randomBytes } from 'crypto';
 
 @Injectable()
@@ -15,23 +16,47 @@ export class AuthService {
     private readonly devicesService: DevicesService,
   ) {}
 
-  async validateUser(email: string, pass: string): Promise<any> {
+  async validateUser(
+    email: string,
+    pass: string,
+  ): Promise<Omit<User, 'passwordHash'> | null> {
     const user = await this.usersService.findByEmail(email);
-    if (user && await bcrypt.compare(pass, user.passwordHash)) {
-      const { passwordHash, ...result } = user;
+    if (user && (await bcrypt.compare(pass, user.passwordHash))) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { passwordHash: _passwordHash, ...result } = user;
       return result;
     }
     return null;
   }
 
-  async login(user: any, deviceMetadata: any) {
-    const device = await this.devicesService.trackDevice(user.id, deviceMetadata);
-    
+  async login(
+    user: Omit<User, 'passwordHash'>,
+    deviceMetadata: {
+      deviceName?: string;
+      platform?: string;
+      userAgent?: string;
+      ipAddress?: string;
+    },
+  ) {
+    const device = await this.devicesService.trackDevice(
+      user.id,
+      deviceMetadata,
+    );
+
     // Generate an opaque refresh token
     const refreshToken = randomBytes(64).toString('hex');
-    const session = await this.sessionsService.createSession(user.id, device.id, refreshToken);
+    const session = await this.sessionsService.createSession(
+      user.id,
+      device.id,
+      refreshToken,
+    );
 
-    const payload = { email: user.email, sub: user.id, role: user.role, sessionId: session.id };
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role,
+      sessionId: session.id,
+    };
     return {
       accessToken: this.jwtService.sign(payload),
       refreshToken,
@@ -44,7 +69,10 @@ export class AuthService {
   }
 
   async refresh(sessionId: string, refreshToken: string) {
-    const session = await this.sessionsService.validateSession(sessionId, refreshToken);
+    const session = await this.sessionsService.validateSession(
+      sessionId,
+      refreshToken,
+    );
     if (!session) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
@@ -52,7 +80,12 @@ export class AuthService {
     const user = await this.usersService.findById(session.userId);
     if (!user) throw new UnauthorizedException('User not found');
 
-    const payload = { email: user.email, sub: user.id, role: user.role, sessionId: session.id };
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role,
+      sessionId: session.id,
+    };
     return {
       accessToken: this.jwtService.sign(payload),
     };

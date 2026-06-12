@@ -1,37 +1,39 @@
-import type { BucketDto, CreateBucketRequest } from "@entities/bucket";
-
-import type { CursorPage } from "./common";
+import type {
+  OperationData,
+  OperationJsonBody,
+  OperationPath,
+  OperationQuery,
+} from "@shared/contracts";
 import { toQueryString } from "./common";
 import { request } from "./http";
 
 export const bucketsApi = {
-  getBuckets: () => request<BucketDto[]>("/buckets"),
+  getBuckets: () => request<OperationData<"ListBuckets">>("/buckets"),
 
   getBucketsPage: ({
     query,
     cursor,
     limit = 30,
-  }: {
-    query?: string | null;
-    cursor?: string | null;
-    limit?: number;
-  }) =>
-    request<CursorPage<BucketDto>>(
+  }: OperationQuery<"ListBucketsPage"> = {}) =>
+    request<OperationData<"ListBucketsPage">>(
       `/buckets/page${toQueryString({ query, cursor, limit })}`,
     ),
 
-  createBucket: (payload: CreateBucketRequest) =>
-    request<BucketDto>("/buckets", {
+  createBucket: (payload: OperationJsonBody<"CreateBucket">) =>
+    request<OperationData<"CreateBucket">>("/buckets", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  updateBucket: (id: string, payload: Partial<CreateBucketRequest>) =>
-    request<BucketDto>(`/buckets/${id}`, {
+  updateBucket: (
+    id: OperationPath<"UpdateBucket">["id"],
+    payload: OperationJsonBody<"UpdateBucket">,
+  ) =>
+    request<OperationData<"UpdateBucket">>(`/buckets/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
-  deleteBucket: (id: string) =>
-    request<void>(`/buckets/${id}`, {
+  deleteBucket: (id: OperationPath<"DeleteBucket">["id"]) =>
+    request<OperationData<"DeleteBucket">>(`/buckets/${id}`, {
       method: "DELETE",
     }),
 };

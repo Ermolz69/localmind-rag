@@ -17,7 +17,7 @@ import { DevicesModule } from '../devices/devices.module';
     PassportModule,
     JwtModule.registerAsync({
       inject: [KeysService],
-      useFactory: async (keysService: KeysService) => ({
+      useFactory: (keysService: KeysService) => ({
         privateKey: keysService.getPrivateKey(),
         publicKey: keysService.getPublicKey(),
         signOptions: {

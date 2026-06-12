@@ -14,5 +14,5 @@ runtime/ocr/tessdata/osd.traineddata
 Run the setup script from the repository root:
 
 ```text
-scripts/setup-ocr.ps1
+task setup:ocr
 ```

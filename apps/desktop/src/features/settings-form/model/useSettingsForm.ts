@@ -3,6 +3,7 @@ import type {
   AppSettings,
   WatchedFolderStatusResponse,
 } from "@entities/settings";
+import { toAppSettings, toAppSettingsDto } from "@entities/settings";
 import { getFieldErrors, settingsApi, watchedFoldersApi } from "@shared/api";
 import { useApiMutation, useApiQuery } from "@shared/lib/hooks";
 import { useTheme } from "@shared/theme/theme-provider";
@@ -24,7 +25,7 @@ export function useSettingsForm() {
   } = useApiQuery(
     async () => {
       const [nextSettings, nextWatchedFolderStatus] = await Promise.all([
-        settingsApi.getSettings(),
+        settingsApi.getSettings().then(toAppSettings),
         watchedFoldersApi.getStatus().catch(() => null),
       ]);
 
@@ -53,7 +54,8 @@ export function useSettingsForm() {
   }, [data, hasLocalChanges]);
 
   const saveMutation = useApiMutation(
-    (nextSettings: AppSettings) => settingsApi.saveSettings(nextSettings),
+    (nextSettings: AppSettings) =>
+      settingsApi.saveSettings(toAppSettingsDto(nextSettings)),
     { fallbackError: "Unable to save settings." },
   );
 

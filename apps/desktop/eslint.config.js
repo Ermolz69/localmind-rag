@@ -12,7 +12,7 @@ export default tseslint.config(
       "src-tauri/target/**",
       "src-tauri/gen/**",
       "src-tauri/icons/**",
-      "src/shared/api/generated.ts",
+      "src/shared/contracts/generated.ts",
     ],
   },
   js.configs.recommended,

@@ -584,6 +584,66 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/watched-folders/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Gets watched folder status.
+     * @description Returns watched folder watcher state, pending event count, and sanitized watcher errors.
+     */
+    get: operations["GetWatchedFolderStatus"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/watched-folders/rescan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Rescan watched folders.
+     * @description Manually rescans watched folders to find missed changes.
+     */
+    post: operations["RescanWatchedFolders"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/watched-folders/cleanup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Clean up deleted watched files.
+     * @description Removes internal application data for watched files that have been marked as deleted.
+     */
+    post: operations["CleanupWatchedFolders"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/sync/status": {
     parameters: {
       query?: never;
@@ -1087,6 +1147,15 @@ export interface components {
       metadata: components["schemas"]["ApiMetadata"];
     };
     /** @description Standard LocalApi response envelope. */
+    ApiResponseOfRescanWatchedFoldersResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["RescanWatchedFoldersResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
     ApiResponseOfRuntimeProviderListResponse: {
       /** @description True when the operation completed successfully. */
       success: boolean;
@@ -1140,6 +1209,24 @@ export interface components {
       /** @description Response metadata shared by success and error responses. */
       metadata: components["schemas"]["ApiMetadata"];
     };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfWatchedFolderCleanupResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["WatchedFolderCleanupResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfWatchedFolderStatusResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["WatchedFolderStatusResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
     /** @description Appearance settings for the desktop UI. */
     AppearanceSettingsDto: {
       /** @description Selected application theme. */
@@ -1155,6 +1242,9 @@ export interface components {
       runtimePaths: components["schemas"]["RuntimePathsSettingsDto"];
       /** @description Remote sync settings. */
       sync: components["schemas"]["SyncSettingsDto"];
+      watchedFolders?:
+        | null
+        | components["schemas"]["WatchedFoldersSettingsDto"];
     };
     /** @description Bucket returned by the LocalMind API. */
     BucketDto: {
@@ -1214,6 +1304,7 @@ export interface components {
     ChatMessageRequest: {
       /** @description User message text. */
       content: string;
+      filters?: null | components["schemas"]["RetrievalFilters"];
     };
     ContentSearchHitDto: {
       sourceType: string;
@@ -1241,10 +1332,18 @@ export interface components {
       documentId?: null | string;
       /** Format: uuid */
       noteId?: null | string;
+      tags?: null | {
+        [key: string]: string;
+      };
       /** @default true */
       includeDocuments: boolean;
       /** @default true */
       includeNotes: boolean;
+      /** Format: date-time */
+      dateFrom?: null | string;
+      /** Format: date-time */
+      dateTo?: null | string;
+      fileType?: null | string;
     };
     ContentSearchResponse: {
       results: components["schemas"]["ContentSearchHitDto"][];
@@ -1292,6 +1391,10 @@ export interface components {
       title: string;
       /** @description Markdown note body. */
       markdown: string;
+      /** @description Optional metadata tags. */
+      tags?: null | {
+        [key: string]: string;
+      };
     };
     /** @description Cursor-paged API response. */
     CursorPageOfBucketDto: {
@@ -1456,6 +1559,11 @@ export interface components {
        * @description Local document identifier.
        */
       id: string;
+      /**
+       * Format: uuid
+       * @description Bucket identifier the document belongs to.
+       */
+      bucketId: null | string;
       /** @description Original or display document name. */
       name: string;
       /** @description Current ingestion/indexing status. */
@@ -1467,6 +1575,19 @@ export interface components {
       createdAt: string;
       /** @description Latest ingestion error message, when indexing failed. */
       lastError?: null | string;
+      /** @description Metadata tags attached to the document. */
+      tags?: null | {
+        [key: string]: string;
+      };
+    };
+    /** @description Describes the LocalApi readiness state. */
+    HealthDto: {
+      /** @description Current readiness status. */
+      status: string;
+      /** @description Service identifier. */
+      service: string;
+      /** @description Optional desktop supervisor instance identifier. */
+      supervisorInstanceId: null | string;
     };
     /** Format: binary */
     IFormFile: string;
@@ -1543,6 +1664,10 @@ export interface components {
        * @description UTC timestamp of the latest update, when available.
        */
       updatedAt: null | string;
+      /** @description Optional metadata tags. */
+      tags?: null | {
+        [key: string]: string;
+      };
     };
     OperationLogDto: {
       id: string;
@@ -1593,7 +1718,7 @@ export interface components {
       pageNumber: null | number | string;
       /**
        * Format: double
-       * @description Similarity score assigned by vector search.
+       * @description Ranked relevance score assigned by semantic or hybrid retrieval.
        */
       score: number | string;
       /** @description Short text excerpt from the source chunk. */
@@ -1613,6 +1738,35 @@ export interface components {
       ingestionJobId: null | string;
       /** @description Initial ingestion job status. */
       status: string;
+    };
+    RescanWatchedFoldersRequest: {
+      path?: null | string;
+    };
+    RescanWatchedFoldersResponse: {
+      /** Format: int32 */
+      scannedFolders: number | string;
+      /** Format: int32 */
+      queuedCreatedOrChanged: number | string;
+      /** Format: int32 */
+      queuedDeleted: number | string;
+      /** Format: int32 */
+      unchangedFiles: number | string;
+      /** Format: int32 */
+      unsupportedFiles: number | string;
+      /** Format: int32 */
+      failedFolders: number | string;
+    };
+    RetrievalFilters: {
+      /** Format: uuid */
+      bucketId?: null | string;
+      /** Format: date-time */
+      dateFrom?: null | string;
+      /** Format: date-time */
+      dateTo?: null | string;
+      fileType?: null | string;
+      tags?: null | {
+        [key: string]: string;
+      };
     };
     /** @description Local runtime storage path settings. */
     RuntimePathsSettingsDto: {
@@ -1705,6 +1859,14 @@ export interface components {
       baseUrl?: null | string;
       /** @description Sanitized provider failure or setup reason. */
       failureReason?: null | string;
+      /** @description Configured chat model name. */
+      chatModelName?: null | string;
+      /** @description Configured embedding model name. */
+      embeddingModelName?: null | string;
+      /** @description Resolved local chat model path. */
+      chatModelPath?: null | string;
+      /** @description Resolved local embedding model path. */
+      embeddingModelPath?: null | string;
     };
     /** @description Request used to search indexed document chunks semantically. */
     SemanticSearchRequest: {
@@ -1726,6 +1888,22 @@ export interface components {
        * @description Optional document scope for the search.
        */
       documentId?: null | string;
+      /** @description Optional metadata tags to filter by. */
+      tags?: null | {
+        [key: string]: string;
+      };
+      /**
+       * Format: date-time
+       * @description Optional starting date scope (inclusive) for the search.
+       */
+      dateFrom?: null | string;
+      /**
+       * Format: date-time
+       * @description Optional ending date scope (inclusive) for the search.
+       */
+      dateTo?: null | string;
+      /** @description Optional file type filter (e.g. pdf, docx). */
+      fileType?: null | string;
     };
     /** @description Semantic search result set. */
     SemanticSearchResponse: {
@@ -1771,6 +1949,10 @@ export interface components {
       title: string;
       /** @description Updated markdown note body. */
       markdown: string;
+      /** @description Optional updated metadata tags. */
+      tags?: null | {
+        [key: string]: string;
+      };
     };
     /** @description Response returned after a document upload is accepted. */
     UploadDocumentResponse: {
@@ -1786,6 +1968,94 @@ export interface components {
       ingestionJobId: null | string;
       /** @description Initial ingestion job status. */
       status: string;
+    };
+    WatchedFolderCleanupResponse: {
+      /** Format: int32 */
+      cleanedCount: number | string;
+    };
+    /** @description Single watched folder configuration. */
+    WatchedFolderDto: {
+      /** @description Absolute folder path to watch. */
+      path: string;
+      /** @description Whether this watched folder is enabled. */
+      enabled: boolean;
+      /** @description Whether nested folders should also be watched. */
+      includeSubdirectories: boolean;
+    };
+    /** @description Watched folder settings for automatic ingestion. */
+    WatchedFoldersSettingsDto: {
+      /** @description Whether watched folder auto-ingestion is enabled. */
+      enabled: boolean;
+      /**
+       * Format: int32
+       * @description Delay used to collapse rapid file events.
+       */
+      debounceMilliseconds: number | string;
+      /** @description Policy used when a watched file is deleted. */
+      deletePolicy: string;
+      /** @description Configured watched folders. */
+      folders: components["schemas"]["WatchedFolderDto"][];
+      /** @description Folders to ignore. */
+      ignoredFolders?: null | string[];
+      /** @description Filename patterns to ignore. */
+      ignoredPatterns?: null | string[];
+      /**
+       * Format: int32
+       * @description Maximum file size in MB.
+       */
+      maxFileSizeMb?: null | number | string;
+      /** @description Allowed extensions (null means all supported types). */
+      allowedExtensions?: null | string[];
+      /**
+       * @description How to store watched files (LinkOnly or CopyToAppStorage).
+       * @default LinkOnly
+       */
+      storageMode: string;
+    };
+    WatchedFolderStatusDto: {
+      path: string;
+      enabled: boolean;
+      includeSubdirectories: boolean;
+      exists: boolean;
+      isWatching: boolean;
+      /** Format: int32 */
+      pendingEvents: number | string;
+      /** Format: date-time */
+      lastEventAt: null | string;
+      lastError: null | string;
+      /** Format: date-time */
+      lastErrorAt: null | string;
+      healthStatus: string;
+      /** Format: date-time */
+      lastScanStartedAt: null | string;
+      /** Format: date-time */
+      lastScanCompletedAt: null | string;
+      /** Format: int32 */
+      activeDocumentsCount: number | string;
+      /** Format: int32 */
+      deletedWaitingCleanupCount: number | string;
+      /** Format: int32 */
+      lastScanNewFiles: number | string;
+      /** Format: int32 */
+      lastScanChangedFiles: number | string;
+      /** Format: int32 */
+      lastScanDeletedFiles: number | string;
+      /** Format: int32 */
+      lastScanUnchangedFiles: number | string;
+      /** Format: int32 */
+      lastScanUnsupportedFiles: number | string;
+    };
+    WatchedFolderStatusResponse: {
+      enabled: boolean;
+      /** Format: int32 */
+      debounceMilliseconds: number | string;
+      /** Format: int32 */
+      pendingEvents: number | string;
+      deletePolicy: string;
+      lastError: null | string;
+      /** Format: date-time */
+      lastErrorAt: null | string;
+      folders: components["schemas"]["WatchedFolderStatusDto"][];
     };
   };
   responses: never;
@@ -1810,7 +2080,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["HealthDto"];
+        };
       };
     };
   };
@@ -2968,6 +3240,70 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  GetWatchedFolderStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfWatchedFolderStatusResponse"];
+        };
+      };
+    };
+  };
+  RescanWatchedFolders: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RescanWatchedFoldersRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfRescanWatchedFoldersResponse"];
+        };
+      };
+    };
+  };
+  CleanupWatchedFolders: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfWatchedFolderCleanupResponse"];
         };
       };
     };

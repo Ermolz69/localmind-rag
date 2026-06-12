@@ -1,7 +1,7 @@
-import type { DiagnosticsStatus } from "@entities/runtime";
+import type { OperationData } from "@shared/contracts";
 
 import { request } from "./http";
 
 export const diagnosticsApi = {
-  getDiagnostics: () => request<DiagnosticsStatus>("/diagnostics"),
+  getDiagnostics: () => request<OperationData<"Diagnostics">>("/diagnostics"),
 };

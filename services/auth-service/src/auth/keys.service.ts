@@ -18,7 +18,10 @@ export class KeysService implements OnModuleInit {
       this.privateKey = fs.readFileSync(privKeyPath, 'utf8');
       this.logger.log('RS256 keys loaded successfully.');
     } catch (error) {
-      this.logger.error('Failed to load RS256 keys. Run node generate-keys.js first.', error);
+      this.logger.error(
+        'Failed to load RS256 keys. Run node generate-keys.js first.',
+        error,
+      );
       throw error;
     }
   }

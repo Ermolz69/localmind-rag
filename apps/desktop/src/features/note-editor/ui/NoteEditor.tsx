@@ -77,9 +77,13 @@ export function NoteEditor({
 
         <BucketSelector
           buckets={buckets}
+          disabled
           value={draft.bucketId}
           onChange={(bucketId) => onDraftChange({ ...draft, bucketId })}
         />
+        <p className="-mt-2 text-xs text-muted-foreground">
+          The current API does not support moving an existing note.
+        </p>
 
         <div className="rounded-md border border-border bg-card p-3 text-xs leading-5 text-muted-foreground">
           <div className="mb-2 flex items-center gap-2 font-medium text-foreground">

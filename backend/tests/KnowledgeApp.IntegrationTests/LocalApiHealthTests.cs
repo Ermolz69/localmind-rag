@@ -21,6 +21,14 @@ public sealed class LocalApiHealthTests : IClassFixture<LocalApiTestFactory>
             await client.GetAsync("/api/v1/health", CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using JsonDocument document =
+            JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        JsonElement health = document.RootElement;
+        Assert.Equal("OK", health.GetProperty("status").GetString());
+        Assert.Equal("KnowledgeApp.LocalApi", health.GetProperty("service").GetString());
+        Assert.True(health.TryGetProperty("supervisorInstanceId", out _));
     }
 
     [Fact]
@@ -84,6 +92,7 @@ public sealed class LocalApiHealthTests : IClassFixture<LocalApiTestFactory>
 
         Assert.Contains("CreateBucketRequest", openApiJson, StringComparison.Ordinal);
         Assert.Contains("DocumentDto", openApiJson, StringComparison.Ordinal);
+        Assert.Contains("HealthDto", openApiJson, StringComparison.Ordinal);
         Assert.Contains("SemanticSearchRequest", openApiJson, StringComparison.Ordinal);
         Assert.Contains(
             "Generated RAG answer with source citations.",

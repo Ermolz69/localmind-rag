@@ -14,7 +14,7 @@ This repository is now a monorepo with the local desktop application, backend si
 - `docs` - product, architecture, development, API, and generated documentation.
 - `infra` - Docker Compose and remote service infrastructure.
 - `runtime` - local runtime data, files, indexes, logs, AI runtime binaries, and AI models.
-- `scripts` and `.config/task` - setup, validation, packaging, documentation, coverage, and guard scripts.
+- `.config/task` - setup, validation, packaging, documentation, coverage, and guard scripts.
 
 # Shared Mandatory Rules
 
@@ -37,7 +37,7 @@ This repository is now a monorepo with the local desktop application, backend si
 - Add or update meaningful tests when behavior changes.
 - Do not inflate coverage with shallow assertions.
 - Place code in the existing feature/capability folder structure.
-- Update contracts, frontend TypeScript mirrors, OpenAPI metadata, docs, and tests when behavior changes.
+- Update contracts, generated frontend OpenAPI types, OpenAPI metadata, docs, and tests when behavior changes.
 - If documentation and implementation disagree, mention the conflict in the work summary and prefer the current implementation unless the documentation explicitly states a requirement that should be restored.
 - Do not ban TODO comments unless project documentation is updated to explicitly discourage them.
 
@@ -233,7 +233,7 @@ The backend is the local ASP.NET Core sidecar for the desktop app. It remains th
 - `KnowledgeApp.Domain` contains business entities, enums, and value objects only.
 - `KnowledgeApp.Application` contains commands, queries, validators, mappers, `Result` types, application errors, pagination, and application ports.
 - `KnowledgeApp.Infrastructure` implements application ports for persistence, file storage, ingestion, vector search, embeddings, runtime providers, diagnostics, sync, OCR, and system services.
-- `KnowledgeApp.Contracts` contains public DTOs and shared API contracts used by LocalApi, OpenAPI, DocFX, and frontend mirrors.
+- `KnowledgeApp.Contracts` contains public DTOs and shared API contracts used by LocalApi, OpenAPI, DocFX, and generated frontend types.
 - `KnowledgeApp.LocalApi` owns HTTP route mapping, OpenAPI metadata, security middleware, and `ApiResults` conversion.
 - Domain must not depend on Application, Infrastructure, LocalApi, SyncApi, Worker, or EF Core.
 - Application must not depend on Infrastructure, LocalApi, SyncApi, or Worker.
@@ -353,7 +353,7 @@ Path: `apps/desktop`
 - Frontend code must not import backend projects, Domain entities, or generated build output.
 - Pages should compose feature public APIs.
 - Feature hooks own API orchestration and mutation flows.
-- Manual TypeScript DTO mirrors must match backend `KnowledgeApp.Contracts` until generated frontend types are introduced.
+- Manual TypeScript HTTP DTO mirrors are prohibited. Use the generated `@shared/contracts` schemas and operation helpers.
 
 ## Import Boundaries
 
@@ -370,11 +370,11 @@ Mandatory rules are enforced by ESLint:
 ## UI And Styling
 
 - Use semantic theme tokens rather than hardcoded colors.
-- Frontend hardcoded colors are not allowed in app/page/widget/feature/entity/shared source paths checked by `scripts/check/check-colors.ps1`.
+- Frontend hardcoded colors are not allowed in app/page/widget/feature/entity/shared source paths checked by `apps/desktop/scripts/check-colors.cjs`.
 - Reuse existing shared UI primitives.
 - Keep frontend components aligned with existing shared UI primitives and semantic theme tokens.
 - Keep API orchestration in feature hooks rather than directly in page components.
-- Keep DTO mirrors near entities and shared API modules according to existing patterns.
+- Keep stable entity-facing names as aliases to `@shared/contracts`; keep only UI-specific models local.
 
 ## Frontend Validation
 
@@ -388,7 +388,7 @@ pnpm --filter desktop build
 Run the color guard when changing UI styling:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check/check-colors.ps1
+task -t .config/task/Taskfile.yml check:colors
 ```
 
 # Tauri Desktop Architecture Rules
@@ -547,7 +547,7 @@ Path: `docs`
 Run after changing docs, endpoint metadata, DTOs, XML comments, OpenAPI behavior, or DocFX configuration:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/docs/build-docs.ps1
+task -t .config/task/Taskfile.yml docs:build
 ```
 
 The script restores DocFX tooling, builds backend projects needed for metadata, generates OpenAPI into `docs/auto-generated/openapi`, generates .NET API metadata into `docs/auto-generated/dotnet-api`, copies Swagger UI assets, and builds the static site into `artifacts/docs/site`.
@@ -669,7 +669,7 @@ GitHub Releases publish portable artifacts through the `Portable Release` workfl
    - relevant service README and solution/package files under `services` when touching a microservice.
 2. Inspect the existing implementation and tests for the feature area.
 3. Make the smallest change that follows current project patterns.
-4. Update contracts, frontend mirrors, OpenAPI metadata, docs, and tests when behavior changes.
+4. Update contracts, generated frontend types, OpenAPI metadata, docs, and tests when behavior changes.
 5. Run targeted checks first, then broader checks when appropriate.
 6. For documentation-only changes, run architecture tests and docs build when relevant.
 7. For backend contract/API changes, run backend tests and docs/OpenAPI generation.

@@ -11,7 +11,6 @@ export type {
   ApiResponse,
   CursorPage,
   CursorPageRequest,
-  ProblemDetails,
 } from "./common";
 export { bucketsApi } from "./buckets";
 export { chatsApi } from "./chats";

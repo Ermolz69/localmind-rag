@@ -12,3 +12,4 @@ export type {
   RescanWatchedFoldersResponse,
   WatchedFoldersSettings,
 } from "./model/types";
+export { toAppSettings, toAppSettingsDto } from "./model/settingsMapper";

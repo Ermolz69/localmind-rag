@@ -25,9 +25,9 @@ export function useNoteList() {
   const loadNotesPage = useCallback(
     (cursor?: string | null) =>
       notesApi.getNotes({
-        bucketId: selectedBucketId || null,
-        query: debouncedQuery || null,
-        cursor,
+        bucketId: selectedBucketId || undefined,
+        query: debouncedQuery || undefined,
+        cursor: cursor ?? undefined,
         limit: 30,
       }),
     [debouncedQuery, selectedBucketId],

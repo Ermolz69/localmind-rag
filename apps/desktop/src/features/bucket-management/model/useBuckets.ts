@@ -17,13 +17,14 @@ export function useBuckets() {
   });
 
   const createMutation = useApiMutation(
-    (nextName: string) => bucketsApi.createBucket({ name: nextName }),
+    (nextName: string) =>
+      bucketsApi.createBucket({ name: nextName, description: null }),
     { fallbackError: "Bucket creation failed." },
   );
 
   const renameMutation = useApiMutation(
     (id: string, newName: string) =>
-      bucketsApi.updateBucket(id, { name: newName }),
+      bucketsApi.updateBucket(id, { name: newName, description: null }),
     { fallbackError: "Failed to rename bucket." },
   );
 

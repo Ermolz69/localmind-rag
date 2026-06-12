@@ -34,7 +34,11 @@ export function useNoteEditor({
   );
 
   const updateMutation = useApiMutation(
-    (id: string, nextDraft: NoteDraft) => notesApi.updateNote(id, nextDraft),
+    (id: string, nextDraft: NoteDraft) =>
+      notesApi.updateNote(id, {
+        title: nextDraft.title,
+        markdown: nextDraft.markdown,
+      }),
     { fallbackError: "Failed to save note." },
   );
 
@@ -52,8 +56,7 @@ export function useNoteEditor({
 
     return (
       draft.title !== selectedNote.title ||
-      draft.markdown !== selectedNote.markdown ||
-      draft.bucketId !== selectedNote.bucketId
+      draft.markdown !== selectedNote.markdown
     );
   }, [draft, selectedNote]);
 
@@ -111,7 +114,7 @@ export function useNoteEditor({
         ...selectedNote,
         title: draft.title,
         markdown: draft.markdown,
-        bucketId: draft.bucketId,
+        bucketId: selectedNote.bucketId,
       });
     }
   }

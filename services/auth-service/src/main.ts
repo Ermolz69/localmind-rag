@@ -5,7 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  
+
   // By default allow all CORS, or restrict it depending on the architecture
   app.enableCors();
 
@@ -13,4 +13,4 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`Auth Service is running on port ${port}`);
 }
-bootstrap();
+bootstrap().catch(console.error);

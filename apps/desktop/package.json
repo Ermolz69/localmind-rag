@@ -14,7 +14,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "tauri": "tauri",
-    "generate:api": "openapi-typescript ../../docs/auto-generated/openapi/v1.json -o src/shared/api/generated.ts"
+    "generate:api": "openapi-typescript ../../artifacts/openapi/frontend/local-api-v1.json -o src/shared/contracts/generated.ts && prettier --write src/shared/contracts/generated.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.6.0",

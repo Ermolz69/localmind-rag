@@ -1,38 +1,8 @@
-import type { RagSource } from "@entities/source";
+import type { OperationJsonBody, Schema } from "@shared/contracts";
 
-export type ChatConversation = {
-  id: string;
-  title: string;
-  createdAt?: string;
-  updatedAt?: string | null;
-};
-
-export type ChatMessageDto = {
-  id: string;
-  conversationId: string;
-  role: "User" | "Assistant" | "user" | "assistant" | string;
-  content: string;
-  createdAt: string;
-  updatedAt: string | null;
-};
-
-export type CreateConversationRequest = {
-  title: string;
-};
-
-export type UpdateConversationRequest = {
-  title: string;
-};
-
-export type RetrievalFilters = {
-  bucketId?: string | null;
-  dateFrom?: string | null;
-  dateTo?: string | null;
-  fileType?: string | null;
-  tags?: Record<string, string> | null;
-};
-
-export type RagAnswerDto = {
-  answer: string;
-  sources: RagSource[];
-};
+export type ChatConversation = Schema<"ConversationDto">;
+export type ChatMessageDto = Schema<"ChatMessageDto">;
+export type CreateConversationRequest = OperationJsonBody<"CreateChat">;
+export type UpdateConversationRequest = OperationJsonBody<"UpdateChat">;
+export type RetrievalFilters = Schema<"RetrievalFilters">;
+export type RagAnswerDto = Schema<"RagAnswerDto">;

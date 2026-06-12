@@ -17,8 +17,8 @@ export function useDocumentList() {
   const loadBucketsPage = useCallback(
     (cursor?: string | null) =>
       bucketsApi.getBucketsPage({
-        query: debouncedBucketQuery || null,
-        cursor,
+        query: debouncedBucketQuery || undefined,
+        cursor: cursor ?? undefined,
         limit: 24,
       }),
     [debouncedBucketQuery],
@@ -43,9 +43,9 @@ export function useDocumentList() {
   const loadDocumentsPage = useCallback(
     (cursor?: string | null) =>
       documentsApi.getDocuments({
-        bucketId: selectedBucketId || null,
-        status: selectedStatus || null,
-        cursor,
+        bucketId: selectedBucketId || undefined,
+        status: selectedStatus || undefined,
+        cursor: cursor ?? undefined,
         limit: 30,
       }),
     [selectedBucketId, selectedStatus],
@@ -64,7 +64,10 @@ export function useDocumentList() {
 
     setDocumentListError(null);
     try {
-      const bucket = await bucketsApi.createBucket({ name });
+      const bucket = await bucketsApi.createBucket({
+        name,
+        description: null,
+      });
       setNewBucketName("");
       setSelectedBucketId(bucket.id);
       await bucketsPage.reload();

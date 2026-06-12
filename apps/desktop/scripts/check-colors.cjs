@@ -38,7 +38,7 @@ function getFiles(dir, fileList = []) {
 
 let violations = [];
 
-const projectRoot = path.resolve(__dirname, '../../');
+const projectRoot = path.resolve(__dirname, '../../../');
 
 for (const p of paths) {
     const fullPath = path.resolve(projectRoot, p);
