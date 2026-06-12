@@ -98,18 +98,18 @@ jobs:
       - name: Determine whether versioned baseline exists
         if: github.event_name == 'pull_request'
         id: versioned-baseline
-        shell: pwsh
+        shell: bash
         run: |
-          $baseSpec = Get-Content "${{ github.workspace }}/artifacts/openapi/base/local-api-v1.json" -Raw
-          $hasVersionedPaths = $baseSpec.Contains('"/api/v1/')
-
-          "available=$($hasVersionedPaths.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
-
-          if (-not $hasVersionedPaths) {
-            "## OpenAPI compatibility" >> $env:GITHUB_STEP_SUMMARY
-            "" >> $env:GITHUB_STEP_SUMMARY
-            "Initial /api/v1 baseline is being introduced in this pull request. Breaking-change comparison starts after this versioned baseline is merged." >> $env:GITHUB_STEP_SUMMARY
-          }
+          if grep -q '"/api/v1/' "${{ github.workspace }}/artifacts/openapi/base/local-api-v1.json"; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## OpenAPI compatibility"
+              echo
+              echo "Initial /api/v1 baseline is being introduced in this pull request. Breaking-change comparison starts after this versioned baseline is merged."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Detect breaking OpenAPI changes
         if: github.event_name == 'pull_request' && steps.versioned-baseline.outputs.available == 'true'

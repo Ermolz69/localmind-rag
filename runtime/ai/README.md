@@ -8,8 +8,8 @@ model through the first-run AI setup action.
 
 For development, install the same assets locally with:
 
-```powershell
-.\scripts\setup-ai.ps1
+```bash
+task -t .config/task/Taskfile.yml setup:ai
 ```
 
 The setup downloads a portable `llama-server.exe` into `runtime/ai/bin/` and
