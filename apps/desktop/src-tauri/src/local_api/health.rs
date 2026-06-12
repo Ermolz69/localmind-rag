@@ -52,11 +52,7 @@ pub fn check_health(base_url: &str, expected_token: &str) -> bool {
 
     let mut response = Vec::new();
 
-    if stream.read_to_end(&mut response).is_err() {
-        return false;
-    }
-
-    if response.is_empty() {
+    if stream.read_to_end(&mut response).is_err() || response.is_empty() {
         return false;
     }
 

@@ -73,7 +73,13 @@ public sealed class RagContextBuilder(
         IReadOnlyList<HybridSearchResult> rankedSources = await search.SearchAsync(
             request.Question,
             queryVector,
-            new HybridSearchOptions(Limit: request.Limit),
+            new HybridSearchOptions(
+                Limit: request.Limit,
+                BucketId: request.BucketId,
+                Tags: request.Tags,
+                DateFrom: request.DateFrom,
+                DateTo: request.DateTo,
+                FileType: request.FileType),
             cancellationToken);
 
         IReadOnlyList<RagSourceDto> relevantSources = FilterRelevantSources(

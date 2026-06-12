@@ -4,7 +4,10 @@ public sealed record FullTextSearchOptions(
     int Limit = 8,
     Guid? BucketId = null,
     Guid? DocumentId = null,
-    IReadOnlyDictionary<string, string>? Tags = null);
+    IReadOnlyDictionary<string, string>? Tags = null,
+    DateTimeOffset? DateFrom = null,
+    DateTimeOffset? DateTo = null,
+    string? FileType = null);
 
 public sealed record FullTextChunkSearchResult(
     Guid DocumentId,

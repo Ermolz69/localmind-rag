@@ -17,7 +17,11 @@ public sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
             .IsRequired()
             .HasDefaultValue(0);
 
+        builder.Property<long>(SearchDateIndexing.CreatedAtUnixTimePropertyName)
+            .HasColumnType("INTEGER");
+
         builder.HasIndex(document => document.BucketId);
+        builder.HasIndex(SearchDateIndexing.CreatedAtUnixTimePropertyName);
 
         builder.HasIndex(document => document.DeletedAt);
 

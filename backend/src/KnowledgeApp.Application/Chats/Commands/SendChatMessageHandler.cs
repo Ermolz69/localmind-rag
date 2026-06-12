@@ -56,7 +56,7 @@ public sealed class SendChatMessageHandler(
             MetadataJson = "{}"
         }, cancellationToken);
 
-        RagAnswerDto answer = await ragAnswerGenerator.AnswerAsync(conversationId, request.Content.Trim(), cancellationToken);
+        RagAnswerDto answer = await ragAnswerGenerator.AnswerAsync(conversationId, request.Content.Trim(), request.Filters, cancellationToken);
 
         await conversationRepository.AddMessageAsync(new ChatMessage
         {

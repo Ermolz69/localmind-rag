@@ -3,6 +3,7 @@ using KnowledgeApp.Application.Chats;
 using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Rag;
+using KnowledgeApp.Contracts.Search;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.UnitTests;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,31 @@ public sealed class ChatHandlersTests
     }
 
     [Fact]
+    public async Task SendChatMessageHandler_Should_Pass_Filters_To_Rag_Generator()
+    {
+        await using ApplicationTestDatabase? database = await ApplicationTestDatabase.CreateAsync();
+        ChatRequestValidator validator = new();
+        var conversationRepository = new KnowledgeApp.Infrastructure.Services.Persistence.ConversationRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        CreateChatHandler create = new(conversationRepository, unitOfWork, validator, new FakeLocalDeviceResolver());
+        FakeRagAnswerGenerator rag = new();
+        SendChatMessageHandler send = new(
+            conversationRepository,
+            unitOfWork,
+            rag,
+            validator,
+            new FixedDateTimeProvider(),
+            new FakeLocalDeviceResolver(),
+            new FakeOperationLogRepository());
+        RetrievalFilters filters = new(BucketId: Guid.NewGuid(), FileType: "pdf");
+        ConversationDto? conversation = (await create.HandleAsync(new CreateConversationRequest("Question"))).AssertSuccess();
+
+        await send.HandleAsync(conversation.Id, new ChatMessageRequest("What is local RAG?", filters));
+
+        Assert.Same(filters, rag.LastFilters);
+    }
+
+    [Fact]
     public async Task SendChatMessageHandler_Should_Reject_Missing_Conversation()
     {
         await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
@@ -65,11 +91,15 @@ public sealed class ChatHandlersTests
 
     private sealed class FakeRagAnswerGenerator : IRagAnswerGenerator
     {
+        public RetrievalFilters? LastFilters { get; private set; }
+
         public Task<RagAnswerDto> AnswerAsync(
             Guid conversationId,
             string question,
+            RetrievalFilters? filters = null,
             CancellationToken cancellationToken = default)
         {
+            LastFilters = filters;
             RagSourceDto source = new(
                 Guid.NewGuid(),
                 "Document",
@@ -84,6 +114,7 @@ public sealed class ChatHandlersTests
         public async IAsyncEnumerable<RagAnswerChunkDto> AnswerStreamAsync(
             Guid conversationId,
             string question,
+            RetrievalFilters? filters = null,
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             yield return new RagAnswerChunkDto("Stub answer");

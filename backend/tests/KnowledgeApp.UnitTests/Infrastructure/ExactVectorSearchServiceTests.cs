@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
 using KnowledgeApp.Infrastructure.Services;
 using KnowledgeApp.UnitTests.TestSupport;
@@ -78,6 +79,53 @@ public sealed class ExactVectorSearchServiceTests
         Contracts.Rag.RagSourceDto? result = Assert.Single(results);
         Assert.Equal(selected.DocumentId, result.DocumentId);
         Assert.Equal(selected.ChunkId, result.ChunkId);
+    }
+
+    [Fact]
+    public async Task SearchAsync_Should_Return_All_Buckets_When_Bucket_Filter_Is_Not_Set()
+    {
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid ChunkId) first = await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "First bucket document", "First bucket chunk", [1, 0], Guid.NewGuid());
+        (Guid DocumentId, Guid ChunkId) second = await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Second bucket document", "Second bucket chunk", [1, 0], Guid.NewGuid());
+        ExactVectorSearchService? search = new ExactVectorSearchService(database.Context, NullLogger<ExactVectorSearchService>.Instance);
+
+        IReadOnlyList<Contracts.Rag.RagSourceDto>? results = await search.SearchAsync([1, 0], new VectorSearchOptions(Limit: 2));
+
+        Assert.Contains(results, result => result.DocumentId == first.DocumentId);
+        Assert.Contains(results, result => result.DocumentId == second.DocumentId);
+    }
+
+    [Fact]
+    public async Task SearchAsync_Should_Filter_By_Date_Range()
+    {
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        DateTimeOffset inRangeDate = new(2026, 06, 09, 12, 0, 0, TimeSpan.Zero);
+        (Guid DocumentId, Guid ChunkId) selected = await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Recent document", "Recent chunk", [1, 0], createdAt: inRangeDate);
+        await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Old document", "Old chunk", [1, 0], createdAt: inRangeDate.AddDays(-10));
+        ExactVectorSearchService? search = new ExactVectorSearchService(database.Context, NullLogger<ExactVectorSearchService>.Instance);
+
+        IReadOnlyList<Contracts.Rag.RagSourceDto>? results = await search.SearchAsync(
+            [1, 0],
+            new VectorSearchOptions(
+                DateFrom: inRangeDate.Date,
+                DateTo: inRangeDate.Date));
+
+        Contracts.Rag.RagSourceDto? result = Assert.Single(results);
+        Assert.Equal(selected.DocumentId, result.DocumentId);
+    }
+
+    [Fact]
+    public async Task SearchAsync_Should_Filter_By_File_Type()
+    {
+        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        (Guid DocumentId, Guid ChunkId) selected = await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Selected.pdf", "Selected pdf chunk", [1, 0], fileType: FileType.Pdf);
+        await EmbeddedChunkTestData.AddEmbeddedChunkAsync(database.Context, "Other.txt", "Other text chunk", [1, 0], fileType: FileType.PlainText);
+        ExactVectorSearchService? search = new ExactVectorSearchService(database.Context, NullLogger<ExactVectorSearchService>.Instance);
+
+        IReadOnlyList<Contracts.Rag.RagSourceDto>? results = await search.SearchAsync([1, 0], new VectorSearchOptions(FileType: "pdf"));
+
+        Contracts.Rag.RagSourceDto? result = Assert.Single(results);
+        Assert.Equal(selected.DocumentId, result.DocumentId);
     }
 
     [Fact]

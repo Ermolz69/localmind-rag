@@ -1,11 +1,21 @@
 import { useCallback, useState } from "react";
-import type { ChatConversation } from "@entities/chat";
+import type { BucketDto } from "@entities/bucket";
+import type { ChatConversation, RetrievalFilters } from "@entities/chat";
 import { chatsApi } from "@shared/api";
 import { useApiMutation } from "@shared/lib/hooks";
+import {
+  buildFilterChips,
+  extractLiveCommands,
+  hasActiveFilters,
+  prepareChatSubmission,
+  removeFilter,
+  type ChatFilterKey,
+} from "./commandFilters";
 import type { ChatMessageView } from "./useConversationMessages";
 
 type UseSendChatMessageOptions = {
   appendMessages: (conversationId: string, messages: ChatMessageView[]) => void;
+  buckets: BucketDto[];
   createConversation: (title: string) => Promise<ChatConversation | null>;
   newConversationTitle: string;
   selectedConversationId: string | null;
@@ -20,6 +30,7 @@ type UseSendChatMessageOptions = {
 
 export function useSendChatMessage({
   appendMessages,
+  buckets,
   createConversation,
   newConversationTitle,
   selectedConversationId,
@@ -28,19 +39,47 @@ export function useSendChatMessage({
   updateMessage,
 }: UseSendChatMessageOptions) {
   const [question, setQuestion] = useState("");
+  const [activeFilters, setActiveFilters] = useState<RetrievalFilters>({});
+  const [filterError, setFilterError] = useState<string | null>(null);
 
   const sendMutation = useApiMutation(
-    (conversationId: string, content: string) =>
-      chatsApi.sendChatMessage(conversationId, content),
+    (conversationId: string, content: string, filters?: RetrievalFilters) =>
+      chatsApi.sendChatMessage(conversationId, content, filters),
     { fallbackError: "The local API request failed." },
   );
 
+  const handleQuestionChange = useCallback(
+    (nextValue: string) => {
+      setFilterError(null);
+
+      const nextDraft = extractLiveCommands(nextValue, activeFilters, buckets);
+      setActiveFilters(nextDraft.filters);
+      setQuestion(nextDraft.content);
+    },
+    [activeFilters, buckets],
+  );
+
   const sendQuestion = useCallback(async () => {
-    const content = question.trim();
+    const parsed = prepareChatSubmission(question, activeFilters, buckets);
+
+    if (parsed.error) {
+      setFilterError(parsed.error);
+      return;
+    }
+
+    if (!parsed.content && parsed.consumedCommand) {
+      setActiveFilters(parsed.filters);
+      setQuestion("");
+      setFilterError(null);
+      return;
+    }
+
+    const content = parsed.content;
     if (!content || sendMutation.isPending) {
       return;
     }
 
+    const filtersForRequest = parsed.filters;
     let conversationId = selectedConversationId;
     if (!conversationId) {
       const created = await createConversation(
@@ -54,6 +93,8 @@ export function useSendChatMessage({
     }
 
     setQuestion("");
+    setFilterError(null);
+    setActiveFilters({});
     const userMessageId = crypto.randomUUID();
     const assistantMessageId = crypto.randomUUID();
     appendMessages(conversationId, [
@@ -75,7 +116,11 @@ export function useSendChatMessage({
     setSelectedConversationId(conversationId);
     setActiveSourceMessageId(assistantMessageId);
 
-    const answer = await sendMutation.mutate(conversationId, content);
+    const answer = await sendMutation.mutate(
+      conversationId,
+      content,
+      hasActiveFilters(filtersForRequest) ? filtersForRequest : undefined,
+    );
 
     if (answer) {
       updateMessage(conversationId, assistantMessageId, (message) => ({
@@ -85,17 +130,19 @@ export function useSendChatMessage({
         sources: answer.sources,
       }));
       setActiveSourceMessageId(assistantMessageId);
-    } else if (sendMutation.error) {
+    } else {
       updateMessage(conversationId, assistantMessageId, (message) => ({
         ...message,
         content: "I couldn't generate an answer for that question.",
         status: "error",
         sources: [],
-        error: sendMutation.error ?? undefined,
+        error: sendMutation.error ?? "The local API request failed.",
       }));
     }
   }, [
     appendMessages,
+    activeFilters,
+    buckets,
     createConversation,
     newConversationTitle,
     question,
@@ -106,11 +153,19 @@ export function useSendChatMessage({
     sendMutation,
   ]);
 
+  function removeActiveFilter(key: ChatFilterKey) {
+    setFilterError(null);
+    setActiveFilters((current) => removeFilter(current, key));
+  }
+
   return {
+    activeFilterChips: buildFilterChips(activeFilters, buckets),
+    filterError,
     isSendingQuestion: sendMutation.isPending,
     question,
-    sendMessageError: sendMutation.error,
+    removeActiveFilter,
+    sendMessageError: filterError ?? sendMutation.error,
     sendQuestion,
-    setQuestion,
+    setQuestion: handleQuestionChange,
   };
 }

@@ -24,6 +24,14 @@ export type UpdateConversationRequest = {
   title: string;
 };
 
+export type RetrievalFilters = {
+  bucketId?: string | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  fileType?: string | null;
+  tags?: Record<string, string> | null;
+};
+
 export type RagAnswerDto = {
   answer: string;
   sources: RagSource[];

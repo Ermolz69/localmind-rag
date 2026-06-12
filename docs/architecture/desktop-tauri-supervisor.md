@@ -96,7 +96,7 @@ Statuses:
 Backoff schedule:
 
 ```text
-0ms, 250ms, 500ms, 1s, 2s, 4s, 8s, 8s
+0ms, 250ms, 500ms, 1s, 2s, 3s, 4s, then 5s for 30 attempts
 ```
 
 ## Frontend Contract

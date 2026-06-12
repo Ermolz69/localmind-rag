@@ -8,4 +8,7 @@ public sealed record ContentSearchRequest(
     Guid? NoteId = null,
     IReadOnlyDictionary<string, string>? Tags = null,
     bool IncludeDocuments = true,
-    bool IncludeNotes = true);
+    bool IncludeNotes = true,
+    DateTimeOffset? DateFrom = null,
+    DateTimeOffset? DateTo = null,
+    string? FileType = null);

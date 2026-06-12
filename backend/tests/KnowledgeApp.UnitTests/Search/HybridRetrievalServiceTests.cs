@@ -88,6 +88,45 @@ public sealed class HybridRetrievalServiceTests
         Assert.Equal(30, fullTextSearch.Options?.Limit);
     }
 
+    [Fact]
+    public async Task SearchAsync_Should_Forward_Scope_Filters_To_Both_Channels()
+    {
+        FakeVectorSearchService vectorSearch = new([]);
+        FakeFullTextChunkSearchService fullTextSearch = new([]);
+        HybridRetrievalService service = new(vectorSearch, fullTextSearch);
+        Guid bucketId = Guid.NewGuid();
+        Guid documentId = Guid.NewGuid();
+        DateTimeOffset dateFrom = new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        DateTimeOffset dateTo = new(2026, 6, 12, 0, 0, 0, TimeSpan.Zero);
+        Dictionary<string, string> tags = new() { ["team"] = "platform" };
+
+        await service.SearchAsync(
+            "query",
+            [1, 0],
+            new HybridSearchOptions(
+                Limit: 4,
+                BucketId: bucketId,
+                DocumentId: documentId,
+                Tags: tags,
+                DateFrom: dateFrom,
+                DateTo: dateTo,
+                FileType: "pdf"));
+
+        Assert.Equal(bucketId, vectorSearch.Options?.BucketId);
+        Assert.Equal(documentId, vectorSearch.Options?.DocumentId);
+        Assert.Same(tags, vectorSearch.Options?.Tags);
+        Assert.Equal(dateFrom, vectorSearch.Options?.DateFrom);
+        Assert.Equal(dateTo, vectorSearch.Options?.DateTo);
+        Assert.Equal("pdf", vectorSearch.Options?.FileType);
+
+        Assert.Equal(bucketId, fullTextSearch.Options?.BucketId);
+        Assert.Equal(documentId, fullTextSearch.Options?.DocumentId);
+        Assert.Same(tags, fullTextSearch.Options?.Tags);
+        Assert.Equal(dateFrom, fullTextSearch.Options?.DateFrom);
+        Assert.Equal(dateTo, fullTextSearch.Options?.DateTo);
+        Assert.Equal("pdf", fullTextSearch.Options?.FileType);
+    }
+
     private static RagSourceDto Source(
         string documentName,
         string snippet,

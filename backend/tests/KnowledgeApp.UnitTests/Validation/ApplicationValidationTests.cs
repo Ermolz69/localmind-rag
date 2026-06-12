@@ -9,6 +9,7 @@ using KnowledgeApp.Contracts.Buckets;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Notes;
 using KnowledgeApp.Contracts.Rag;
+using KnowledgeApp.Contracts.Search;
 
 namespace KnowledgeApp.UnitTests.Validation;
 
@@ -49,6 +50,34 @@ public sealed class ApplicationValidationTests
 
         Assert.Equal(ErrorCodes.Chats.ValidationFailed, error.Code);
         Assert.Contains(error.Details!, detail => detail.Field == "content" && detail.Message == ErrorMessages.Chats.ContentRequired);
+    }
+
+    [Fact]
+    public void ChatValidator_Should_Reject_Invalid_Filter_File_Type()
+    {
+        ChatRequestValidator validator = new();
+
+        Result result = validator.Validate(new ChatMessageRequest("Question", new RetrievalFilters(FileType: "exe")));
+        ApplicationError error = result.AssertFailure(ErrorType.Validation);
+
+        Assert.Equal(ErrorCodes.Chats.ValidationFailed, error.Code);
+        Assert.Contains(error.Details!, detail => detail.Field == "filters.fileType");
+    }
+
+    [Fact]
+    public void ChatValidator_Should_Reject_Invalid_Filter_Date_Range()
+    {
+        ChatRequestValidator validator = new();
+
+        Result result = validator.Validate(new ChatMessageRequest(
+            "Question",
+            new RetrievalFilters(
+                DateFrom: new DateTimeOffset(2026, 06, 10, 0, 0, 0, TimeSpan.Zero),
+                DateTo: new DateTimeOffset(2026, 06, 09, 0, 0, 0, TimeSpan.Zero))));
+        ApplicationError error = result.AssertFailure(ErrorType.Validation);
+
+        Assert.Equal(ErrorCodes.Chats.ValidationFailed, error.Code);
+        Assert.Contains(error.Details!, detail => detail.Field == "filters.dateFrom");
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Chats;
 using KnowledgeApp.Contracts.Rag;
+using KnowledgeApp.Contracts.Search;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -60,13 +61,53 @@ public sealed class SendChatStreamMessageHandlerTests
         Assert.Equal("Hello world", messages[1].Content);
     }
 
+    [Fact]
+    public async Task HandleStreamAsync_Should_Pass_Filters_To_Rag_Generator()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+
+        Conversation conversation = new Conversation { Title = "Test Chat" };
+        database.Context.Conversations.Add(conversation);
+        await database.Context.SaveChangesAsync();
+
+        StubRagAnswerGenerator ragGenerator = new([new RagAnswerChunkDto("Hello")]);
+        var conversationRepository = new KnowledgeApp.Infrastructure.Services.Persistence.ConversationRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        SendChatStreamMessageHandler handler = new(
+            conversationRepository,
+            unitOfWork,
+            ragGenerator,
+            new ChatRequestValidator(),
+            new FixedDateTimeProvider(),
+            new FakeLocalDeviceResolver(),
+            new FakeOperationLogRepository());
+        RetrievalFilters filters = new(BucketId: Guid.NewGuid(), FileType: "pdf");
+
+        await foreach (var _ in handler.HandleStreamAsync(conversation.Id, new ChatMessageRequest("Hi", filters)))
+        {
+        }
+
+        Assert.Same(filters, ragGenerator.LastFilters);
+    }
+
     private sealed class StubRagAnswerGenerator(IEnumerable<RagAnswerChunkDto> chunks) : IRagAnswerGenerator
     {
-        public Task<RagAnswerDto> AnswerAsync(Guid conversationId, string question, CancellationToken cancellationToken = default) =>
+        public RetrievalFilters? LastFilters { get; private set; }
+
+        public Task<RagAnswerDto> AnswerAsync(
+            Guid conversationId,
+            string question,
+            RetrievalFilters? filters = null,
+            CancellationToken cancellationToken = default) =>
             Task.FromResult(new RagAnswerDto("answer", []));
 
-        public async IAsyncEnumerable<RagAnswerChunkDto> AnswerStreamAsync(Guid conversationId, string question, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        public async IAsyncEnumerable<RagAnswerChunkDto> AnswerStreamAsync(
+            Guid conversationId,
+            string question,
+            RetrievalFilters? filters = null,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            LastFilters = filters;
             foreach (var chunk in chunks)
             {
                 yield return chunk;

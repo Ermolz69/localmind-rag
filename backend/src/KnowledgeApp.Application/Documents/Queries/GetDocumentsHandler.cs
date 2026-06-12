@@ -130,6 +130,6 @@ public sealed class GetDocumentsHandler(
             ? (IReadOnlyDictionary<string, string>)document.Tags.ToDictionary(t => t.Key, t => t.Value)
             : null;
 
-        return new DocumentDto(document.Id, document.Name, document.Status.ToString(), document.CreatedAt, lastError, tags);
+        return new DocumentDto(document.Id, document.BucketId, document.Name, document.Status.ToString(), document.CreatedAt, lastError, tags);
     }
 }

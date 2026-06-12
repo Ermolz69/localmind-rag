@@ -100,7 +100,10 @@ fn build_local_api_command(root: &Path) -> Option<LocalApiLaunch> {
 
         return Some(LocalApiLaunch {
             command,
-            description: format!("dotnet run --project {}", project_path.display()),
+            description: format!(
+                "dotnet run --no-launch-profile --project {}",
+                project_path.display()
+            ),
         });
     }
 

@@ -1,9 +1,6 @@
-namespace KnowledgeApp.Application.Abstractions;
+namespace KnowledgeApp.Contracts.Search;
 
-public sealed record RagContextRequest(
-    Guid ConversationId,
-    string Question,
-    int Limit = 12,
+public sealed record RetrievalFilters(
     Guid? BucketId = null,
     DateTimeOffset? DateFrom = null,
     DateTimeOffset? DateTo = null,

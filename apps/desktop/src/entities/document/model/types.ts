@@ -7,6 +7,7 @@ export type DocumentStatus =
 
 export type DocumentSummary = {
   id: string;
+  bucketId: string | null;
   name: string;
   status: DocumentStatus;
   createdAt: string;

@@ -3,6 +3,7 @@ import {
   useConversationMessages,
   useSendChatMessage,
 } from "@features/chat-message-send";
+import { useBuckets } from "@features/bucket-management";
 import { useConversationList } from "@features/conversation-management";
 import { useLocalStorage } from "@shared/lib/hooks";
 
@@ -13,6 +14,7 @@ export function useChatPageViewModel() {
   );
   const isSidebarOpen = sidebarPreference === "true";
 
+  const buckets = useBuckets();
   const conversations = useConversationList();
   const messages = useConversationMessages(
     conversations.selectedConversationId,
@@ -20,6 +22,7 @@ export function useChatPageViewModel() {
 
   const send = useSendChatMessage({
     appendMessages: messages.appendMessages,
+    buckets: buckets.buckets,
     createConversation: async (title) => {
       const created = await conversations.createConversation(title);
       if (created) {
@@ -79,8 +82,10 @@ export function useChatPageViewModel() {
     ...conversations,
     ...messages,
     ...send,
+    buckets: buckets.buckets,
     conversationError:
       conversations.conversationListError ??
+      buckets.error ??
       messages.messagesError ??
       send.sendMessageError,
     isSidebarOpen,

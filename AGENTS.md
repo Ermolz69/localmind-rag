@@ -440,7 +440,7 @@ Path: `apps/desktop/src-tauri`
 - Status changes must be centralized in supervisor.
 - Every relevant status change should emit `local-api-status-changed`.
 - Health polling must target only `GET /api/v1/health`.
-- Startup backoff must remain: 0ms, 250ms, 500ms, 1s, 2s, 4s, 8s, 8s, unless the architecture document is updated.
+- Startup backoff must remain: 0ms, 250ms, 500ms, 1s, 2s, 3s, 4s, then 5s for 30 attempts, unless the architecture document is updated.
 - Long-running operations must not run while holding a `Mutex`.
 - LocalApi must bind to `127.0.0.1`, not `0.0.0.0`.
 - Do not bind LocalApi to `localhost` if the actual binding can resolve unexpectedly; prefer explicit `127.0.0.1`.

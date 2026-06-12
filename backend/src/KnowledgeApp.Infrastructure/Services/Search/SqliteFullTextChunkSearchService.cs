@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 
 using KnowledgeApp.Application.Abstractions;
+using KnowledgeApp.Application.Search;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
 
@@ -45,7 +46,7 @@ public sealed class SqliteFullTextChunkSearchService(AppDbContext dbContext) :
         try
         {
             await using DbCommand command = connection.CreateCommand();
-            command.CommandText = BuildSearchSql(options.Tags);
+            command.CommandText = BuildSearchSql(options.Tags, options.FileType is not null);
 
             AddParameter(command, "$match", matchQuery);
             AddParameter(command, "$indexedStatus", (int)DocumentStatus.Indexed);
@@ -53,6 +54,25 @@ public sealed class SqliteFullTextChunkSearchService(AppDbContext dbContext) :
 
             AddParameter(command, "$bucketId", options.BucketId);
             AddParameter(command, "$documentId", options.DocumentId);
+            AddParameter(
+                command,
+                "$dateFrom",
+                options.DateFrom.HasValue
+                    ? SearchDateIndexing.ToUnixTimeMilliseconds(options.DateFrom.Value)
+                    : null);
+            AddParameter(
+                command,
+                "$dateTo",
+                options.DateTo.HasValue
+                    ? SearchDateIndexing.ToUnixTimeMilliseconds(
+                        SearchDateRange.ToInclusiveEndOfDay(options.DateTo.Value))
+                    : null);
+            AddParameter(
+                command,
+                "$fileType",
+                options.FileType is { } fileType
+                    ? (int)FileTypeParser.Parse(fileType)
+                    : null);
 
             AddTagParameters(command, options.Tags);
 
@@ -107,7 +127,9 @@ public sealed class SqliteFullTextChunkSearchService(AppDbContext dbContext) :
             cancellationToken);
     }
 
-    private static string BuildSearchSql(IReadOnlyDictionary<string, string>? tags)
+    private static string BuildSearchSql(
+        IReadOnlyDictionary<string, string>? tags,
+        bool hasFileType)
     {
         StringBuilder sql = new(
             """
@@ -131,7 +153,23 @@ public sealed class SqliteFullTextChunkSearchService(AppDbContext dbContext) :
             """
               AND ($bucketId IS NULL OR document.BucketId = $bucketId)
               AND ($documentId IS NULL OR document.Id = $documentId)
+              AND ($dateFrom IS NULL OR document.CreatedAtUnixTimeMs >= $dateFrom)
+              AND ($dateTo IS NULL OR document.CreatedAtUnixTimeMs <= $dateTo)
             """);
+
+        if (hasFileType)
+        {
+            sql.AppendLine();
+            sql.Append(
+                """
+                  AND EXISTS (
+                      SELECT 1
+                      FROM document_files AS document_file
+                      WHERE document_file.DocumentId = document.Id
+                        AND document_file.FileType = $fileType
+                  )
+                """);
+        }
 
         if (tags is { Count: > 0 })
         {

@@ -3,6 +3,7 @@ using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Abstractions.Rag;
 using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Contracts.Rag;
+using KnowledgeApp.Contracts.Search;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Infrastructure.Options;
 using Microsoft.Extensions.Options;
@@ -18,11 +19,16 @@ public sealed class CachedRagAnswerGenerator(
 {
     private const double CacheThreshold = 0.95;
 
-    public async Task<RagAnswerDto> AnswerAsync(Guid conversationId, string question, CancellationToken cancellationToken = default)
+    public async Task<RagAnswerDto> AnswerAsync(
+        Guid conversationId,
+        string question,
+        RetrievalFilters? filters = null,
+        CancellationToken cancellationToken = default)
     {
-        if (!options.Value.EnableSemanticCache)
+        bool hasFilters = filters is { BucketId: not null } or { DateFrom: not null } or { DateTo: not null } or { FileType: not null } or { Tags.Count: > 0 };
+        if (!options.Value.EnableSemanticCache || hasFilters)
         {
-            return await inner.AnswerAsync(conversationId, question, cancellationToken);
+            return await inner.AnswerAsync(conversationId, question, filters, cancellationToken);
         }
 
         Guid operationId = diagnostics?.BeginOperation(
@@ -52,7 +58,7 @@ public sealed class CachedRagAnswerGenerator(
 
         diagnostics?.LogStep(operationId, DiagnosticNames.Steps.CacheMiss);
 
-        var result = await inner.AnswerAsync(conversationId, question, cancellationToken);
+        var result = await inner.AnswerAsync(conversationId, question, filters, cancellationToken);
 
         if (result.Sources.Count == 0)
         {
@@ -73,11 +79,16 @@ public sealed class CachedRagAnswerGenerator(
         return result;
     }
 
-    public async IAsyncEnumerable<RagAnswerChunkDto> AnswerStreamAsync(Guid conversationId, string question, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<RagAnswerChunkDto> AnswerStreamAsync(
+        Guid conversationId,
+        string question,
+        RetrievalFilters? filters = null,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (!options.Value.EnableSemanticCache)
+        bool hasFilters = filters is { BucketId: not null } or { DateFrom: not null } or { DateTo: not null } or { FileType: not null } or { Tags.Count: > 0 };
+        if (!options.Value.EnableSemanticCache || hasFilters)
         {
-            await foreach (var chunk in inner.AnswerStreamAsync(conversationId, question, cancellationToken))
+            await foreach (var chunk in inner.AnswerStreamAsync(conversationId, question, filters, cancellationToken))
             {
                 yield return chunk;
             }
@@ -116,7 +127,7 @@ public sealed class CachedRagAnswerGenerator(
         string accumulatedAnswer = string.Empty;
         IReadOnlyList<RagSourceDto>? finalSources = null;
 
-        await foreach (var chunk in inner.AnswerStreamAsync(conversationId, question, cancellationToken))
+        await foreach (var chunk in inner.AnswerStreamAsync(conversationId, question, filters, cancellationToken))
         {
             accumulatedAnswer += chunk.Text;
             if (chunk.Sources != null)

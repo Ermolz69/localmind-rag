@@ -6,4 +6,15 @@ namespace KnowledgeApp.Contracts.Rag;
 /// <param name="BucketId">Optional bucket scope for the search.</param>
 /// <param name="DocumentId">Optional document scope for the search.</param>
 /// <param name="Tags">Optional metadata tags to filter by.</param>
-public sealed record SemanticSearchRequest(string Query, int Limit = 8, Guid? BucketId = null, Guid? DocumentId = null, IReadOnlyDictionary<string, string>? Tags = null);
+/// <param name="DateFrom">Optional starting date scope (inclusive) for the search.</param>
+/// <param name="DateTo">Optional ending date scope (inclusive) for the search.</param>
+/// <param name="FileType">Optional file type filter (e.g. pdf, docx).</param>
+public sealed record SemanticSearchRequest(
+    string Query,
+    int Limit = 8,
+    Guid? BucketId = null,
+    Guid? DocumentId = null,
+    IReadOnlyDictionary<string, string>? Tags = null,
+    DateTimeOffset? DateFrom = null,
+    DateTimeOffset? DateTo = null,
+    string? FileType = null);

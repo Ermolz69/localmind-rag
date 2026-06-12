@@ -3,6 +3,7 @@ import type {
   ChatMessageDto,
   CreateConversationRequest,
   RagAnswerDto,
+  RetrievalFilters,
   UpdateConversationRequest,
 } from "@entities/chat";
 
@@ -39,9 +40,13 @@ export const chatsApi = {
       method: "DELETE",
     }),
 
-  sendChatMessage: (conversationId: string, content: string) =>
+  sendChatMessage: (
+    conversationId: string,
+    content: string,
+    filters?: RetrievalFilters,
+  ) =>
     request<RagAnswerDto>(`/chats/${conversationId}/messages`, {
       method: "POST",
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, filters: filters ?? null }),
     }),
 };

@@ -119,6 +119,147 @@ public sealed class SemanticSearchApiTests : IClassFixture<LocalApiTestFactory>
     }
 
     [Fact]
+    public async Task SemanticSearch_Should_Return_Only_Selected_Bucket_When_Bucket_Filter_Is_Set()
+    {
+        using HttpClient? client = factory.CreateClient();
+
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
+        AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        IEmbeddingGenerator? embeddings =
+            scope.ServiceProvider.GetRequiredService<IEmbeddingGenerator>();
+
+        string? query = $"bucket scoped semantic {Guid.NewGuid():N}";
+        float[]? queryVector = await embeddings.GenerateAsync(query);
+        Guid selectedBucketId = Guid.NewGuid();
+
+        (Guid DocumentId, Guid ChunkId) selected =
+            await AddEmbeddedChunkAsync(
+                db,
+                "Selected bucket semantic document",
+                "Selected bucket snippet",
+                queryVector,
+                selectedBucketId);
+
+        await AddEmbeddedChunkAsync(
+            db,
+            "Other bucket semantic document",
+            "Other bucket snippet",
+            queryVector,
+            Guid.NewGuid());
+
+        using HttpResponseMessage? response =
+            await client.PostAsJsonAsync(
+                "/api/v1/search/semantic",
+                new SemanticSearchRequest(query, Limit: 5, BucketId: selectedBucketId));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        SemanticSearchResponse? results =
+            await response.Content.ReadApiDataAsync<SemanticSearchResponse>();
+
+        Assert.NotNull(results);
+        RagSourceDto result = Assert.Single(results.Sources);
+        Assert.Equal(selected.DocumentId, result.DocumentId);
+        Assert.Equal(selected.ChunkId, result.ChunkId);
+    }
+
+    [Fact]
+    public async Task SemanticSearch_Should_Return_All_Buckets_When_Bucket_Filter_Is_Not_Set()
+    {
+        using HttpClient? client = factory.CreateClient();
+
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
+        AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        IEmbeddingGenerator? embeddings =
+            scope.ServiceProvider.GetRequiredService<IEmbeddingGenerator>();
+
+        string? query = $"global semantic {Guid.NewGuid():N}";
+        float[]? queryVector = await embeddings.GenerateAsync(query);
+
+        (Guid DocumentId, Guid ChunkId) first =
+            await AddEmbeddedChunkAsync(
+                db,
+                "First global semantic document",
+                "First global snippet",
+                queryVector,
+                Guid.NewGuid());
+
+        (Guid DocumentId, Guid ChunkId) second =
+            await AddEmbeddedChunkAsync(
+                db,
+                "Second global semantic document",
+                "Second global snippet",
+                queryVector,
+                Guid.NewGuid());
+
+        using HttpResponseMessage? response =
+            await client.PostAsJsonAsync(
+                "/api/v1/search/semantic",
+                new SemanticSearchRequest(query, Limit: 5));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        SemanticSearchResponse? results =
+            await response.Content.ReadApiDataAsync<SemanticSearchResponse>();
+
+        Assert.NotNull(results);
+        Assert.Contains(results.Sources, result => result.DocumentId == first.DocumentId);
+        Assert.Contains(results.Sources, result => result.DocumentId == second.DocumentId);
+    }
+
+    [Fact]
+    public async Task SemanticSearch_Should_Return_Only_Documents_Inside_Date_Range()
+    {
+        using HttpClient? client = factory.CreateClient();
+
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
+        AppDbContext? db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        IEmbeddingGenerator? embeddings =
+            scope.ServiceProvider.GetRequiredService<IEmbeddingGenerator>();
+
+        string? query = $"dated semantic {Guid.NewGuid():N}";
+        float[]? queryVector = await embeddings.GenerateAsync(query);
+        DateTimeOffset selectedDate = new(2026, 06, 09, 12, 0, 0, TimeSpan.Zero);
+
+        (Guid DocumentId, Guid ChunkId) selected =
+            await AddEmbeddedChunkAsync(
+                db,
+                "Selected date semantic document",
+                "Selected date snippet",
+                queryVector,
+                createdAt: selectedDate);
+
+        await AddEmbeddedChunkAsync(
+            db,
+            "Older semantic document",
+            "Older semantic snippet",
+            queryVector,
+            createdAt: selectedDate.AddDays(-7));
+
+        using HttpResponseMessage? response =
+            await client.PostAsJsonAsync(
+                "/api/v1/search/semantic",
+                new SemanticSearchRequest(
+                    query,
+                    Limit: 5,
+                    DateFrom: selectedDate.Date,
+                    DateTo: selectedDate.Date));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        SemanticSearchResponse? results =
+            await response.Content.ReadApiDataAsync<SemanticSearchResponse>();
+
+        Assert.NotNull(results);
+        RagSourceDto result = Assert.Single(results.Sources);
+        Assert.Equal(selected.DocumentId, result.DocumentId);
+        Assert.Equal(selected.ChunkId, result.ChunkId);
+    }
+
+    [Fact]
     public async Task SemanticSearch_Should_Return_ValidationProblemDetails_For_Blank_Query()
     {
         using HttpClient? client = factory.CreateClient();
@@ -198,10 +339,14 @@ public sealed class SemanticSearchApiTests : IClassFixture<LocalApiTestFactory>
         AppDbContext context,
         string documentName,
         string chunkText,
-        float[] vector)
+        float[] vector,
+        Guid? bucketId = null,
+        DateTimeOffset? createdAt = null)
     {
         Document? document = new Document
         {
+            BucketId = bucketId,
+            CreatedAt = createdAt ?? DateTimeOffset.UtcNow,
             Name = documentName,
             Status = DocumentStatus.Indexed,
         };
