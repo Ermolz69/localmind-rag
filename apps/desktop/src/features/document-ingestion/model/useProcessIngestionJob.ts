@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { DocumentSummary } from "@entities/document";
-import { documentsApi, ingestionApi } from "@shared/api";
+import { documentsApi } from "@shared/api";
 import { useApiMutation } from "@shared/lib/hooks";
 
 const refreshAttempts = 4;
@@ -46,12 +46,9 @@ export function useProcessIngestionJob({
     }
   }
 
-
-
   return {
     processDocument,
     processError: processMutation.error,
     processingDocumentId,
-
   };
 }

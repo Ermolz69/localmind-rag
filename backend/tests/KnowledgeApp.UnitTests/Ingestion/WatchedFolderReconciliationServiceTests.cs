@@ -392,7 +392,7 @@ public sealed class WatchedFolderReconciliationServiceTests : IAsyncLifetime
     {
         public Task<AppSettingsDto> GetAsync(CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new AppSettingsDto(default!, default!, default!, default!, new WatchedFoldersSettingsDto(true, 1000, "MarkDeleted", [])));
+            return Task.FromResult(new AppSettingsDto(default!, default!, default!, default!, default!, new WatchedFoldersSettingsDto(true, 1000, "MarkDeleted", [])));
         }
         public Task<KnowledgeApp.Application.Common.Results.Result> UpdateAsync(AppSettingsDto request, CancellationToken cancellationToken = default)
         {

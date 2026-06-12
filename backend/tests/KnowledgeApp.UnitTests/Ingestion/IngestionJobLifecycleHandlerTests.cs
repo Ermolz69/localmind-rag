@@ -26,7 +26,13 @@ public sealed class IngestionJobLifecycleHandlerTests
         await database.Context.SaveChangesAsync();
         var documentRepository = new KnowledgeApp.Infrastructure.Services.Persistence.DocumentRepository(database.Context);
         var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
-        RetryIngestionJobHandler handler = new(documentRepository, new IngestionJobRepository(database.Context), unitOfWork, new FixedDateTimeProvider());
+        FakeIngestionJobSignal signal = new();
+        RetryIngestionJobHandler handler = new(
+            documentRepository,
+            new IngestionJobRepository(database.Context),
+            unitOfWork,
+            new FixedDateTimeProvider(),
+            signal);
 
         IngestionJobActionResponse response = (await handler.HandleAsync(job.Id)).AssertSuccess();
 
@@ -36,6 +42,7 @@ public sealed class IngestionJobLifecycleHandlerTests
         Assert.Null(stored.ErrorMessage);
         Assert.Equal(2, stored.RetryCount);
         Assert.Equal(job.Id, response.JobId);
+        Assert.Equal([job.Id], signal.PublishedJobIds);
     }
 
     [Fact]

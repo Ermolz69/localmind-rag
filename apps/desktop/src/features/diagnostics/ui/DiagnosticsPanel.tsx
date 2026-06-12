@@ -1,12 +1,28 @@
 import { useDiagnostics } from "../model/useDiagnostics";
-import { Skeleton } from "@shared/ui";
+import { Button, Skeleton } from "@shared/ui";
+import { RefreshCw } from "lucide-react";
 
 export function DiagnosticsPanel() {
-  const { diagnostics, isLoading, isRefreshing, lastUpdatedAt, error } =
-    useDiagnostics();
+  const {
+    diagnostics,
+    isLoading,
+    isRefreshing,
+    lastUpdatedAt,
+    error,
+    isDiagnosticsEnabled,
+    refresh,
+  } = useDiagnostics();
 
   if (isLoading) {
     return <DiagnosticsPanelSkeleton />;
+  }
+
+  if (!isDiagnosticsEnabled) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-center text-muted-foreground shadow-sm">
+        Diagnostics are currently disabled. You can enable them in Settings.
+      </div>
+    );
   }
 
   if (error || !diagnostics) {
@@ -18,15 +34,25 @@ export function DiagnosticsPanel() {
       id="diagnostics"
       className="scroll-mt-6 space-y-5 rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6"
     >
-      <div>
-        <h2 className="text-base font-semibold text-card-foreground">
-          Diagnostics
-        </h2>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-          <p>Local runtime storage, counts, and latest ingestion errors.</p>
-          {lastUpdatedAt ? <span>{formatUpdatedAt(lastUpdatedAt)}</span> : null}
-          {isRefreshing ? <span>Refreshing...</span> : null}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-base font-semibold text-card-foreground">
+            Diagnostics
+          </h2>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <p>Local runtime storage, counts, and latest ingestion errors.</p>
+            {lastUpdatedAt ? (
+              <span>{formatUpdatedAt(lastUpdatedAt)}</span>
+            ) : null}
+            {isRefreshing ? <span>Refreshing...</span> : null}
+          </div>
         </div>
+        <Button variant="secondary" onClick={refresh} disabled={isRefreshing}>
+          <RefreshCw
+            className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+          />
+          Refresh
+        </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-4">
         <Metric label="Documents" value={diagnostics.database.documentsCount} />

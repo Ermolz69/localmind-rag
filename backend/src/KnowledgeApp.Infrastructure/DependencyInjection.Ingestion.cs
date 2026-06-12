@@ -12,6 +12,7 @@ public static partial class DependencyInjection
 {
     private static IServiceCollection AddIngestion(this IServiceCollection services)
     {
+        services.AddSingleton<IIngestionJobSignal, IngestionJobSignal>();
         services.AddScoped<IIngestionQueue, IngestionQueue>();
         services.AddScoped<IIngestionJobRepository, IngestionJobRepository>();
         services.AddScoped<IIngestionJobProcessor, IngestionJobProcessor>();

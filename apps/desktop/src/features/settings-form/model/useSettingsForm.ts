@@ -3,6 +3,7 @@ import type {
   AppSettings,
   WatchedFolderStatusResponse,
 } from "@entities/settings";
+import { clearDiagnosticsCache } from "@features/diagnostics";
 import { toAppSettings, toAppSettingsDto } from "@entities/settings";
 import { getFieldErrors, settingsApi, watchedFoldersApi } from "@shared/api";
 import { useApiMutation, useApiQuery } from "@shared/lib/hooks";
@@ -79,6 +80,12 @@ export function useSettingsForm() {
       setSettings(draft);
       setDraftState(draft);
       setHasLocalChanges(false);
+
+      window.dispatchEvent(new CustomEvent("localmind:settings:changed"));
+
+      if (!draft.diagnostics.enabled) {
+        void clearDiagnosticsCache();
+      }
     } else if (saveMutation.rawError) {
       setFieldErrors(getFieldErrors(saveMutation.rawError));
     }

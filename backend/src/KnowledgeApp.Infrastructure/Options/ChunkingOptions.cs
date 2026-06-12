@@ -6,16 +6,16 @@ public sealed class ChunkingOptions
 
     public ChunkingTokenizerOptions Tokenizer { get; set; } = new();
 
-    public int ChunkingVersion { get; set; } = 1;
+    public int ChunkingVersion { get; set; } = 2;
 
-    public string ChunkingAlgorithmId { get; set; } = "structure-aware-token-v1";
+    public string ChunkingAlgorithmId { get; set; } = "structure-aware-token-v2";
 
     public ChunkingProfile Default { get; set; } = new()
     {
-        TargetTokens = 420,
-        MaxTokens = 700,
-        MinTokens = 120,
-        OverlapTokens = 80
+        TargetTokens = 300,
+        MaxTokens = 450,
+        MinTokens = 80,
+        OverlapTokens = 40
     };
 
     public ChunkingProfile Code { get; set; } = new()

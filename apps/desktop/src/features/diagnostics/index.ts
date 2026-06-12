@@ -1,2 +1,2 @@
 export { DiagnosticsPanel } from "./ui/DiagnosticsPanel";
-export { useDiagnostics } from "./model/useDiagnostics";
+export { useDiagnostics, clearDiagnosticsCache } from "./model/useDiagnostics";

@@ -145,18 +145,51 @@ impl LocalApiSupervisor {
         self.start_with_retry(app, true, 1);
     }
 
-    pub fn stop(&self, app: &AppHandle) {
+    /// Silently shutdown Local API without emitting status events.
+    pub fn shutdown(&self) {
         let child_to_kill = {
             let mut state = self.state.lock().expect("supervisor state poisoned");
-            state.status = LocalApiStatus::Stopped;
             state.monitor_running = false;
             state.port = None;
             state.instance_token = None;
             state.monitor_generation += 1;
             state.child.take()
         };
-
         if let Some(mut child) = child_to_kill {
+            process::kill_child(&mut child);
+        }
+    }
+    
+
+
+
+    pub async fn stop_gracefully(&self, app: &AppHandle) {
+        let (port, mut child_to_wait) = {
+            let mut state = self.state.lock().expect("supervisor state poisoned");
+            state.status = LocalApiStatus::Stopped;
+            state.monitor_running = false;
+            let port = state.port;
+            state.port = None;
+            state.instance_token = None;
+            state.monitor_generation += 1;
+            (port, state.child.take())
+        };
+
+        if let Some(mut child) = child_to_wait.take() {
+            if let Some(port) = port {
+                let url = format!("http://127.0.0.1:{}/api/v1/system/shutdown", port);
+                let client = reqwest::Client::new();
+                let _ = client.post(&url).send().await;
+
+                let start = std::time::Instant::now();
+                while start.elapsed() < Duration::from_secs(3) {
+                    if let Ok(Some(_)) = child.try_wait() {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+            }
+
             process::kill_child(&mut child);
         }
 

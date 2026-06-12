@@ -15,6 +15,7 @@ public sealed class WindowsFileWatcherHostedService(
     IWatchedFolderStatusStore statusStore,
     IDateTimeProvider dateTimeProvider,
     IWatchedFileFilterService filterService,
+    KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager processManager,
     ILogger<WindowsFileWatcherHostedService> logger) : BackgroundService
 {
     private static readonly TimeSpan LoopDelay = TimeSpan.FromMilliseconds(250);
@@ -35,8 +36,15 @@ public sealed class WindowsFileWatcherHostedService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        using PeriodicTimer timer = new(LoopDelay);
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            if (processManager.IsShuttingDown)
+            {
+                break;
+            }
+
             try
             {
                 await ReloadSettingsIfNeededAsync(stoppingToken);
@@ -55,7 +63,14 @@ public sealed class WindowsFileWatcherHostedService(
                     dateTimeProvider.UtcNow);
             }
 
-            await Task.Delay(LoopDelay, stoppingToken);
+            try
+            {
+                await timer.WaitForNextTickAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
         }
     }
 
@@ -433,6 +448,12 @@ public sealed class WindowsFileWatcherHostedService(
         }
 
         statusStore.SetFolderWatching(registration.FolderPath, isWatching: false);
+
+        try
+        {
+            registration.Watcher.EnableRaisingEvents = false;
+        }
+        catch (ObjectDisposedException) { }
 
         registration.Watcher.Dispose();
     }

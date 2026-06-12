@@ -1,4 +1,5 @@
 import {
+  Activity,
   BookOpen,
   Bot,
   ChevronLeft,
@@ -13,6 +14,8 @@ import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { routes } from "@shared/constants/routes";
 import { cn } from "@shared/lib/cn";
+import { settingsApi } from "@shared/api";
+import { useApiQuery } from "@shared/lib/hooks";
 
 const items = [
   { to: routes.dashboard, label: "Dashboard", icon: Home },
@@ -22,16 +25,29 @@ const items = [
   { to: routes.notes, label: "Notes", icon: BookOpen },
   { to: routes.chat, label: "Chat", icon: Bot },
   { to: routes.settings, label: "Settings", icon: Settings },
+  { to: routes.diagnostics, label: "Diagnostics", icon: Activity },
 ];
 
 const sidebarStorageKey = "localmind.sidebar.expanded";
 
 export function AppSidebar() {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { data: settings, reload } = useApiQuery(
+    () => settingsApi.getSettings().catch(() => null),
+    {},
+  );
 
   useEffect(() => {
     setIsExpanded(window.localStorage.getItem(sidebarStorageKey) === "true");
   }, []);
+
+  useEffect(() => {
+    const handler = () => void reload();
+    window.addEventListener("localmind:settings:changed", handler);
+    return () => {
+      window.removeEventListener("localmind:settings:changed", handler);
+    };
+  }, [reload]);
 
   function setExpanded(nextValue: boolean) {
     setIsExpanded(nextValue);
@@ -70,7 +86,7 @@ export function AppSidebar() {
           type="button"
           onClick={() => setExpanded(!isExpanded)}
           className={cn(
-            "mb-3 flex w-full h-11 items-center rounded-md transition-[justify-content,padding] cursor-ew-resize hover:bg-muted/50",
+            "mb-3 flex h-11 w-full cursor-ew-resize items-center rounded-md transition-[justify-content,padding] hover:bg-muted/50",
             isExpanded ? "justify-start px-2" : "justify-center px-0",
           )}
         >
@@ -79,7 +95,7 @@ export function AppSidebar() {
           </div>
           <div
             className={cn(
-              "min-w-0 overflow-hidden transition-[opacity,transform] duration-200 text-left",
+              "min-w-0 overflow-hidden text-left transition-[opacity,transform] duration-200",
               isExpanded
                 ? "ml-3 translate-x-0 opacity-100"
                 : "pointer-events-none ml-0 w-0 -translate-x-2 opacity-0",
@@ -95,34 +111,40 @@ export function AppSidebar() {
         </button>
 
         <nav className="flex flex-col gap-1">
-          {items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              title={isExpanded ? undefined : item.label}
-              className={({ isActive }) =>
-                cn(
-                  "flex h-11 min-w-0 items-center rounded-md text-sm transition-[background-color,color,padding] duration-200",
-                  isExpanded ? "gap-3 px-3" : "justify-center px-0",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )
-              }
-            >
-              <item.icon className="shrink-0" size={18} aria-hidden />
-              <span
-                className={cn(
-                  "min-w-0 truncate transition-[opacity,transform] duration-200",
-                  isExpanded
-                    ? "translate-x-0 opacity-100"
-                    : "pointer-events-none w-0 -translate-x-2 opacity-0",
-                )}
+          {items
+            .filter(
+              (item) =>
+                item.to !== routes.diagnostics ||
+                settings?.diagnostics?.enabled,
+            )
+            .map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                title={isExpanded ? undefined : item.label}
+                className={({ isActive }) =>
+                  cn(
+                    "flex h-11 min-w-0 items-center rounded-md text-sm transition-[background-color,color,padding] duration-200",
+                    isExpanded ? "gap-3 px-3" : "justify-center px-0",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )
+                }
               >
-                {item.label}
-              </span>
-            </NavLink>
-          ))}
+                <item.icon className="shrink-0" size={18} aria-hidden />
+                <span
+                  className={cn(
+                    "min-w-0 truncate transition-[opacity,transform] duration-200",
+                    isExpanded
+                      ? "translate-x-0 opacity-100"
+                      : "pointer-events-none w-0 -translate-x-2 opacity-0",
+                  )}
+                >
+                  {item.label}
+                </span>
+              </NavLink>
+            ))}
         </nav>
       </div>
     </aside>

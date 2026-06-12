@@ -261,6 +261,33 @@ export function SettingsSections({
       </Section>
 
       <Section
+        id="diagnostics"
+        title="Diagnostics"
+        description="Local runtime status, counts, and ingestion errors."
+      >
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium text-foreground">
+            <span>Diagnostics enabled</span>
+            <Select
+              value={String(draft.diagnostics?.enabled ?? true)}
+              onChange={(event) =>
+                onChange({
+                  ...draft,
+                  diagnostics: {
+                    ...draft.diagnostics,
+                    enabled: event.target.value === "true",
+                  },
+                })
+              }
+            >
+              <option value="false">Disabled</option>
+              <option value="true">Enabled</option>
+            </Select>
+          </label>
+        </div>
+      </Section>
+
+      <Section
         id="watched-folders"
         title="Watched folders"
         description="Automatically create ingestion jobs when files are created, updated, or deleted in selected folders."

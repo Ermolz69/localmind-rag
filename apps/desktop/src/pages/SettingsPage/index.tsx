@@ -20,6 +20,7 @@ const settingsNavigation = [
   { href: "#runtime-paths", label: "Runtime paths" },
   { href: "#ai", label: "AI" },
   { href: "#sync", label: "Sync" },
+  { href: "#diagnostics", label: "Diagnostics" },
   { href: "#watched-folders", label: "Watched folders" },
 ];
 

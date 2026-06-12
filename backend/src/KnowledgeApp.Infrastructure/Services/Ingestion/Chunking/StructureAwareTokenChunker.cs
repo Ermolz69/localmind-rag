@@ -4,6 +4,8 @@ using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Application.Ingestion.IncrementalIndexing;
 using KnowledgeApp.Infrastructure.Options;
 using Microsoft.Extensions.Options;
+using System.Text.RegularExpressions;
+using System.Linq;
 
 namespace KnowledgeApp.Infrastructure.Services.Ingestion.Chunking;
 
@@ -34,6 +36,26 @@ public sealed class StructureAwareTokenChunker(
 
         foreach (DocumentBlock block in blocks)
         {
+            // Oversized block handling – split using natural boundaries
+            if (block.TokenCount > config.Default.MaxTokens)
+            {
+                // Flush any accumulated chunk first
+                if (currentChunkBlocks.Count > 0)
+                {
+                    chunks.Add(BuildChunk(currentChunkBlocks, config));
+                    currentChunkBlocks.Clear();
+                    currentTokenCount = 0;
+                }
+
+                // Split the oversized block and emit each piece as its own chunk
+                foreach (var split in SplitOversizedBlock(block, config))
+                {
+                    chunks.Add(BuildChunk([split], config));
+                }
+                continue; // move to next original block
+            }
+
+            // Normal overflow handling – start a new chunk when adding this block would exceed the limit
             if (currentTokenCount + block.TokenCount > config.Default.MaxTokens && currentChunkBlocks.Count > 0)
             {
                 chunks.Add(BuildChunk(currentChunkBlocks, config));
@@ -80,4 +102,68 @@ public sealed class StructureAwareTokenChunker(
             EmbeddingTextHash: embeddingTextHash
         );
     }
+        private IEnumerable<DocumentBlock> SplitOversizedBlock(DocumentBlock block, ChunkingOptions config)
+    {
+        // 1️⃣ Try paragraph split (double newline)
+        var paragraphs = block.Text.Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var para in paragraphs)
+        {
+            int paraTokens = tokenizer.CountTokens(para);
+            if (paraTokens <= config.Default.MaxTokens)
+            {
+                yield return new DocumentBlock(
+                    Type: block.Type,
+                    Text: para,
+                    HeadingPath: block.HeadingPath,
+                    SectionTitle: block.SectionTitle,
+                    SourceStartOffset: null,
+                    SourceEndOffset: null,
+                    TokenCount: paraTokens,
+                    IsAtomic: block.IsAtomic);
+                continue;
+            }
+
+            // 2️⃣ Sentence split (simple regex)
+            var sentences = Regex.Split(para, @"(?<=[.!?])\\s+");
+            foreach (var sentence in sentences)
+            {
+                int sentTokens = tokenizer.CountTokens(sentence);
+                if (sentTokens <= config.Default.MaxTokens)
+                {
+                    yield return new DocumentBlock(
+                        Type: block.Type,
+                        Text: sentence,
+                        HeadingPath: block.HeadingPath,
+                        SectionTitle: block.SectionTitle,
+                        SourceStartOffset: null,
+                        SourceEndOffset: null,
+                        TokenCount: sentTokens,
+                        IsAtomic: block.IsAtomic);
+                    continue;
+                }
+
+                // 3️⃣ Token‑based split fallback
+                var tokenIds = tokenizer.Encode(sentence);
+                int start = 0;
+                while (start < tokenIds.Count)
+                {
+                    int length = Math.Min(config.Default.MaxTokens, tokenIds.Count - start);
+                    var sliceIds = tokenIds.Skip(start).Take(length).ToArray();
+                    string sliceText = tokenizer.Decode(sliceIds);
+                    yield return new DocumentBlock(
+                        Type: block.Type,
+                        Text: sliceText,
+                        HeadingPath: block.HeadingPath,
+                        SectionTitle: block.SectionTitle,
+                        SourceStartOffset: null,
+                        SourceEndOffset: null,
+                        TokenCount: length,
+                        IsAtomic: block.IsAtomic);
+                    start += length;
+                }
+            }
+        }
+    }
+
 }
+

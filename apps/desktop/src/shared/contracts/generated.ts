@@ -1262,6 +1262,8 @@ export interface components {
       runtimePaths: components["schemas"]["RuntimePathsSettingsDto"];
       /** @description Remote sync settings. */
       sync: components["schemas"]["SyncSettingsDto"];
+      /** @description Diagnostics settings. */
+      diagnostics: components["schemas"]["DiagnosticsSettingsDto"];
       watchedFolders?:
         | null
         | components["schemas"]["WatchedFoldersSettingsDto"];
@@ -1551,6 +1553,11 @@ export interface components {
       runtimeMode: string;
       localApiVersion: string;
       aiRuntimeStatus: components["schemas"]["RuntimeStatusDto"];
+    };
+    /** @description Diagnostics settings. */
+    DiagnosticsSettingsDto: {
+      /** @description Whether diagnostics panel and page are enabled. */
+      enabled: boolean;
     };
     /** @description Storage size diagnostics in bytes. */
     DiagnosticsStorageDto: {

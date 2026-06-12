@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Application.Ingestion.WatchedFolders.Filtering;
+using KnowledgeApp.Application.Abstractions.Ingestion;
 using KnowledgeApp.Contracts.Documents;
 
 namespace KnowledgeApp.Infrastructure.Services.WatchedFolders;
@@ -17,7 +18,8 @@ public sealed class WatchedFileIngestionService(
     IDateTimeProvider dateTimeProvider,
     ISettingsService settingsService,
     IWatchedFileFilterService filterService,
-    IFileStorageService fileStorageService) : IWatchedFileIngestionService
+    IFileStorageService fileStorageService,
+    IIngestionJobSignal signal) : IWatchedFileIngestionService
 {
     private const int ReadRetryCount = 5;
     private static readonly TimeSpan ReadRetryDelay = TimeSpan.FromMilliseconds(200);
@@ -454,6 +456,7 @@ public sealed class WatchedFileIngestionService(
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await signal.PublishAsync(job.Id, cancellationToken);
     }
 
     private async Task UpdateDocumentForWatchedFileAsync(
@@ -537,6 +540,7 @@ public sealed class WatchedFileIngestionService(
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await signal.PublishAsync(job.Id, cancellationToken);
     }
 
     private static async Task<FileSnapshot?> TryReadFileSnapshotAsync(

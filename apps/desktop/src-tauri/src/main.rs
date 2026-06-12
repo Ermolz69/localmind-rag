@@ -8,12 +8,11 @@ use local_api::{
     commands::{
         copy_diagnostics_to_clipboard, enable_limited_mode, get_app_runtime_info, open_logs_folder,
         read_app_cache, restart_local_api, reveal_file_in_explorer, select_connected_folder,
-        select_document_files, start_local_api_on_setup, write_app_cache,
+        select_document_files, start_local_api_on_setup, write_app_cache, shutdown_everything,
     },
     supervisor::LocalApiSupervisor,
 };
-use tauri::Manager;
-
+use tauri::WindowEvent;
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -29,7 +28,8 @@ fn main() {
             select_connected_folder,
             reveal_file_in_explorer,
             read_app_cache,
-            write_app_cache
+            write_app_cache,
+            shutdown_everything
         ])
         .setup(|app| {
             start_local_api_on_setup(app.handle().clone());
@@ -38,7 +38,7 @@ fn main() {
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
                 let handle = window.app_handle().clone();
-                handle.state::<LocalApiSupervisor>().stop(&handle);
+                handle.state::<LocalApiSupervisor>().shutdown();
             }
         })
         .run(tauri::generate_context!())

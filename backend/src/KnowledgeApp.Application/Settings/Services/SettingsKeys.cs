@@ -19,6 +19,8 @@ public static class SettingsKeys
     public const string SyncEnabled = "Sync.Enabled";
     public const string SyncAutoSync = "Sync.AutoSync";
 
+    public const string DiagnosticsEnabled = "Diagnostics.Enabled";
+
     public const string WatchedFoldersEnabled = "WatchedFolders.Enabled";
     public const string WatchedFoldersDebounceMilliseconds = "WatchedFolders.DebounceMilliseconds";
     public const string WatchedFoldersDeletePolicy = "WatchedFolders.DeletePolicy";
@@ -44,6 +46,7 @@ public static class SettingsKeys
         RuntimeLogsPath,
         SyncEnabled,
         SyncAutoSync,
+        DiagnosticsEnabled,
         WatchedFoldersEnabled,
         WatchedFoldersDebounceMilliseconds,
         WatchedFoldersDeletePolicy,

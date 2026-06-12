@@ -34,6 +34,7 @@ public class WindowsFileWatcherHostedServiceTests
                 default!,
                 default!,
                 default!,
+                default!,
                 new WatchedFoldersSettingsDto(
                     Enabled: true,
                     DebounceMilliseconds: 100,
@@ -59,7 +60,7 @@ public class WindowsFileWatcherHostedServiceTests
                 statusStore,
                 dateTimeProvider,
                 new FakeWatchedFileFilterService(),
-                loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+                new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
             );
 
             // Act
@@ -97,7 +98,7 @@ public class WindowsFileWatcherHostedServiceTests
         services.AddSingleton<IWatchedFileIngestionService>(fakeIngestionService);
 
         FakeSettingsService fakeSettingsService = new FakeSettingsService(new AppSettingsDto(
-            default!, default!, default!, default!,
+            default!, default!, default!, default!, default!,
             new WatchedFoldersSettingsDto(Enabled: false, DebounceMilliseconds: 0, DeletePolicy: "MarkDeleted", Folders: [])
         ));
         services.AddSingleton<ISettingsService>(fakeSettingsService);
@@ -117,7 +118,7 @@ public class WindowsFileWatcherHostedServiceTests
         LoggerFactory loggerFactory = new LoggerFactory();
 
         WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
-            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
         );
 
         // Act
@@ -149,7 +150,7 @@ public class WindowsFileWatcherHostedServiceTests
         services.AddSingleton<IWatchedFileIngestionService>(fakeIngestionService);
 
         FakeSettingsService fakeSettingsService = new FakeSettingsService(new AppSettingsDto(
-            default!, default!, default!, default!,
+            default!, default!, default!, default!, default!,
             new WatchedFoldersSettingsDto(Enabled: false, DebounceMilliseconds: 0, DeletePolicy: "MarkDeleted", Folders: [])
         ));
         services.AddSingleton<ISettingsService>(fakeSettingsService);
@@ -169,7 +170,7 @@ public class WindowsFileWatcherHostedServiceTests
         LoggerFactory loggerFactory = new LoggerFactory();
 
         WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
-            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
         );
 
         // Act
@@ -200,7 +201,7 @@ public class WindowsFileWatcherHostedServiceTests
         services.AddSingleton<IWatchedFileIngestionService>(fakeIngestionService);
 
         FakeSettingsService fakeSettingsService = new FakeSettingsService(new AppSettingsDto(
-            default!, default!, default!, default!,
+            default!, default!, default!, default!, default!,
             new WatchedFoldersSettingsDto(Enabled: false, DebounceMilliseconds: 0, DeletePolicy: "MarkDeleted", Folders: [])
         ));
         services.AddSingleton<ISettingsService>(fakeSettingsService);
@@ -220,7 +221,7 @@ public class WindowsFileWatcherHostedServiceTests
         LoggerFactory loggerFactory = new LoggerFactory();
 
         WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
-            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
         );
 
         // Act
@@ -259,7 +260,7 @@ public class WindowsFileWatcherHostedServiceTests
 
             // Initially no folders
             FakeSettingsService fakeSettingsService = new FakeSettingsService(new AppSettingsDto(
-                default!, default!, default!, default!,
+                default!, default!, default!, default!, default!,
                 new WatchedFoldersSettingsDto(Enabled: true, DebounceMilliseconds: 100, DeletePolicy: "MarkDeleted", Folders: [])
             ));
             services.AddSingleton<ISettingsService>(fakeSettingsService);
@@ -272,7 +273,7 @@ public class WindowsFileWatcherHostedServiceTests
             LoggerFactory loggerFactory = new LoggerFactory();
 
             WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
-                scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+                scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
             );
 
             // Act
@@ -285,7 +286,7 @@ public class WindowsFileWatcherHostedServiceTests
             // hosted service reloads every 5 seconds, so we need to advance time or wait.
             // Since we use FakeDateTimeProvider, we can advance time
             fakeSettingsService.CurrentSettings = new AppSettingsDto(
-                default!, default!, default!, default!,
+                default!, default!, default!, default!, default!,
                 new WatchedFoldersSettingsDto(Enabled: true, DebounceMilliseconds: 100, DeletePolicy: "MarkDeleted", Folders: new[]
                 {
                     new WatchedFolderDto(tempDirectory, IncludeSubdirectories: true, Enabled: true)

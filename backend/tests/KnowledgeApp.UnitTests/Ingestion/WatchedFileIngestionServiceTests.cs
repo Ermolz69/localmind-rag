@@ -23,7 +23,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
 
         await File.WriteAllTextAsync(filePath, "Initial watched file content.");
 
-        var (service, provider) = CreateService(database);
+        var (service, provider, signal) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(filePath, watchedFolderPath);
 
@@ -50,6 +50,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
 
         Assert.Equal(document.Id, job.DocumentId);
         Assert.Equal(IngestionJobStatus.Pending, job.Status);
+        Assert.Equal([job.Id], signal.PublishedJobIds);
     }
 
     [Fact]
@@ -61,7 +62,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
 
         await File.WriteAllTextAsync(filePath, "Initial watched file content.");
 
-        var (service, provider) = CreateService(database);
+        var (service, provider, signal) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(filePath, watchedFolderPath);
 
@@ -87,6 +88,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
         Assert.Null(linkAfterUpdate.DeletedAt);
 
         Assert.Equal(2, jobCount);
+        Assert.Equal(2, signal.PublishedJobIds.Count);
     }
 
     [Fact]
@@ -98,7 +100,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
 
         await File.WriteAllTextAsync(filePath, "Same watched file content.");
 
-        var (service, provider) = CreateService(database);
+        var (service, provider, _) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(filePath, watchedFolderPath);
 
@@ -132,7 +134,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
 
         await File.WriteAllTextAsync(filePath, "Initial watched file content.");
 
-        var (service, provider) = CreateService(database);
+        var (service, provider, _) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(filePath, watchedFolderPath);
 
@@ -162,7 +164,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
 
         await File.WriteAllTextAsync(filePath, "Unsupported file content.");
 
-        var (service, provider) = CreateService(database);
+        var (service, provider, _) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(filePath, watchedFolderPath);
 
@@ -181,7 +183,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
         string newFilePath = Path.Combine(watchedFolderPath, "new-name.txt");
 
         await File.WriteAllTextAsync(oldFilePath, "Content.");
-        var (service, provider) = CreateService(database);
+        var (service, provider, _) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(oldFilePath, watchedFolderPath);
 
@@ -218,7 +220,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
         string newFilePath = Path.Combine(watchedFolderPath, "new-name.txt");
 
         await File.WriteAllTextAsync(oldFilePath, "Old Content.");
-        var (service, provider) = CreateService(database);
+        var (service, provider, _) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(oldFilePath, watchedFolderPath);
 
@@ -245,7 +247,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
         string newFilePath = Path.Combine(watchedFolderPath, "new-name.exe");
 
         await File.WriteAllTextAsync(oldFilePath, "Content.");
-        var (service, provider) = CreateService(database);
+        var (service, provider, _) = CreateService(database);
 
         await service.HandleCreatedOrChangedAsync(oldFilePath, watchedFolderPath);
 
@@ -270,7 +272,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
         string newFilePath = Path.Combine(watchedFolderPath, "new-name.txt");
 
         await File.WriteAllTextAsync(newFilePath, "Content.");
-        var (service, provider) = CreateService(database);
+        var (service, provider, _) = CreateService(database);
 
         // We skip calling HandleCreatedOrChangedAsync for oldFilePath to simulate missing link
         await service.HandleRenamedAsync(oldFilePath, newFilePath, watchedFolderPath);
@@ -317,17 +319,22 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
         await Task.CompletedTask;
     }
 
-    private (WatchedFileIngestionService Service, MutableDateTimeProvider DateTimeProvider) CreateService(TestDatabase database)
+    private (
+        WatchedFileIngestionService Service,
+        MutableDateTimeProvider DateTimeProvider,
+        FakeIngestionJobSignal Signal) CreateService(TestDatabase database)
     {
         var provider = new MutableDateTimeProvider();
+        FakeIngestionJobSignal signal = new();
         var service = new WatchedFileIngestionService(
             database.Context,
             provider,
             new FakeSettingsService(),
             new FakeWatchedFileFilterService(),
-            new FakeFileStorageService());
+            new FakeFileStorageService(),
+            signal);
 
-        return (service, provider);
+        return (service, provider, signal);
     }
 
     private string CreateTempDirectory()
@@ -363,7 +370,7 @@ public sealed class WatchedFileIngestionServiceTests : IAsyncDisposable
     {
         public Task<AppSettingsDto> GetAsync(CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new AppSettingsDto(default!, default!, default!, default!, new WatchedFoldersSettingsDto(true, 1000, "MarkDeleted", [])));
+            return Task.FromResult(new AppSettingsDto(default!, default!, default!, default!, default!, new WatchedFoldersSettingsDto(true, 1000, "MarkDeleted", [])));
         }
 
         public Task<KnowledgeApp.Application.Common.Results.Result> UpdateAsync(AppSettingsDto request, CancellationToken cancellationToken = default)

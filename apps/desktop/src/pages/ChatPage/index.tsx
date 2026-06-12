@@ -67,12 +67,14 @@ export function ChatPage() {
         <MessageComposer
           value={chat.question}
           disabled={chat.isSendingQuestion || chat.isCreatingConversation}
+          isSending={chat.isSendingQuestion}
           error={chat.filterError}
           filters={chat.activeFilterChips}
           buckets={chat.buckets}
           onChange={chat.setQuestion}
           onRemoveFilter={chat.removeActiveFilter}
           onSubmit={() => void chat.sendQuestion()}
+          onCancel={chat.cancelSendQuestion}
         />
       </div>
 

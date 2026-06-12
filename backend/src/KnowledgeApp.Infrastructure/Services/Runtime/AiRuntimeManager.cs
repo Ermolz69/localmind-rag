@@ -25,6 +25,7 @@ public sealed class AiRuntimeManager(
     EmbeddingModelStore embeddingModelStore,
     ChatModelCatalog chatModelCatalog,
     ChatModelStore chatModelStore,
+    KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager processManager,
     ILogger<AiRuntimeManager> logger,
     IAppDiagnosticLogger? diagnostics = null) : IAiRuntimeManager, IAiModelRegistry, IAiRuntimeProvider, IDisposable
 {
@@ -292,51 +293,52 @@ public sealed class AiRuntimeManager(
                 ErrorMessages.Runtime.AiRuntimeUnavailable);
         }
 
-        EmbeddingRequest payload = new(EmbeddingModelName, texts);
+        List<float[]> results = new(texts.Count);
 
         using HttpClient client = new()
         {
             Timeout = TimeSpan.FromSeconds(60),
         };
 
-        using HttpResponseMessage response = await client.PostAsJsonAsync(
-            BuildEmbeddingUri("/v1/embeddings"),
-            payload,
-            SerializerOptions,
-            cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        foreach (string text in texts)
         {
-            throw await CreateRuntimeUnavailableExceptionAsync(
-                "embedding generation",
-                response,
-                cancellationToken);
-        }
+            EmbeddingRequest payload = new(EmbeddingModelName, [text]);
 
-        EmbeddingResponse? body =
-            await response.Content.ReadFromJsonAsync<EmbeddingResponse>(
+            using HttpResponseMessage response = await client.PostAsJsonAsync(
+                BuildEmbeddingUri("/v1/embeddings"),
+                payload,
                 SerializerOptions,
                 cancellationToken);
 
-        IReadOnlyList<EmbeddingResponseData>? data = body?.Data;
-        if (data is null || data.Count != texts.Count)
-        {
-            throw new ExternalDependencyAppException(
-                ErrorCodes.Runtime.AiRuntimeUnavailable,
-                ErrorMessages.Runtime.AiRuntimeUnavailable);
-        }
+            if (!response.IsSuccessStatusCode)
+            {
+                string responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        List<float[]> results = new(data.Count);
-        foreach (EmbeddingResponseData item in data.OrderBy(item => item.Index))
-        {
-            if (item.Index < 0 || item.Index >= texts.Count || item.Embedding.Length == 0)
+                logger.LogError(
+                    "Embedding generation failed. StatusCode: {StatusCode}. Body: {Body}",
+                    response.StatusCode,
+                    responseBody);
+
+                throw await CreateRuntimeUnavailableExceptionAsync(
+                    "embedding generation",
+                    response,
+                    cancellationToken);
+            }
+
+            EmbeddingResponse? body =
+                await response.Content.ReadFromJsonAsync<EmbeddingResponse>(
+                    SerializerOptions,
+                    cancellationToken);
+
+            IReadOnlyList<EmbeddingResponseData>? data = body?.Data;
+            if (data is null || data.Count != 1)
             {
                 throw new ExternalDependencyAppException(
                     ErrorCodes.Runtime.AiRuntimeUnavailable,
                     ErrorMessages.Runtime.AiRuntimeUnavailable);
             }
 
-            results.Add(item.Embedding);
+            results.Add(data[0].Embedding);
         }
 
         return results;
@@ -580,6 +582,7 @@ public sealed class AiRuntimeManager(
         try
         {
             process.Start();
+            processManager.RegisterProcess(process);
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 

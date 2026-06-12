@@ -21,7 +21,8 @@ export function useRuntimeStatus() {
     { fallbackError: "Unable to load runtime." },
   );
 
-  const [setupProgress, setSetupProgress] = useState<RuntimeSetupProgress | null>(null);
+  const [setupProgress, setSetupProgress] =
+    useState<RuntimeSetupProgress | null>(null);
   const [isSettingUpAi, setIsSettingUpAi] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -44,8 +45,12 @@ export function useRuntimeStatus() {
 
       if (!setupId) throw new Error("No setup ID returned.");
 
-      const eventResponse = await runtimeApi.watchAiRuntimeSetup(setupId, abortControllerRef.current.signal);
-      if (!eventResponse.body) throw new Error("No response body from progress stream.");
+      const eventResponse = await runtimeApi.watchAiRuntimeSetup(
+        setupId,
+        abortControllerRef.current.signal,
+      );
+      if (!eventResponse.body)
+        throw new Error("No response body from progress stream.");
 
       const reader = eventResponse.body.getReader();
       const decoder = new TextDecoder("utf-8");
@@ -56,26 +61,28 @@ export function useRuntimeStatus() {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        
+
         const parts = buffer.split("\n\n");
         buffer = parts.pop() || "";
 
         for (const part of parts) {
-          const dataLine = part.split("\n").find(line => line.startsWith("data: "));
+          const dataLine = part
+            .split("\n")
+            .find((line) => line.startsWith("data: "));
           if (dataLine) {
             const dataStr = dataLine.replace("data: ", "").trim();
             try {
               const progress = JSON.parse(dataStr) as RuntimeSetupProgress;
               setSetupProgress(progress);
-              
+
               if (progress.isFailed) {
-                 setSetupError(progress.message ?? "Setup failed.");
-                 break;
+                setSetupError(progress.message ?? "Setup failed.");
+                break;
               }
               if (progress.isCompleted) {
-                 await runtimeApi.startAiRuntime();
-                 await loadRuntimeStatus();
-                 break;
+                await runtimeApi.startAiRuntime();
+                await loadRuntimeStatus();
+                break;
               }
             } catch (e) {
               console.error("Failed to parse progress event", e);

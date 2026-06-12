@@ -311,8 +311,8 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
                     Dictionary<string, string?> settings = new()
                     {
                         ["IngestionWorker:Enabled"] = "true",
-                        ["IngestionWorker:PollIntervalSeconds"] = "1",
-                        ["IngestionWorker:BatchSize"] = "1",
+                        ["IngestionWorker:RecoveryIntervalSeconds"] = "60",
+                        ["IngestionWorker:RecoveryBatchSize"] = "100",
                     };
 
                     configuration.AddInMemoryCollection(settings);
@@ -377,8 +377,8 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
                     Dictionary<string, string?> settings = new()
                     {
                         ["IngestionWorker:Enabled"] = "true",
-                        ["IngestionWorker:PollIntervalSeconds"] = "1",
-                        ["IngestionWorker:BatchSize"] = "1",
+                        ["IngestionWorker:RecoveryIntervalSeconds"] = "60",
+                        ["IngestionWorker:RecoveryBatchSize"] = "100",
                     };
 
                     configuration.AddInMemoryCollection(settings);
@@ -428,6 +428,66 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         Assert.Equal(IngestionJobStatus.Failed, failedJob.Status);
         Assert.Equal("INGESTION_JOB_FAILED", failedJob.ErrorCode);
         Assert.False(string.IsNullOrWhiteSpace(failedJob.ErrorMessage));
+    }
+
+    [Fact]
+    public async Task Recovery_Timer_Should_Process_Pending_Job_Created_Without_Signal()
+    {
+        using WebApplicationFactory<Program> autoWorkerFactory =
+            factory.WithWebHostBuilder(builder =>
+                builder.ConfigureAppConfiguration((_, configuration) =>
+                {
+                    Dictionary<string, string?> settings = new()
+                    {
+                        ["IngestionWorker:Enabled"] = "true",
+                        ["IngestionWorker:RecoveryIntervalSeconds"] = "1",
+                        ["IngestionWorker:RecoveryBatchSize"] = "100",
+                    };
+
+                    configuration.AddInMemoryCollection(settings);
+                }));
+
+        using HttpClient client = autoWorkerFactory.CreateClient();
+        await Task.Delay(250);
+
+        Guid jobId;
+        await using (AsyncServiceScope scope =
+            autoWorkerFactory.Services.CreateAsyncScope())
+        {
+            AppDbContext db =
+                scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            IngestionJob job = new()
+            {
+                DocumentId = Guid.NewGuid(),
+                Status = IngestionJobStatus.Pending,
+                CurrentStep = "Pending",
+                ProgressPercent = 0,
+            };
+            db.IngestionJobs.Add(job);
+            await db.SaveChangesAsync();
+            jobId = job.Id;
+        }
+
+        await WaitForAsync(async () =>
+        {
+            await using AsyncServiceScope scope =
+                autoWorkerFactory.Services.CreateAsyncScope();
+            AppDbContext db =
+                scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            IngestionJob job =
+                await db.IngestionJobs.SingleAsync(x => x.Id == jobId);
+            return job.Status == IngestionJobStatus.Failed;
+        });
+
+        await using AsyncServiceScope verificationScope =
+            autoWorkerFactory.Services.CreateAsyncScope();
+        AppDbContext verificationDb =
+            verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        IngestionJob recoveredJob =
+            await verificationDb.IngestionJobs.SingleAsync(x => x.Id == jobId);
+
+        Assert.Equal(IngestionJobStatus.Failed, recoveredJob.Status);
+        Assert.Equal("INGESTION_JOB_FAILED", recoveredJob.ErrorCode);
     }
 
     [Fact]

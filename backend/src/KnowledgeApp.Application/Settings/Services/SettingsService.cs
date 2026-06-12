@@ -43,6 +43,8 @@ public sealed class SettingsService(
             Sync: new SyncSettingsDto(
                 Enabled: GetBool(storedSettings, SettingsKeys.SyncEnabled, defaults.Sync.Enabled),
                 AutoSync: GetBool(storedSettings, SettingsKeys.SyncAutoSync, defaults.Sync.AutoSync)),
+            Diagnostics: new DiagnosticsSettingsDto(
+                Enabled: GetBool(storedSettings, SettingsKeys.DiagnosticsEnabled, defaults.Diagnostics.Enabled)),
             WatchedFolders: new WatchedFoldersSettingsDto(
                 Enabled: GetBool(
                     storedSettings,
@@ -113,6 +115,8 @@ public sealed class SettingsService(
 
         Upsert(storedSettings, SettingsKeys.SyncEnabled, normalizedRequest.Sync.Enabled.ToString());
         Upsert(storedSettings, SettingsKeys.SyncAutoSync, normalizedRequest.Sync.AutoSync.ToString());
+
+        Upsert(storedSettings, SettingsKeys.DiagnosticsEnabled, normalizedRequest.Diagnostics.Enabled.ToString());
 
         Upsert(storedSettings, SettingsKeys.WatchedFoldersEnabled, normalizedRequest.WatchedFolders!.Enabled.ToString());
         Upsert(

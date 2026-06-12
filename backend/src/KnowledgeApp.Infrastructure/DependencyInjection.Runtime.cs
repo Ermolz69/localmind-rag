@@ -14,6 +14,7 @@ public static partial class DependencyInjection
     private static IServiceCollection AddRuntime(this IServiceCollection services)
     {
         services.AddSingleton<IAppPathProvider, AppPathProvider>();
+        services.AddSingleton<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>();
 
         services.AddHostedService<LocalRuntimeInitializer>();
 

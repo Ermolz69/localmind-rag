@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { BucketDto } from "@entities/bucket";
 import type { ChatConversation } from "@entities/chat";
 import type { RetrievalFilters, SearchFilterKey } from "@entities/search";
@@ -12,7 +12,6 @@ import {
   prepareChatSubmission,
 } from "@shared/lib/searchFilterCommands";
 import { chatsApi } from "@shared/api";
-import { useApiMutation } from "@shared/lib/hooks";
 import type { ChatMessageView } from "./useConversationMessages";
 
 type UseSendChatMessageOptions = {
@@ -30,6 +29,14 @@ type UseSendChatMessageOptions = {
   ) => void;
 };
 
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "The local API request failed.";
+}
+
 export function useSendChatMessage({
   appendMessages,
   buckets,
@@ -43,16 +50,26 @@ export function useSendChatMessage({
   const [question, setQuestion] = useState("");
   const [activeFilters, setActiveFilters] = useState<RetrievalFilters>({});
   const [filterError, setFilterError] = useState<string | null>(null);
+  const [sendMessageError, setSendMessageError] = useState<string | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
 
-  const sendMutation = useApiMutation(
-    (conversationId: string, content: string, filters?: RetrievalFilters) =>
-      chatsApi.sendChatMessage(conversationId, content, filters),
-    { fallbackError: "The local API request failed." },
-  );
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const cancelSendQuestion = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const handleQuestionChange = useCallback(
     (nextValue: string) => {
       setFilterError(null);
+      setSendMessageError(null);
 
       const nextDraft = extractLiveCommands(
         nextValue,
@@ -60,6 +77,7 @@ export function useSendChatMessage({
         buckets,
         [],
       );
+
       setActiveFilters(nextDraft.filters);
       setQuestion(nextDraft.content);
     },
@@ -82,16 +100,19 @@ export function useSendChatMessage({
     }
 
     const content = parsed.content;
-    if (!content || sendMutation.isPending) {
+
+    if (!content || isStreaming) {
       return;
     }
 
     const filtersForRequest = parsed.filters;
     let conversationId = selectedConversationId;
+
     if (!conversationId) {
       const created = await createConversation(
         newConversationTitle.trim() || content.slice(0, 48) || "New chat",
       );
+
       if (!created) {
         return;
       }
@@ -99,11 +120,18 @@ export function useSendChatMessage({
       conversationId = created.id;
     }
 
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    setIsStreaming(true);
+    setSendMessageError(null);
     setQuestion("");
     setFilterError(null);
     setActiveFilters({});
+
     const userMessageId = crypto.randomUUID();
     const assistantMessageId = crypto.randomUUID();
+
     appendMessages(conversationId, [
       {
         id: userMessageId,
@@ -120,44 +148,80 @@ export function useSendChatMessage({
         sources: [],
       },
     ]);
+
     setSelectedConversationId(conversationId);
     setActiveSourceMessageId(assistantMessageId);
 
-    const answer = await sendMutation.mutate(
-      conversationId,
-      content,
-      hasActiveFilters(filtersForRequest) ? filtersForRequest : undefined,
-    );
+    let streamedText = "";
 
-    if (answer) {
+    try {
+      for await (const chunk of chatsApi.streamChatMessage(
+        conversationId,
+        content,
+        hasActiveFilters(filtersForRequest) ? filtersForRequest : undefined,
+        abortController.signal,
+      )) {
+        streamedText += chunk.text ?? "";
+
+        updateMessage(conversationId, assistantMessageId, (message) => ({
+          ...message,
+          content: streamedText || message.content,
+          sources: chunk.sources ?? message.sources,
+          status: "pending",
+        }));
+
+        if (chunk.sources?.length) {
+          setActiveSourceMessageId(assistantMessageId);
+        }
+      }
+
       updateMessage(conversationId, assistantMessageId, (message) => ({
         ...message,
-        content: answer.answer,
+        content: streamedText || message.content,
         status: "ready",
-        sources: answer.sources,
       }));
+
       setActiveSourceMessageId(assistantMessageId);
-    } else {
-      updateMessage(conversationId, assistantMessageId, (message) => ({
-        ...message,
-        content: "I couldn't generate an answer for that question.",
+    } catch (error) {
+      if (isAbortError(error)) {
+        updateMessage(conversationId, assistantMessageId, (message) => ({
+          ...message,
+          content: streamedText || "Generation cancelled.",
+          status: "ready",
+        }));
+        return;
+      }
+
+      const message = getErrorMessage(error);
+      setSendMessageError(message);
+
+      updateMessage(conversationId, assistantMessageId, (current) => ({
+        ...current,
+        content:
+          streamedText ||
+          "I couldn't generate an answer for that question.",
         status: "error",
-        sources: [],
-        error: sendMutation.error ?? "The local API request failed.",
+        error: message,
       }));
+    } finally {
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
+
+      setIsStreaming(false);
     }
   }, [
-    appendMessages,
     activeFilters,
+    appendMessages,
     buckets,
     createConversation,
+    isStreaming,
     newConversationTitle,
     question,
     selectedConversationId,
     setActiveSourceMessageId,
     setSelectedConversationId,
     updateMessage,
-    sendMutation,
   ]);
 
   function removeActiveFilter(key: SearchFilterKey, tagKey?: string) {
@@ -167,11 +231,12 @@ export function useSendChatMessage({
 
   return {
     activeFilterChips: buildFilterChips(activeFilters, buckets),
+    cancelSendQuestion,
     filterError,
-    isSendingQuestion: sendMutation.isPending,
+    isSendingQuestion: isStreaming,
     question,
     removeActiveFilter,
-    sendMessageError: filterError ?? sendMutation.error,
+    sendMessageError: filterError ?? sendMessageError,
     sendQuestion,
     setQuestion: handleQuestionChange,
   };

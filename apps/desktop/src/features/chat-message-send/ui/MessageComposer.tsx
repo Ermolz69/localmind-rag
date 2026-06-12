@@ -10,23 +10,27 @@ import type { SearchFilterChip, SearchFilterKey } from "../model";
 type MessageComposerProps = {
   value: string;
   disabled: boolean;
+  isSending?: boolean;
   error?: string | null;
   filters: SearchFilterChip[];
   buckets: BucketDto[];
   onChange: (value: string) => void;
   onRemoveFilter: (key: SearchFilterKey, tagKey?: string) => void;
   onSubmit: () => void;
+  onCancel?: () => void;
 };
 
 export function MessageComposer({
   value,
   disabled,
+  isSending,
   error,
   filters,
   buckets,
   onChange,
   onRemoveFilter,
   onSubmit,
+  onCancel,
 }: MessageComposerProps) {
   const [cursorPos, setCursorPos] = useState(0);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
@@ -203,11 +207,14 @@ export function MessageComposer({
               disabled={disabled}
             />
             <Button
-              type="submit"
+              type={isSending ? "button" : "submit"}
               className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0"
-              disabled={!value.trim() || disabled}
+              disabled={isSending ? false : !value.trim() || disabled}
+              onClick={isSending ? onCancel : undefined}
             >
-              {disabled ? (
+              {isSending ? (
+                <X size={18} aria-hidden />
+              ) : disabled ? (
                 <Loader2 size={18} className="animate-spin" aria-hidden />
               ) : (
                 <Send size={18} aria-hidden />
