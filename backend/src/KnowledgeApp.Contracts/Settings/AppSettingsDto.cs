@@ -11,6 +11,8 @@ public sealed record AppSettingsDto(
     AppearanceSettingsDto Appearance,
     AiSettingsDto Ai,
     RuntimePathsSettingsDto RuntimePaths,
-    SyncSettingsDto Sync,
-    DiagnosticsSettingsDto Diagnostics,
-    WatchedFoldersSettingsDto? WatchedFolders = null);
+    SyncSettingsDto Sync)
+{
+    public DiagnosticsSettingsDto? Diagnostics { get; init; }
+    public WatchedFoldersSettingsDto? WatchedFolders { get; init; }
+}

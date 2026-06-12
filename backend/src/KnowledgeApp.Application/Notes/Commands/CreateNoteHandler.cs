@@ -22,7 +22,7 @@ public sealed class CreateNoteHandler(
         Guid localDeviceId = await localDeviceResolver.ResolveCurrentDeviceIdAsync(cancellationToken);
         Note note = new()
         {
-            BucketId = request.BucketId,
+            BucketId = request.BucketId.GetValueOrDefault(),
             FolderId = request.FolderId,
             Title = request.Title.Trim(),
             Markdown = request.Markdown,

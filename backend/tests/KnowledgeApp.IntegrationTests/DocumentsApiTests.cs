@@ -407,7 +407,11 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
                 await db.IngestionJobs.SingleAsync(
                     x => x.Id == upload.IngestionJobId!.Value);
 
-            return job.Status == IngestionJobStatus.Failed;
+            Document doc =
+                await db.Documents.SingleAsync(
+                    x => x.Id == upload.DocumentId);
+
+            return job.Status == IngestionJobStatus.Failed && doc.Status == DocumentStatus.Failed;
         });
 
         await using AsyncServiceScope verificationScope =

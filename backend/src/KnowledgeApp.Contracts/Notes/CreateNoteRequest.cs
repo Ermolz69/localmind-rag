@@ -6,4 +6,8 @@ namespace KnowledgeApp.Contracts.Notes;
 /// <param name="Title">Note title.</param>
 /// <param name="Markdown">Markdown note body.</param>
 /// <param name="Tags">Optional metadata tags.</param>
-public sealed record CreateNoteRequest(Guid BucketId, Guid? FolderId, string Title, string Markdown, IReadOnlyDictionary<string, string>? Tags = null);
+public sealed record CreateNoteRequest(string Title, string Markdown, IReadOnlyDictionary<string, string>? Tags = null)
+{
+    public Guid? BucketId { get; init; }
+    public Guid? FolderId { get; init; }
+}
