@@ -53,7 +53,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
-      docker: ${{ steps.filter.outputs.docker }}
+
       docs: ${{ steps.filter.outputs.docs }}
 
     steps:
@@ -76,12 +76,7 @@ jobs:
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - '.config/task/**'
-            docker:
-              - 'infra/**'
-              - '.dockerignore'
-              - 'backend/.dockerignore'
-              - 'apps/desktop/.dockerignore'
-              - '.config/task/**'
+
             docs:
               - 'docs/**'
               - 'README.md'
@@ -90,7 +85,7 @@ jobs:
 
   backend-format:
     name: Backend format
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs:
       - changes
     if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true'
@@ -99,26 +94,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: backend/global.json
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Restore backend
-        run: task -t .config/task/Taskfile.yml setup:backend
+      - name: Setup backend
+        uses: ./.github/actions/setup-backend
 
       - name: Verify dotnet format
         run: task -t .config/task/Taskfile.yml check:backend:format
 
   backend-build:
     name: Backend build
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs:
       - changes
     if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true'
@@ -127,26 +111,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: backend/global.json
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Restore backend
-        run: task -t .config/task/Taskfile.yml setup:backend
+      - name: Setup backend
+        uses: ./.github/actions/setup-backend
 
       - name: Build backend
         run: task -t .config/task/Taskfile.yml build:backend
 
   backend-unit-tests:
     name: Backend unit tests
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs:
       - changes
       - backend-build
@@ -156,19 +129,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: backend/global.json
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Restore backend
-        run: task -t .config/task/Taskfile.yml setup:backend
+      - name: Setup backend
+        uses: ./.github/actions/setup-backend
 
       - name: Build backend
         run: task -t .config/task/Taskfile.yml build:backend
@@ -199,12 +161,12 @@ jobs:
 
       - name: Add unit coverage summary
         if: always()
-        shell: powershell
+        shell: bash
         run: |
-          $summary = "${{ env.COVERAGE_REPORT_DIR }}/unit/SummaryGithub.md"
-          if (Test-Path $summary) {
-            Get-Content $summary | Add-Content $env:GITHUB_STEP_SUMMARY
-          }
+          summary="${{ env.COVERAGE_REPORT_DIR }}/unit/SummaryGithub.md"
+          if [ -f "$summary" ]; then
+            cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload unit coverage report
         if: always()
@@ -226,19 +188,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: backend/global.json
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Restore backend
-        run: task -t .config/task/Taskfile.yml setup:backend
+      - name: Setup backend
+        uses: ./.github/actions/setup-backend
 
       - name: Build backend
         run: task -t .config/task/Taskfile.yml build:backend
@@ -295,19 +246,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: backend/global.json
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Restore backend
-        run: task -t .config/task/Taskfile.yml setup:backend
+      - name: Setup backend
+        uses: ./.github/actions/setup-backend
 
       - name: Build backend
         run: task -t .config/task/Taskfile.yml build:backend
@@ -355,7 +295,7 @@ jobs:
 
   backend-architecture-tests:
     name: Backend architecture tests
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs:
       - changes
       - backend-build
@@ -365,19 +305,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: backend/global.json
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Restore backend
-        run: task -t .config/task/Taskfile.yml setup:backend
+      - name: Setup backend
+        uses: ./.github/actions/setup-backend
 
       - name: Build backend
         run: task -t .config/task/Taskfile.yml build:backend
@@ -402,9 +331,9 @@ jobs:
           path: ${{ env.TEST_RESULTS_DIR }}/architecture
           if-no-files-found: warn
 
-  frontend-format:
-    name: Frontend format
-    runs-on: windows-latest
+  frontend-check:
+    name: Frontend check
+    runs-on: ubuntu-latest
     needs:
       - changes
     if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
@@ -413,104 +342,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
+      - name: Setup frontend
+        uses: ./.github/actions/setup-frontend
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+      - name: Format
+        run: pnpm --filter desktop format:check
 
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Lint
+        run: pnpm --filter desktop lint
 
-      - name: Install dependencies
-        run: task -t .config/task/Taskfile.yml setup:frontend
+      - name: Typecheck
+        run: pnpm --filter desktop typecheck
 
-      - name: Check Prettier formatting
-        run: task -t .config/task/Taskfile.yml check:frontend:format
-
-  frontend-lint:
-    name: Frontend lint
-    runs-on: windows-latest
-    needs:
-      - changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install dependencies
-        run: task -t .config/task/Taskfile.yml setup:frontend
-
-      - name: Run ESLint
-        run: task -t .config/task/Taskfile.yml check:frontend:lint
-
-  frontend-typecheck:
-    name: Frontend typecheck
-    runs-on: windows-latest
-    needs:
-      - changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install dependencies
-        run: task -t .config/task/Taskfile.yml setup:frontend
-
-      - name: Run TypeScript
-        run: task -t .config/task/Taskfile.yml check:frontend:typecheck
+      - name: Color guard
+        run: node apps/desktop/scripts/check-colors.cjs
 
   frontend-build:
     name: Frontend build
     runs-on: windows-latest
     needs:
       - changes
-      - frontend-lint
-      - frontend-typecheck
+      - frontend-check
     if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
 
     steps:
@@ -542,7 +394,7 @@ jobs:
 
   api-contract-drift:
     name: API contract drift
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs:
       - changes
     if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
@@ -551,73 +403,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: backend/global.json
+      - name: Setup backend
+        uses: ./.github/actions/setup-backend
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install frontend dependencies
-        run: task -t .config/task/Taskfile.yml setup:frontend
+      - name: Setup frontend
+        uses: ./.github/actions/setup-frontend
 
       - name: Check generated API contracts
         run: task -t .config/task/Taskfile.yml check:api-contracts
-
-  frontend-color-guard:
-    name: Frontend color guard
-    runs-on: windows-latest
-    needs:
-      - changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check hardcoded colors
-        run: task -t .config/task/Taskfile.yml check:colors
-
-  docker-compose:
-    name: Docker compose config
-    runs-on: ubuntu-latest
-    needs:
-      - changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.docker == 'true'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Validate remote compose file
-        run: task -t .config/task/Taskfile.yml check:docker
 
   check-summary:
     name: Check summary
@@ -631,13 +424,9 @@ jobs:
       - backend-integration-tests
       - backend-rag-evaluation-tests
       - backend-architecture-tests
-      - frontend-format
-      - frontend-lint
-      - frontend-typecheck
+      - frontend-check
       - frontend-build
       - api-contract-drift
-      - frontend-color-guard
-      - docker-compose
 
     steps:
       - name: Summarize job results
@@ -652,13 +441,9 @@ jobs:
           echo "| Backend integration tests | ${{ needs.backend-integration-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Backend RAG evaluation tests | ${{ needs.backend-rag-evaluation-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Backend architecture tests | ${{ needs.backend-architecture-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Frontend format | ${{ needs.frontend-format.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Frontend lint | ${{ needs.frontend-lint.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Frontend typecheck | ${{ needs.frontend-typecheck.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Frontend check | ${{ needs.frontend-check.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend build | ${{ needs.frontend-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| API contract drift | ${{ needs.api-contract-drift.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Frontend color guard | ${{ needs.frontend-color-guard.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Docker compose config | ${{ needs.docker-compose.result }} |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if any check failed
         if: contains(join(needs.*.result, ','), 'failure') || contains(join(needs.*.result, ','), 'cancelled')

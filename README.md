@@ -87,3 +87,5 @@ Project releases are published through GitHub Releases. Release notes describe w
 ## Repository Hygiene
 
 Generated build outputs, runtime data, local databases, AI models, local env files, generated documentation, and release artifacts are ignored. See [docs/development/repository-hygiene.md](docs/development/repository-hygiene.md) before adding large files, local runtime assets, or Docker build inputs.
+
+

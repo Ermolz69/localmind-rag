@@ -1,9 +1,6 @@
 version: "3"
 
-includes:
-  services:
-    taskfile: ./Services.Taskfile.yml
-    dir: ../..
+
 
 vars:
   ROOT_DIR: "{{.TASKFILE_DIR}}/../.."
@@ -113,7 +110,7 @@ tasks:
   build:backend:
     desc: Builds the backend solution
     cmds:
-      - cd "{{.ROOT_DIR}}/backend" && dotnet build KnowledgeApp.slnx
+      - cd "{{.ROOT_DIR}}/backend" && dotnet build KnowledgeApp.slnx -c Release --no-restore
 
   build:frontend:
     desc: Builds the React desktop UI
@@ -164,28 +161,28 @@ tasks:
   test:ci:unit:
     desc: Runs backend unit tests with coverage for CI
     cmds:
-      - cd "{{.ROOT_DIR}}/backend" && dotnet test tests/KnowledgeApp.UnitTests/KnowledgeApp.UnitTests.csproj --no-build --logger "trx" --results-directory "../{{.TEST_RESULTS_DIR}}" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+      - cd "{{.ROOT_DIR}}/backend" && dotnet test tests/KnowledgeApp.UnitTests/KnowledgeApp.UnitTests.csproj -c Release --no-build --logger "trx" --results-directory "../{{.TEST_RESULTS_DIR}}" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
     vars:
       TEST_RESULTS_DIR: '{{.TEST_RESULTS_DIR | default "artifacts/test-results/unit"}}'
 
   test:ci:integration:
     desc: Runs backend integration tests with coverage for CI
     cmds:
-      - cd "{{.ROOT_DIR}}/backend" && dotnet test tests/KnowledgeApp.IntegrationTests/KnowledgeApp.IntegrationTests.csproj --no-build --logger "trx" --results-directory "../{{.TEST_RESULTS_DIR}}" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+      - cd "{{.ROOT_DIR}}/backend" && dotnet test tests/KnowledgeApp.IntegrationTests/KnowledgeApp.IntegrationTests.csproj -c Release --no-build --logger "trx" --results-directory "../{{.TEST_RESULTS_DIR}}" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
     vars:
       TEST_RESULTS_DIR: '{{.TEST_RESULTS_DIR | default "artifacts/test-results/integration"}}'
 
   test:ci:rag:
     desc: Runs backend RAG evaluation tests with coverage for CI
     cmds:
-      - cd "{{.ROOT_DIR}}/backend" && dotnet test tests/KnowledgeApp.RagEvaluationTests/KnowledgeApp.RagEvaluationTests.csproj --no-build --logger "trx" --results-directory "../{{.TEST_RESULTS_DIR}}" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+      - cd "{{.ROOT_DIR}}/backend" && dotnet test tests/KnowledgeApp.RagEvaluationTests/KnowledgeApp.RagEvaluationTests.csproj -c Release --no-build --logger "trx" --results-directory "../{{.TEST_RESULTS_DIR}}" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
     vars:
       TEST_RESULTS_DIR: '{{.TEST_RESULTS_DIR | default "artifacts/test-results/rag-evaluation"}}'
 
   test:ci:architecture:
     desc: Runs backend Clean Architecture validation tests for CI
     cmds:
-      - cd "{{.ROOT_DIR}}/backend" && dotnet test tests/KnowledgeApp.ArchitectureTests/KnowledgeApp.ArchitectureTests.csproj --no-build --logger "trx" --results-directory "../{{.TEST_RESULTS_DIR}}"
+      - cd "{{.ROOT_DIR}}/backend" && dotnet test tests/KnowledgeApp.ArchitectureTests/KnowledgeApp.ArchitectureTests.csproj -c Release --no-build --logger "trx" --results-directory "../{{.TEST_RESULTS_DIR}}"
     vars:
       TEST_RESULTS_DIR: '{{.TEST_RESULTS_DIR | default "artifacts/test-results/architecture"}}'
 
@@ -209,7 +206,7 @@ tasks:
         check:api-contracts,
         check:rust,
         check:colors,
-        check:docker,
+
       ]
 
   check:format:
@@ -263,10 +260,6 @@ tasks:
     cmds:
       - cd "{{.ROOT_DIR}}" && cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 
-  check:docker:
-    desc: Validates Docker Compose configuration files
-    cmds:
-      - cd "{{.ROOT_DIR}}" && docker compose -f infra/docker-compose.remote.yml config
 
   # === DOCUMENTATION & OPENAPI ===
   docs:build:

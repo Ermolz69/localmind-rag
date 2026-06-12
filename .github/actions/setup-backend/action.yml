@@ -1,0 +1,35 @@
+name: Setup backend
+description: Setup .NET, cache NuGet, and install Task runner
+
+inputs:
+  restore:
+    description: "Whether to run backend restore"
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        global-json-file: backend/global.json
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-backend-${{ hashFiles('backend/global.json', 'backend/Directory.Packages.props', 'backend/**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-backend-
+
+    - name: Install Task
+      uses: arduino/setup-task@v2
+      with:
+        version: 3.x
+        repo-token: ${{ github.token }}
+
+    - name: Restore backend
+      if: inputs.restore == 'true'
+      shell: bash
+      run: task -t .config/task/Taskfile.yml setup:backend

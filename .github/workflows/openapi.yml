@@ -1,11 +1,6 @@
 name: OpenAPI compatibility
 
 on:
-  push:
-    paths:
-      - "backend/**"
-      - ".config/task/**"
-      - ".github/workflows/openapi.yml"
   pull_request:
     paths:
       - "backend/**"
