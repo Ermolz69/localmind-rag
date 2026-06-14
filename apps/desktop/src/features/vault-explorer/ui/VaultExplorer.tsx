@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -9,20 +9,23 @@ import {
   Trash2,
 } from "lucide-react";
 import { BucketSelector } from "@features/note-editor";
-import { Button, ConfirmDialog, Modal } from "@shared/ui";
+import { Button, ConfirmDialog, Input, Modal } from "@shared/ui";
+import { cn } from "@shared/lib/cn";
+import { getVaultItemDragData } from "../model/dragPayload";
 import { useVaultExplorer } from "../model/useVaultExplorer";
 import { ExplorerNode } from "./ExplorerNode";
 
 export function VaultExplorer({
   explorer,
   onCreateFile,
-  onCreateFolder,
 }: {
   explorer: ReturnType<typeof useVaultExplorer>;
   onCreateFile: () => void;
-  onCreateFolder: () => void;
 }) {
   const [isPropertiesOpen, setIsPropertiesOpen] = useState(true);
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [isRootDropActive, setIsRootDropActive] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -51,17 +54,24 @@ export function VaultExplorer({
   const handleRootDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const dataStr = e.dataTransfer.getData("text/plain");
-    if (!dataStr) return;
-    try {
-      const data = JSON.parse(dataStr);
-      if (data.type === "note") {
-        void explorer.moveNote(data.id, explorer.selectedBucketId, null);
-      } else if (data.type === "folder") {
-        void explorer.moveFolder(data.id, explorer.selectedBucketId, null);
-      }
-    } catch (err) {
-      console.debug("Drop parse error", err);
+    setIsRootDropActive(false);
+    const data = getVaultItemDragData(e.dataTransfer);
+    if (!data) {
+      return;
+    }
+
+    if (data.type === "note") {
+      void explorer.moveNote(data.id, explorer.selectedBucketId, null);
+    } else {
+      void explorer.moveFolder(data.id, explorer.selectedBucketId, null);
+    }
+  };
+
+  const createFolder = async () => {
+    const created = await explorer.createFolder(newFolderName);
+    if (created) {
+      setNewFolderName("");
+      setIsCreateFolderOpen(false);
     }
   };
 
@@ -102,7 +112,7 @@ export function VaultExplorer({
                 <Button
                   variant="ghost"
                   className="h-7 flex-1 px-2 text-xs"
-                  onClick={onCreateFolder}
+                  onClick={() => setIsCreateFolderOpen(true)}
                 >
                   <FolderPlus size={14} className="mr-1" />
                   New Folder
@@ -114,11 +124,17 @@ export function VaultExplorer({
       </div>
 
       <div
-        className="flex-1 overflow-y-auto p-2"
+        className={cn(
+          "flex-1 overflow-y-auto p-2 transition-colors",
+          isRootDropActive && "bg-primary/10 ring-2 ring-inset ring-primary/40",
+        )}
         onClick={() => explorer.selectFolder(null)} // Click empty space to deselect
         onDragOver={(e) => {
           e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          setIsRootDropActive(true);
         }}
+        onDragLeave={() => setIsRootDropActive(false)}
         onDrop={handleRootDrop}
       >
         {!explorer.selectedBucketId ? (
@@ -198,6 +214,62 @@ export function VaultExplorer({
           </button>
         </div>
       )}
+
+      <Modal
+        title="Create folder"
+        description={
+          explorer.lastSelectedFolderId
+            ? "Add a folder inside the last selected folder."
+            : "Add a folder at the root of this vault."
+        }
+        open={isCreateFolderOpen}
+        onClose={() => {
+          setIsCreateFolderOpen(false);
+          setNewFolderName("");
+        }}
+      >
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void createFolder();
+          }}
+        >
+          <div>
+            <label
+              className="mb-2 block text-sm font-medium"
+              htmlFor="folder-name"
+            >
+              Folder name
+            </label>
+            <Input
+              id="folder-name"
+              value={newFolderName}
+              onChange={(event) => setNewFolderName(event.target.value)}
+              placeholder="New folder"
+              autoFocus
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setIsCreateFolderOpen(false);
+                setNewFolderName("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={explorer.isCreatingFolder || !newFolderName.trim()}
+            >
+              {explorer.isCreatingFolder ? "Creating..." : "Create folder"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         title="Move to another Vault"

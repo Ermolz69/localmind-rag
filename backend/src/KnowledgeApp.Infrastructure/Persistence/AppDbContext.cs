@@ -70,5 +70,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entry.Property(SearchDateIndexing.CreatedAtUnixTimePropertyName).CurrentValue =
                 SearchDateIndexing.ToUnixTimeMilliseconds(entry.Entity.CreatedAt);
         }
+
+        foreach (var entry in ChangeTracker.Entries<IngestionJob>())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Modified))
+            {
+                continue;
+            }
+
+            entry.Property(SearchDateIndexing.CreatedAtUnixTimePropertyName).CurrentValue =
+                SearchDateIndexing.ToUnixTimeMilliseconds(entry.Entity.CreatedAt);
+        }
     }
 }

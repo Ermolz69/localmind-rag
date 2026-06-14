@@ -4,6 +4,7 @@ using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Contracts.WatchedFolders;
 using KnowledgeApp.Application.Ingestion.WatchedFolders.Filtering;
+using KnowledgeApp.Infrastructure.Settings;
 using KnowledgeApp.Infrastructure.Services.WatchedFolders;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -53,6 +54,7 @@ public class WindowsFileWatcherHostedServiceTests
             FakeWatchedFolderStatusStore statusStore = new FakeWatchedFolderStatusStore();
             FakeDateTimeProvider dateTimeProvider = new FakeDateTimeProvider(DateTimeOffset.UtcNow);
             LoggerFactory loggerFactory = new LoggerFactory();
+            SettingsChangeSignal settingsChangeSignal = new();
 
             WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
                 scopeFactory,
@@ -60,6 +62,7 @@ public class WindowsFileWatcherHostedServiceTests
                 statusStore,
                 dateTimeProvider,
                 new FakeWatchedFileFilterService(),
+                settingsChangeSignal,
                 new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
             );
 
@@ -116,9 +119,10 @@ public class WindowsFileWatcherHostedServiceTests
         FakeWatchedFolderStatusStore statusStore = new FakeWatchedFolderStatusStore();
         FakeDateTimeProvider dateTimeProvider = new FakeDateTimeProvider(DateTimeOffset.UtcNow);
         LoggerFactory loggerFactory = new LoggerFactory();
+        SettingsChangeSignal settingsChangeSignal = new();
 
         WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
-            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), settingsChangeSignal, new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
         );
 
         // Act
@@ -168,9 +172,10 @@ public class WindowsFileWatcherHostedServiceTests
         FakeWatchedFolderStatusStore statusStore = new FakeWatchedFolderStatusStore();
         FakeDateTimeProvider dateTimeProvider = new FakeDateTimeProvider(DateTimeOffset.UtcNow);
         LoggerFactory loggerFactory = new LoggerFactory();
+        SettingsChangeSignal settingsChangeSignal = new();
 
         WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
-            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), settingsChangeSignal, new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
         );
 
         // Act
@@ -219,9 +224,10 @@ public class WindowsFileWatcherHostedServiceTests
         FakeWatchedFolderStatusStore statusStore = new FakeWatchedFolderStatusStore();
         FakeDateTimeProvider dateTimeProvider = new FakeDateTimeProvider(DateTimeOffset.UtcNow);
         LoggerFactory loggerFactory = new LoggerFactory();
+        SettingsChangeSignal settingsChangeSignal = new();
 
         WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
-            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+            scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), settingsChangeSignal, new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
         );
 
         // Act
@@ -271,9 +277,10 @@ public class WindowsFileWatcherHostedServiceTests
             FakeWatchedFolderStatusStore statusStore = new FakeWatchedFolderStatusStore();
             FakeDateTimeProvider dateTimeProvider = new FakeDateTimeProvider(DateTimeOffset.UtcNow);
             LoggerFactory loggerFactory = new LoggerFactory();
+            SettingsChangeSignal settingsChangeSignal = new();
 
             WindowsFileWatcherHostedService hostedService = new WindowsFileWatcherHostedService(
-                scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
+                scopeFactory, debounceBuffer, statusStore, dateTimeProvider, new FakeWatchedFileFilterService(), settingsChangeSignal, new KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager(new FakeApplicationLifetime(), new LoggerFactory().CreateLogger<KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager>()), loggerFactory.CreateLogger<WindowsFileWatcherHostedService>()
             );
 
             // Act
@@ -282,9 +289,7 @@ public class WindowsFileWatcherHostedServiceTests
 
             Assert.Empty(fakeReconciliationService.ReconciledFolders);
 
-            // Dynamically change settings to include a new valid folder
-            // hosted service reloads every 5 seconds, so we need to advance time or wait.
-            // Since we use FakeDateTimeProvider, we can advance time
+            // Dynamically change settings and notify the event-driven watcher.
             fakeSettingsService.CurrentSettings = new AppSettingsDto(
                 default!, default!, default!, default!, default!,
                 new WatchedFoldersSettingsDto(Enabled: true, DebounceMilliseconds: 100, DeletePolicy: "MarkDeleted", Folders: new[]
@@ -292,9 +297,9 @@ public class WindowsFileWatcherHostedServiceTests
                     new WatchedFolderDto(tempDirectory, IncludeSubdirectories: true, Enabled: true)
                 })
             );
-            dateTimeProvider.UtcNow = dateTimeProvider.UtcNow.AddSeconds(6);
+            await settingsChangeSignal.PublishAsync();
 
-            await Task.Delay(500); // Allow loop to run again and catch the new settings
+            await Task.Delay(500);
 
             cts.Cancel();
             try { await executeTask; } catch (OperationCanceledException) { }

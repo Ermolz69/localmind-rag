@@ -60,6 +60,9 @@ public static partial class DependencyInjection
 
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(KnowledgeApp.Application.AssemblyReference).Assembly));
         services.AddScoped<KnowledgeApp.Application.Abstractions.IDomainEventPublisher, KnowledgeApp.Infrastructure.Services.Events.MediatRDomainEventPublisher>();
+        services.AddMemoryCache();
+        services.AddSingleton<KnowledgeApp.Application.Settings.IAppSettingsCache, Settings.AppSettingsCache>();
+        services.AddSingleton<KnowledgeApp.Application.Settings.ISettingsChangeSignal, Settings.SettingsChangeSignal>();
 
         return services
             .AddRuntime()

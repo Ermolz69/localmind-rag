@@ -31,16 +31,9 @@ export function NotesPage() {
             page.setCreateDraft({
               ...page.createDraft,
               bucketId: page.explorer.selectedBucketId,
-              folderId: page.explorer.selectedFolderId,
+              folderId: page.explorer.lastSelectedFolderId,
             });
             page.setIsCreateOpen(true);
-          }}
-          onCreateFolder={() => {
-            // MVP: just use window.prompt for creating a folder inside the selected folder.
-            const name = window.prompt("New folder name:");
-            if (name) {
-              void page.explorer.createFolder(name);
-            }
           }}
         />
 

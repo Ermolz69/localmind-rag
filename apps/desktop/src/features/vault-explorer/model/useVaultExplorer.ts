@@ -1,6 +1,10 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { NoteDto } from "@entities/note";
+import type { Schema } from "@shared/contracts";
 import { bucketsApi, notesApi } from "@shared/api";
-import { useApiQuery, useApiMutation } from "@shared/lib/hooks";
+import { useApiMutation, useApiQuery } from "@shared/lib/hooks";
+
+type NoteFolderDto = Schema<"NoteFolderDto">;
 
 export function useVaultExplorer() {
   const [selectedBucketId, setSelectedBucketId] = useState("");
@@ -8,7 +12,12 @@ export function useVaultExplorer() {
     new Set(),
   );
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [lastSelectedFolderId, setLastSelectedFolderId] = useState<
+    string | null
+  >(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const selectedBucketIdRef = useRef(selectedBucketId);
+  selectedBucketIdRef.current = selectedBucketId;
 
   const {
     data: buckets,
@@ -25,13 +34,26 @@ export function useVaultExplorer() {
     }
   }, [buckets, selectedBucketId]);
 
-  const fetchTree = useCallback(() => {
-    if (!selectedBucketId) return Promise.resolve(null);
-    return notesApi.getNotesTree(selectedBucketId);
+  const fetchTree = useCallback(async () => {
+    if (!selectedBucketId) {
+      return null;
+    }
+
+    const requestedBucketId = selectedBucketId;
+    const result = await notesApi.getNotesTree(requestedBucketId);
+
+    if (requestedBucketId !== selectedBucketIdRef.current) {
+      return selectedBucketIdRef.current
+        ? notesApi.getNotesTree(selectedBucketIdRef.current)
+        : null;
+    }
+
+    return result;
   }, [selectedBucketId]);
 
   const {
     data: tree,
+    setData: setTree,
     isLoading: isLoadingTree,
     error: treeError,
     reload: refetchTree,
@@ -39,6 +61,34 @@ export function useVaultExplorer() {
     initialData: null,
     fallbackError: "Unable to load vault tree.",
   });
+
+  useEffect(() => {
+    setSelectedFolderId(null);
+    setLastSelectedFolderId(null);
+    setSelectedNoteId(null);
+
+    if (selectedBucketId) {
+      void refetchTree();
+    }
+  }, [refetchTree, selectedBucketId]);
+
+  const updateFolders = useCallback(
+    (updater: (folders: NoteFolderDto[]) => NoteFolderDto[]) => {
+      setTree((current) =>
+        current ? { ...current, folders: updater(current.folders) } : current,
+      );
+    },
+    [setTree],
+  );
+
+  const updateNotes = useCallback(
+    (updater: (notes: NoteDto[]) => NoteDto[]) => {
+      setTree((current) =>
+        current ? { ...current, notes: updater(current.notes) } : current,
+      );
+    },
+    [setTree],
+  );
 
   const createFolderMutation = useApiMutation(
     (payload: {
@@ -56,27 +106,36 @@ export function useVaultExplorer() {
 
   const createFolder = useCallback(
     async (name: string) => {
-      if (!selectedBucketId) return;
+      const trimmedName = name.trim();
+      if (!selectedBucketId || !trimmedName) {
+        return null;
+      }
 
       const result = await createFolderMutation.mutate({
-        name,
+        name: trimmedName,
         bucketId: selectedBucketId,
-        parentFolderId: selectedFolderId,
+        parentFolderId: lastSelectedFolderId,
       });
 
       if (result) {
-        refetchTree();
-        // optionally expand the parent folder
-        if (selectedFolderId) {
+        updateFolders((current) => [...current, result]);
+        if (lastSelectedFolderId) {
           setExpandedFolders((prev) => {
             const next = new Set(prev);
-            next.add(selectedFolderId);
+            next.add(lastSelectedFolderId);
             return next;
           });
         }
       }
+
+      return result;
     },
-    [selectedBucketId, selectedFolderId, createFolderMutation, refetchTree],
+    [
+      createFolderMutation,
+      lastSelectedFolderId,
+      selectedBucketId,
+      updateFolders,
+    ],
   );
 
   const moveNoteMutation = useApiMutation(
@@ -113,10 +172,19 @@ export function useVaultExplorer() {
         folderId: targetFolderId,
       });
       if (result) {
-        refetchTree();
+        updateNotes((current) =>
+          current.map((note) => (note.id === noteId ? result : note)),
+        );
+        if (targetFolderId) {
+          setExpandedFolders((current) => {
+            const next = new Set(current);
+            next.add(targetFolderId);
+            return next;
+          });
+        }
       }
     },
-    [moveNoteMutation, refetchTree],
+    [moveNoteMutation, updateNotes],
   );
 
   const moveFolder = useCallback(
@@ -131,10 +199,19 @@ export function useVaultExplorer() {
         parentFolderId: targetFolderId,
       });
       if (result) {
-        refetchTree();
+        updateFolders((current) =>
+          current.map((folder) => (folder.id === folderId ? result : folder)),
+        );
+        if (targetFolderId) {
+          setExpandedFolders((current) => {
+            const next = new Set(current);
+            next.add(targetFolderId);
+            return next;
+          });
+        }
       }
     },
-    [moveFolderMutation, refetchTree],
+    [moveFolderMutation, updateFolders],
   );
 
   const deleteNoteMutation = useApiMutation(
@@ -150,17 +227,23 @@ export function useVaultExplorer() {
   const deleteNote = useCallback(
     async (id: string) => {
       const res = await deleteNoteMutation.mutate(id);
-      if (res) refetchTree();
+      if (res !== null) {
+        updateNotes((current) => current.filter((note) => note.id !== id));
+      }
     },
-    [deleteNoteMutation, refetchTree],
+    [deleteNoteMutation, updateNotes],
   );
 
   const deleteFolder = useCallback(
     async (id: string) => {
       const res = await deleteFolderMutation.mutate(id);
-      if (res) refetchTree();
+      if (res !== null) {
+        updateFolders((current) =>
+          current.filter((folder) => folder.id !== id),
+        );
+      }
     },
-    [deleteFolderMutation, refetchTree],
+    [deleteFolderMutation, updateFolders],
   );
 
   const toggleFolder = useCallback((folderId: string) => {
@@ -177,6 +260,7 @@ export function useVaultExplorer() {
 
   const selectFolder = useCallback((folderId: string | null) => {
     setSelectedFolderId(folderId);
+    setLastSelectedFolderId(folderId);
     setSelectedNoteId(null);
   }, []);
 
@@ -184,6 +268,16 @@ export function useVaultExplorer() {
     setSelectedNoteId(noteId);
     setSelectedFolderId(null);
   }, []);
+
+  const addNote = useCallback(
+    (note: NoteDto) => {
+      updateNotes((current) => [
+        note,
+        ...current.filter((item) => item.id !== note.id),
+      ]);
+    },
+    [updateNotes],
+  );
 
   // Expose flat arrays for rendering and logic
   const folders = tree?.folders ?? [];
@@ -201,9 +295,11 @@ export function useVaultExplorer() {
     expandedFolders,
     toggleFolder,
     selectedFolderId,
+    lastSelectedFolderId,
     selectFolder,
     selectedNoteId,
     selectNote,
+    addNote,
     refetchTree,
     createFolder,
     isCreatingFolder: createFolderMutation.isPending,

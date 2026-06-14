@@ -1,7 +1,12 @@
 import { ChevronDown, ChevronRight, FileText, Folder } from "lucide-react";
+import { useState } from "react";
 import type { NoteDto } from "@entities/note";
 import type { Schema } from "@shared/contracts";
 import { cn } from "@shared/lib/cn";
+import {
+  getVaultItemDragData,
+  setVaultItemDragData,
+} from "../model/dragPayload";
 
 type NoteFolderDto = Schema<"NoteFolderDto">;
 
@@ -43,6 +48,9 @@ export function ExplorerNode({
   onContextMenu,
   depth = 0,
 }: ExplorerNodeProps) {
+  const [activeDropFolderId, setActiveDropFolderId] = useState<string | null>(
+    null,
+  );
   const childFolders = folders
     .filter((f) => f.parentFolderId === folderId)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -67,6 +75,8 @@ export function ExplorerNode({
                 "flex items-center gap-1.5 rounded-sm px-2 py-1 text-sm transition-colors hover:bg-neutral-200 dark:hover:bg-neutral-800",
                 isSelected &&
                   "bg-blue-100 text-blue-900 dark:bg-blue-900/50 dark:text-blue-100",
+                activeDropFolderId === folder.id &&
+                  "bg-primary/10 ring-2 ring-inset ring-primary/40",
               )}
               style={{ paddingLeft: `${paddingLeft}px` }}
               onClick={(e) => {
@@ -80,27 +90,31 @@ export function ExplorerNode({
               draggable
               onDragStart={(e) => {
                 e.stopPropagation();
-                e.dataTransfer.setData(
-                  "text/plain",
-                  JSON.stringify({ type: "folder", id: folder.id }),
-                );
+                setVaultItemDragData(e.dataTransfer, {
+                  type: "folder",
+                  id: folder.id,
+                });
               }}
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                e.dataTransfer.dropEffect = "move";
+                setActiveDropFolderId(folder.id);
+              }}
+              onDragLeave={() => {
+                setActiveDropFolderId((current) =>
+                  current === folder.id ? null : current,
+                );
               }}
               onDrop={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const dataStr = e.dataTransfer.getData("text/plain");
-                if (!dataStr) return;
-                try {
-                  const data = JSON.parse(dataStr);
-                  if (data.id === folder.id) return; // Cannot drop on itself
-                  onMoveItem?.(data.type, data.id, folder.id);
-                } catch (err) {
-                  console.debug("Drop parse error", err);
+                setActiveDropFolderId(null);
+                const data = getVaultItemDragData(e.dataTransfer);
+                if (!data || data.id === folder.id) {
+                  return;
                 }
+                onMoveItem?.(data.type, data.id, folder.id);
               }}
               onContextMenu={(e) => {
                 onContextMenu?.(e, "folder", folder.id, folder.name);
@@ -163,10 +177,10 @@ export function ExplorerNode({
             draggable
             onDragStart={(e) => {
               e.stopPropagation();
-              e.dataTransfer.setData(
-                "text/plain",
-                JSON.stringify({ type: "note", id: note.id }),
-              );
+              setVaultItemDragData(e.dataTransfer, {
+                type: "note",
+                id: note.id,
+              });
             }}
             onContextMenu={(e) => {
               onContextMenu?.(e, "note", note.id, note.title);

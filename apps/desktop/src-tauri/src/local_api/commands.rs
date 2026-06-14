@@ -25,15 +25,6 @@ pub fn restart_local_api(
 }
 
 #[tauri::command]
-pub async fn shutdown_everything(
-    app: AppHandle,
-    supervisor: State<'_, LocalApiSupervisor>,
-) -> Result<(), ErrorDto> {
-    supervisor.stop_gracefully(&app).await;
-    Ok(())
-}
-
-#[tauri::command]
 pub fn enable_limited_mode(
     app: AppHandle,
     supervisor: State<'_, LocalApiSupervisor>,

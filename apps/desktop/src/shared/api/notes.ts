@@ -37,7 +37,7 @@ export const notesApi = {
   deleteNote: (id: OperationPath<"DeleteNote">["id"]) =>
     request<OperationData<"DeleteNote">>(`/notes/${id}`, {
       method: "DELETE",
-    }),
+    }).then(() => true),
 
   getNotesTree: (bucketId: OperationPath<"GetNotesTree">["bucketId"]) =>
     request<OperationData<"GetNotesTree">>(`/buckets/${bucketId}/notes/tree`),
@@ -71,7 +71,7 @@ export const notesApi = {
   deleteNoteFolder: (id: OperationPath<"DeleteNoteFolder">["id"]) =>
     request<OperationData<"DeleteNoteFolder">>(`/note-folders/${id}`, {
       method: "DELETE",
-    }),
+    }).then(() => true),
 
   moveNote: (
     id: OperationPath<"MoveNote">["id"],

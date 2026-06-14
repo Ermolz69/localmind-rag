@@ -8,7 +8,7 @@ use local_api::{
     commands::{
         copy_diagnostics_to_clipboard, enable_limited_mode, get_app_runtime_info, open_logs_folder,
         read_app_cache, restart_local_api, reveal_file_in_explorer, select_connected_folder,
-        select_document_files, shutdown_everything, start_local_api_on_setup, write_app_cache,
+        select_document_files, start_local_api_on_setup, write_app_cache,
     },
     supervisor::LocalApiSupervisor,
 };
@@ -29,8 +29,7 @@ fn main() {
             select_connected_folder,
             reveal_file_in_explorer,
             read_app_cache,
-            write_app_cache,
-            shutdown_everything
+            write_app_cache
         ])
         .setup(|app| {
             start_local_api_on_setup(app.handle().clone());

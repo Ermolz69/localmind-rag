@@ -6,7 +6,7 @@ export function useNotesPageViewModel() {
 
   const editor = useNoteEditor({
     onCreated: (note) => {
-      explorer.refetchTree();
+      explorer.addNote(note);
       explorer.selectNote(note.id);
     },
     onDeleted: (noteId) => {

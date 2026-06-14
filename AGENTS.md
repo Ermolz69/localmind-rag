@@ -308,6 +308,9 @@ Path: `apps/desktop/src-tauri`
 - Do not bind LocalApi to `localhost` if the actual binding can resolve unexpectedly; prefer explicit `127.0.0.1`.
 - LocalApi must never be exposed to the LAN/public network from the desktop app.
 - LocalApi child process must be stopped on app/window close.
+- Frontend must not cancel, re-dispatch, or manually destroy the window from a
+  close-request handler. Rust owns shutdown and allows the native Tauri close
+  request to continue.
 - Startup/readiness must be single-flight: parallel frontend/runtime requests must not start multiple LocalApi processes or multiple independent health polling loops.
 
 ## 4. Frontend Startup Rules

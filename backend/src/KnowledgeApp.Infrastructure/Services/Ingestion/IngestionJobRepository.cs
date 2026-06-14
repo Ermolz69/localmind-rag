@@ -51,17 +51,16 @@ public sealed class IngestionJobRepository(AppDbContext dbContext) : IIngestionJ
 
     public async Task<IReadOnlyList<Guid>> ListPendingJobIdsAsync(int batchSize, CancellationToken cancellationToken = default)
     {
-        IngestionJob[] pendingJobs = await dbContext.IngestionJobs
+        return await dbContext.IngestionJobs
             .AsNoTracking()
             .Where(job => job.Status == IngestionJobStatus.Pending)
-            .ToArrayAsync(cancellationToken);
-
-        return pendingJobs
-            .OrderBy(job => job.CreatedAt)
+            .OrderBy(job => EF.Property<long>(
+                job,
+                SearchDateIndexing.CreatedAtUnixTimePropertyName))
             .ThenBy(job => job.Id)
-            .Take(batchSize)
             .Select(job => job.Id)
-            .ToArray();
+            .Take(batchSize)
+            .ToArrayAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<IngestionJob>> GetFailedJobsForDocumentsAsync(IEnumerable<Guid> documentIds, CancellationToken cancellationToken = default)
