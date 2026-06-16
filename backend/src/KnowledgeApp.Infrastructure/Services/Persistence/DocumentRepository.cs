@@ -15,7 +15,7 @@ public sealed class DocumentRepository(AppDbContext dbContext) : IDocumentReposi
             .FirstOrDefaultAsync(item => item.Id == id && item.DeletedAt == null, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Document>> ListAsync(Guid? bucketId, string? status, int limit, int offset, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Document>> ListAsync(Guid? bucketId, string? status, DateTimeOffset? cursorCreatedAt, Guid? cursorId, int limit, CancellationToken cancellationToken = default)
     {
         IQueryable<Document> query = dbContext.Documents
             .Include(document => document.Tags)
@@ -31,21 +31,23 @@ public sealed class DocumentRepository(AppDbContext dbContext) : IDocumentReposi
             query = query.Where(document => document.Status == documentStatus);
         }
 
-        List<Document> all = await query.ToListAsync(cancellationToken);
-
-        IEnumerable<Document> result = all.OrderByDescending(document => document.CreatedAt);
-
-        if (offset > 0)
+        if (cursorCreatedAt.HasValue && cursorId.HasValue)
         {
-            result = result.Skip(offset);
+            long cDateMs = SearchDateIndexing.ToUnixTimeMilliseconds(cursorCreatedAt.Value);
+            Guid cId = cursorId.Value;
+            query = query.Where(d => EF.Property<long>(d, SearchDateIndexing.CreatedAtUnixTimePropertyName) < cDateMs ||
+                                     (EF.Property<long>(d, SearchDateIndexing.CreatedAtUnixTimePropertyName) == cDateMs && d.Id.CompareTo(cId) < 0));
         }
+
+        query = query.OrderByDescending(document => EF.Property<long>(document, SearchDateIndexing.CreatedAtUnixTimePropertyName))
+                     .ThenByDescending(document => document.Id);
 
         if (limit > 0)
         {
-            result = result.Take(limit);
+            query = query.Take(limit);
         }
 
-        return result.ToList();
+        return await query.ToListAsync(cancellationToken);
     }
 
     public async Task<int> CountAsync(Guid? bucketId, string? status, CancellationToken cancellationToken = default)

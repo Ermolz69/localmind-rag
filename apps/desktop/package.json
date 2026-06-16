@@ -17,6 +17,7 @@
     "generate:api": "openapi-typescript ../../artifacts/openapi/frontend/local-api-v1.json -o src/shared/contracts/generated.ts && prettier --write --ignore-path ../../.gitignore src/shared/contracts/generated.ts"
   },
   "dependencies": {
+    "@formkit/auto-animate": "^0.9.0",
     "@tauri-apps/api": "^2.6.0",
     "@tauri-apps/plugin-clipboard-manager": "~2.0.0",
     "@tauri-apps/plugin-dialog": "~2.0.0",

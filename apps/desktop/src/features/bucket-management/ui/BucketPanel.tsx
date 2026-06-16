@@ -128,6 +128,7 @@ function BucketButton({
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
       onClick={onClick}
+      title={label}
     >
       <span className="truncate">{label}</span>
       {active ? <CheckCircle2 size={16} aria-hidden /> : null}

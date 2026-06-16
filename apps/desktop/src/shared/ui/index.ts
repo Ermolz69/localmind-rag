@@ -13,3 +13,4 @@ export { StatusBadge } from "./StatusBadge";
 export { Textarea } from "./Textarea";
 export { Toast } from "./Toast";
 export { Toolbar } from "./Toolbar";
+export { Tooltip } from "./Tooltip";

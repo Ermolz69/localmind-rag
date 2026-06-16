@@ -19,37 +19,55 @@ export function useCursorPage<T>(
     null,
   );
 
-  useEffect(() => {
-    fallbackErrorRef.current = fallbackError;
-    loadPageRef.current = loadPage;
-  }, [fallbackError, loadPage]);
+  const requestIdRef = useRef(0);
 
   const reload = useCallback(() => {
     if (reloadInFlightRef.current) {
       return reloadInFlightRef.current;
     }
 
+    const id = ++requestIdRef.current;
     const request = (async () => {
       setError(null);
       setIsLoading(true);
       try {
         const page = await loadPageRef.current(null);
-        setItems(page.items);
-        setNextCursor(page.nextCursor);
-        setHasMore(page.hasMore);
+        if (id === requestIdRef.current) {
+          setItems(page.items);
+          setNextCursor(page.nextCursor);
+          setHasMore(page.hasMore);
+        }
         return page;
       } catch (exception) {
-        setError(getErrorMessage(exception, fallbackErrorRef.current));
+        if (id === requestIdRef.current) {
+          setError(getErrorMessage(exception, fallbackErrorRef.current));
+        }
         return null;
       } finally {
-        setIsLoading(false);
-        reloadInFlightRef.current = null;
+        if (id === requestIdRef.current) {
+          setIsLoading(false);
+          reloadInFlightRef.current = null;
+        }
       }
     })();
 
     reloadInFlightRef.current = request;
     return request;
   }, []);
+
+  useEffect(() => {
+    fallbackErrorRef.current = fallbackError;
+
+    if (loadPageRef.current !== loadPage) {
+      loadPageRef.current = loadPage;
+      setItems([]);
+      setNextCursor(null);
+      setHasMore(false);
+      reloadInFlightRef.current = null;
+      loadMoreInFlightRef.current = null;
+      void reload();
+    }
+  }, [fallbackError, loadPage, reload]);
 
   const loadMore = useCallback(() => {
     if (!nextCursor) {
@@ -60,22 +78,29 @@ export function useCursorPage<T>(
       return loadMoreInFlightRef.current;
     }
 
+    const id = ++requestIdRef.current;
     const cursor = nextCursor;
     const request = (async () => {
       setError(null);
       setIsLoadingMore(true);
       try {
         const page = await loadPageRef.current(cursor);
-        setItems((current) => [...current, ...page.items]);
-        setNextCursor(page.nextCursor);
-        setHasMore(page.hasMore);
+        if (id === requestIdRef.current) {
+          setItems((current) => [...current, ...page.items]);
+          setNextCursor(page.nextCursor);
+          setHasMore(page.hasMore);
+        }
         return page;
       } catch (exception) {
-        setError(getErrorMessage(exception, fallbackErrorRef.current));
+        if (id === requestIdRef.current) {
+          setError(getErrorMessage(exception, fallbackErrorRef.current));
+        }
         return null;
       } finally {
-        setIsLoadingMore(false);
-        loadMoreInFlightRef.current = null;
+        if (id === requestIdRef.current) {
+          setIsLoadingMore(false);
+          loadMoreInFlightRef.current = null;
+        }
       }
     })();
 

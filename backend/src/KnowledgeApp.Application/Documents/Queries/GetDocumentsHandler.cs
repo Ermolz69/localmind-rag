@@ -45,17 +45,14 @@ public sealed class GetDocumentsHandler(
         IReadOnlyList<Document> documentRows = await documentRepository.ListAsync(
             query.BucketId,
             status?.ToString(),
-            limit: 0,
-            offset: 0,
+            cursor?.CreatedAt,
+            cursor?.Id,
+            limit + 1,
             cancellationToken);
 
-        Document[] sortedDocuments = documentRows
-            .OrderByDescending(document => document.CreatedAt)
-            .ThenByDescending(document => document.Id.ToString("N", CultureInfo.InvariantCulture))
-            .ToArray();
         CursorPage<Document> documentPage = CursorPagination.CreatePage(
-            sortedDocuments,
-            cursor,
+            documentRows,
+            null, // Cursor is already applied in SQL
             limit,
             CompareDocumentToCursor,
             document => new CursorPayload(
