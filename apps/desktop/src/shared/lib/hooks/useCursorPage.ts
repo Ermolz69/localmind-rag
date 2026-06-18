@@ -57,17 +57,11 @@ export function useCursorPage<T>(
 
   useEffect(() => {
     fallbackErrorRef.current = fallbackError;
+  }, [fallbackError]);
 
-    if (loadPageRef.current !== loadPage) {
-      loadPageRef.current = loadPage;
-      setItems([]);
-      setNextCursor(null);
-      setHasMore(false);
-      reloadInFlightRef.current = null;
-      loadMoreInFlightRef.current = null;
-      void reload();
-    }
-  }, [fallbackError, loadPage, reload]);
+  useEffect(() => {
+    loadPageRef.current = loadPage;
+  }, [loadPage]);
 
   const loadMore = useCallback(() => {
     if (!nextCursor) {
