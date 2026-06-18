@@ -9,7 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { BucketSelector } from "@features/note-editor";
-import { Button, ConfirmDialog, Input, Modal } from "@shared/ui";
+import { Button, ConfirmDialog, Modal } from "@shared/ui";
 import { cn } from "@shared/lib/cn";
 import { getVaultItemDragData } from "../model/dragPayload";
 import { useVaultExplorer } from "../model/useVaultExplorer";
@@ -17,21 +17,34 @@ import { ExplorerNode } from "./ExplorerNode";
 
 export function VaultExplorer({
   explorer,
-  onCreateFile,
+  onOpenNote,
+  onOpenNoteInNewTab,
+  onShowProperties,
 }: {
   explorer: ReturnType<typeof useVaultExplorer>;
-  onCreateFile: () => void;
+  onOpenNote?: (noteId: string) => void;
+  onOpenNoteInNewTab?: (noteId: string) => void;
+  onShowProperties?: (noteId: string) => void;
 }) {
-  const [isPropertiesOpen, setIsPropertiesOpen] = useState(true);
-  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
+  const [isVaultScopeOpen, setIsVaultScopeOpen] = useState(true);
+  const [inlineInput, setInlineInput] = useState<
+    | { type: "createFile"; parentFolderId: string | null }
+    | { type: "createFolder"; parentFolderId: string | null }
+    | {
+        type: "rename";
+        itemType: "note" | "folder";
+        id: string;
+        initialName: string;
+      }
+    | null
+  >(null);
   const [isRootDropActive, setIsRootDropActive] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
-    type: "note" | "folder";
-    id: string;
-    name: string;
+    type: "note" | "folder" | "root";
+    id: string | null;
+    name: string | null;
   } | null>(null);
   const [moveTarget, setMoveTarget] = useState<{
     type: "note" | "folder";
@@ -67,12 +80,29 @@ export function VaultExplorer({
     }
   };
 
-  const createFolder = async () => {
-    const created = await explorer.createFolder(newFolderName);
-    if (created) {
-      setNewFolderName("");
-      setIsCreateFolderOpen(false);
+  const handleInlineSubmit = async (value: string) => {
+    if (!inlineInput) return;
+
+    if (inlineInput.type === "createFolder") {
+      await explorer.createFolder(value, inlineInput.parentFolderId);
+    } else if (inlineInput.type === "createFile") {
+      await explorer.createNote(value, inlineInput.parentFolderId);
+    } else if (inlineInput.type === "rename") {
+      if (inlineInput.itemType === "folder") {
+        await explorer.renameFolder(
+          inlineInput.id,
+          value,
+          explorer.folders.find((f) => f.id === inlineInput.id)
+            ?.parentFolderId ?? null,
+        );
+      } else {
+        const note = explorer.notes.find((n) => n.id === inlineInput.id);
+        if (note) {
+          await explorer.renameNote(note, value);
+        }
+      }
     }
+    setInlineInput(null);
   };
 
   return (
@@ -80,18 +110,18 @@ export function VaultExplorer({
       <div className="flex flex-col border-b border-neutral-200 dark:border-neutral-800">
         <button
           type="button"
-          onClick={() => setIsPropertiesOpen(!isPropertiesOpen)}
+          onClick={() => setIsVaultScopeOpen(!isVaultScopeOpen)}
           className="flex items-center justify-between p-2 text-xs font-semibold uppercase text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
         >
           <span>Vault Scope</span>
-          {isPropertiesOpen ? (
+          {isVaultScopeOpen ? (
             <ChevronDown size={14} />
           ) : (
             <ChevronRight size={14} />
           )}
         </button>
 
-        {isPropertiesOpen && (
+        {isVaultScopeOpen && (
           <div className="flex flex-col gap-2 p-2 pt-0">
             <BucketSelector
               buckets={explorer.buckets}
@@ -104,7 +134,12 @@ export function VaultExplorer({
                 <Button
                   variant="ghost"
                   className="h-7 flex-1 px-2 text-xs"
-                  onClick={onCreateFile}
+                  onClick={() =>
+                    setInlineInput({
+                      type: "createFile",
+                      parentFolderId: explorer.selectedFolderId,
+                    })
+                  }
                 >
                   <Plus size={14} className="mr-1" />
                   New File
@@ -112,7 +147,12 @@ export function VaultExplorer({
                 <Button
                   variant="ghost"
                   className="h-7 flex-1 px-2 text-xs"
-                  onClick={() => setIsCreateFolderOpen(true)}
+                  onClick={() =>
+                    setInlineInput({
+                      type: "createFolder",
+                      parentFolderId: explorer.selectedFolderId,
+                    })
+                  }
                 >
                   <FolderPlus size={14} className="mr-1" />
                   New Folder
@@ -129,6 +169,18 @@ export function VaultExplorer({
           isRootDropActive && "bg-primary/10 ring-2 ring-inset ring-primary/40",
         )}
         onClick={() => explorer.selectFolder(null)} // Click empty space to deselect
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (e.target === e.currentTarget) {
+            setContextMenu({
+              x: e.clientX,
+              y: e.clientY,
+              type: "root",
+              id: null,
+              name: null,
+            });
+          }
+        }}
         onDragEnter={(e) => {
           e.preventDefault();
         }}
@@ -163,6 +215,7 @@ export function VaultExplorer({
             onToggleFolder={explorer.toggleFolder}
             onSelectFolder={explorer.selectFolder}
             onSelectNote={explorer.selectNote}
+            onDoubleClickNote={onOpenNoteInNewTab}
             onMoveItem={(type, id, targetId) => {
               if (type === "note")
                 void explorer.moveNote(id, explorer.selectedBucketId, targetId);
@@ -177,6 +230,9 @@ export function VaultExplorer({
               e.preventDefault();
               setContextMenu({ x: e.clientX, y: e.clientY, type, id, name });
             }}
+            inlineInput={inlineInput}
+            onInlineSubmit={handleInlineSubmit}
+            onInlineCancel={() => setInlineInput(null)}
             depth={0}
           />
         )}
@@ -188,91 +244,142 @@ export function VaultExplorer({
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-            onClick={() => {
-              setTargetBucketId(explorer.selectedBucketId);
-              setMoveTarget({
-                type: contextMenu.type,
-                id: contextMenu.id,
-                name: contextMenu.name,
-              });
-              setContextMenu(null);
-            }}
-          >
-            <Move size={14} /> Move to Vault...
-          </button>
-          <button
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:text-red-500 dark:hover:bg-red-950/30"
-            onClick={() => {
-              setDeleteTarget({
-                type: contextMenu.type,
-                id: contextMenu.id,
-                name: contextMenu.name,
-              });
-              setContextMenu(null);
-            }}
-          >
-            <Trash2 size={14} /> Delete
-          </button>
-        </div>
-      )}
+          {(contextMenu.type === "folder" || contextMenu.type === "root") && (
+            <>
+              <button
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                onClick={() => {
+                  setInlineInput({
+                    type: "createFile",
+                    parentFolderId: contextMenu.id,
+                  });
+                  if (contextMenu.id) {
+                    if (!explorer.expandedFolders.has(contextMenu.id)) {
+                      explorer.toggleFolder(contextMenu.id);
+                    }
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                <Plus size={14} /> New File
+              </button>
+              <button
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                onClick={() => {
+                  setInlineInput({
+                    type: "createFolder",
+                    parentFolderId: contextMenu.id,
+                  });
+                  if (contextMenu.id) {
+                    if (!explorer.expandedFolders.has(contextMenu.id)) {
+                      explorer.toggleFolder(contextMenu.id);
+                    }
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                <FolderPlus size={14} /> New Folder
+              </button>
+              {contextMenu.type === "folder" && (
+                <div className="my-1 h-px bg-neutral-200 dark:bg-neutral-800" />
+              )}
+            </>
+          )}
 
-      <Modal
-        title="Create folder"
-        description={
-          explorer.lastSelectedFolderId
-            ? "Add a folder inside the last selected folder."
-            : "Add a folder at the root of this vault."
-        }
-        open={isCreateFolderOpen}
-        onClose={() => {
-          setIsCreateFolderOpen(false);
-          setNewFolderName("");
-        }}
-      >
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void createFolder();
-          }}
-        >
-          <div>
-            <label
-              className="mb-2 block text-sm font-medium"
-              htmlFor="folder-name"
-            >
-              Folder name
-            </label>
-            <Input
-              id="folder-name"
-              value={newFolderName}
-              onChange={(event) => setNewFolderName(event.target.value)}
-              placeholder="New folder"
-              autoFocus
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="secondary"
+          {contextMenu.type === "root" && (
+            <button
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
               onClick={() => {
-                setIsCreateFolderOpen(false);
-                setNewFolderName("");
+                void explorer.refetchTree();
+                setContextMenu(null);
               }}
             >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={explorer.isCreatingFolder || !newFolderName.trim()}
-            >
-              {explorer.isCreatingFolder ? "Creating..." : "Create folder"}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+              Refresh
+            </button>
+          )}
+
+          {contextMenu.type !== "root" &&
+            contextMenu.id &&
+            contextMenu.name && (
+              <>
+                {contextMenu.type === "note" && (
+                  <>
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      onClick={() => {
+                        onOpenNote?.(contextMenu.id!);
+                        setContextMenu(null);
+                      }}
+                    >
+                      Open
+                    </button>
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      onClick={() => {
+                        onOpenNoteInNewTab?.(contextMenu.id!);
+                        setContextMenu(null);
+                      }}
+                    >
+                      Open in New Tab
+                    </button>
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      onClick={() => {
+                        onShowProperties?.(contextMenu.id!);
+                        setContextMenu(null);
+                      }}
+                    >
+                      Properties
+                    </button>
+                    <div className="my-1 h-px bg-neutral-200 dark:bg-neutral-800" />
+                  </>
+                )}
+                <button
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  onClick={() => {
+                    setInlineInput({
+                      type: "rename",
+                      itemType: contextMenu.type as "note" | "folder",
+                      id: contextMenu.id!,
+                      initialName: contextMenu.name!,
+                    });
+                    setContextMenu(null);
+                  }}
+                >
+                  Rename
+                </button>
+                <button
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  onClick={() => {
+                    setTargetBucketId(explorer.selectedBucketId);
+                    setMoveTarget({
+                      type: contextMenu.type as "note" | "folder",
+                      id: contextMenu.id!,
+                      name: contextMenu.name!,
+                    });
+                    setContextMenu(null);
+                  }}
+                >
+                  <Move size={14} /> Move to Vault...
+                </button>
+                <div className="my-1 h-px bg-neutral-200 dark:bg-neutral-800" />
+                <button
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:text-red-500 dark:hover:bg-red-950/30"
+                  onClick={() => {
+                    setDeleteTarget({
+                      type: contextMenu.type as "note" | "folder",
+                      id: contextMenu.id!,
+                      name: contextMenu.name!,
+                    });
+                    setContextMenu(null);
+                  }}
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </>
+            )}
+        </div>
+      )}
 
       <Modal
         title="Move to another Vault"

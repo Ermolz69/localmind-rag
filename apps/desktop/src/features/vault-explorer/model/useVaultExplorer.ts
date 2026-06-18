@@ -105,7 +105,7 @@ export function useVaultExplorer() {
   );
 
   const createFolder = useCallback(
-    async (name: string) => {
+    async (name: string, parentFolderId: string | null) => {
       const trimmedName = name.trim();
       if (!selectedBucketId || !trimmedName) {
         return null;
@@ -114,15 +114,15 @@ export function useVaultExplorer() {
       const result = await createFolderMutation.mutate({
         name: trimmedName,
         bucketId: selectedBucketId,
-        parentFolderId: lastSelectedFolderId,
+        parentFolderId,
       });
 
       if (result) {
         updateFolders((current) => [...current, result]);
-        if (lastSelectedFolderId) {
+        if (parentFolderId) {
           setExpandedFolders((prev) => {
             const next = new Set(prev);
-            next.add(lastSelectedFolderId);
+            next.add(parentFolderId);
             return next;
           });
         }
@@ -130,12 +130,121 @@ export function useVaultExplorer() {
 
       return result;
     },
-    [
-      createFolderMutation,
-      lastSelectedFolderId,
-      selectedBucketId,
-      updateFolders,
-    ],
+    [createFolderMutation, selectedBucketId, updateFolders],
+  );
+
+  const renameFolderMutation = useApiMutation(
+    (payload: { id: string; name: string; parentFolderId: string | null }) =>
+      notesApi.updateNoteFolder(payload.id, {
+        name: payload.name,
+        parentFolderId: payload.parentFolderId,
+      }),
+    { fallbackError: "Failed to rename folder." },
+  );
+
+  const renameFolder = useCallback(
+    async (
+      folderId: string,
+      newName: string,
+      parentFolderId: string | null,
+    ) => {
+      const trimmedName = newName.trim();
+      if (!trimmedName) return;
+
+      const result = await renameFolderMutation.mutate({
+        id: folderId,
+        name: trimmedName,
+        parentFolderId,
+      });
+      if (result) {
+        updateFolders((current) =>
+          current.map((folder) => (folder.id === folderId ? result : folder)),
+        );
+      }
+      return result;
+    },
+    [renameFolderMutation, updateFolders],
+  );
+
+  const createNoteMutation = useApiMutation(
+    (payload: { title: string; bucketId: string; folderId: string | null }) =>
+      notesApi.createNote({
+        bucketId: payload.bucketId,
+        title: payload.title,
+        markdown: "",
+        folderId: payload.folderId,
+      }),
+    { fallbackError: "Failed to create note." },
+  );
+
+  const createNote = useCallback(
+    async (title: string, parentFolderId: string | null) => {
+      const trimmedTitle = title.trim();
+      if (!selectedBucketId || !trimmedTitle) {
+        return null;
+      }
+
+      const result = await createNoteMutation.mutate({
+        title: trimmedTitle,
+        bucketId: selectedBucketId,
+        folderId: parentFolderId,
+      });
+
+      if (result) {
+        updateNotes((current) => [...current, result]);
+        if (parentFolderId) {
+          setExpandedFolders((prev) => {
+            const next = new Set(prev);
+            next.add(parentFolderId);
+            return next;
+          });
+        }
+      }
+
+      return result;
+    },
+    [createNoteMutation, selectedBucketId, updateNotes],
+  );
+
+  const renameNoteMutation = useApiMutation(
+    (payload: {
+      id: string;
+      title: string;
+      markdown: string;
+      tags: Record<string, string> | null;
+      folderId: string | null;
+    }) =>
+      notesApi.updateNote(payload.id, {
+        title: payload.title,
+        markdown: payload.markdown,
+        tags: payload.tags,
+        folderId: payload.folderId,
+      }),
+    { fallbackError: "Failed to rename note." },
+  );
+
+  const renameNote = useCallback(
+    async (note: NoteDto, newTitle: string) => {
+      const trimmedTitle = newTitle.trim();
+      if (!trimmedTitle || trimmedTitle === note.title) return;
+
+      const wasUpdated = await renameNoteMutation.mutate({
+        id: note.id,
+        title: trimmedTitle,
+        markdown: note.markdown,
+        tags: note.tags ?? null,
+        folderId: note.folderId,
+      });
+      if (wasUpdated) {
+        const updatedNote = { ...note, title: trimmedTitle };
+        updateNotes((current) =>
+          current.map((n) => (n.id === note.id ? updatedNote : n)),
+        );
+        return updatedNote;
+      }
+      return null;
+    },
+    [renameNoteMutation, updateNotes],
   );
 
   const moveNoteMutation = useApiMutation(
@@ -229,7 +338,9 @@ export function useVaultExplorer() {
       const res = await deleteNoteMutation.mutate(id);
       if (res !== null) {
         updateNotes((current) => current.filter((note) => note.id !== id));
+        return true;
       }
+      return false;
     },
     [deleteNoteMutation, updateNotes],
   );
@@ -279,6 +390,15 @@ export function useVaultExplorer() {
     [updateNotes],
   );
 
+  const updateNote = useCallback(
+    (note: NoteDto) => {
+      updateNotes((current) =>
+        current.map((item) => (item.id === note.id ? note : item)),
+      );
+    },
+    [updateNotes],
+  );
+
   // Expose flat arrays for rendering and logic
   const folders = tree?.folders ?? [];
   const notes = tree?.notes ?? [];
@@ -300,9 +420,16 @@ export function useVaultExplorer() {
     selectedNoteId,
     selectNote,
     addNote,
+    updateNote,
     refetchTree,
     createFolder,
+    renameFolder,
+    createNote,
+    renameNote,
     isCreatingFolder: createFolderMutation.isPending,
+    isRenamingFolder: renameFolderMutation.isPending,
+    isCreatingNote: createNoteMutation.isPending,
+    isRenamingNote: renameNoteMutation.isPending,
     moveNote,
     moveFolder,
     deleteNote,

@@ -32,7 +32,7 @@ export const notesApi = {
     request<OperationData<"UpdateNote">>(`/notes/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload),
-    }),
+    }).then(() => true),
 
   deleteNote: (id: OperationPath<"DeleteNote">["id"]) =>
     request<OperationData<"DeleteNote">>(`/notes/${id}`, {

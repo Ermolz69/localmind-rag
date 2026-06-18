@@ -7,6 +7,7 @@ import {
   getVaultItemDragData,
   setVaultItemDragData,
 } from "../model/dragPayload";
+import { InlineExplorerInput } from "./InlineExplorerInput";
 
 type NoteFolderDto = Schema<"NoteFolderDto">;
 
@@ -20,6 +21,7 @@ interface ExplorerNodeProps {
   onToggleFolder: (folderId: string) => void;
   onSelectFolder: (folderId: string | null) => void;
   onSelectNote: (noteId: string) => void;
+  onDoubleClickNote?: (noteId: string) => void;
   onMoveItem?: (
     type: "note" | "folder",
     id: string,
@@ -31,6 +33,18 @@ interface ExplorerNodeProps {
     id: string,
     name: string,
   ) => void;
+  inlineInput?:
+    | { type: "createFile"; parentFolderId: string | null }
+    | { type: "createFolder"; parentFolderId: string | null }
+    | {
+        type: "rename";
+        itemType: "note" | "folder";
+        id: string;
+        initialName: string;
+      }
+    | null;
+  onInlineSubmit?: (value: string) => void;
+  onInlineCancel?: () => void;
   depth?: number;
 }
 
@@ -44,8 +58,12 @@ export function ExplorerNode({
   onToggleFolder,
   onSelectFolder,
   onSelectNote,
+  onDoubleClickNote,
   onMoveItem,
   onContextMenu,
+  inlineInput,
+  onInlineSubmit,
+  onInlineCancel,
   depth = 0,
 }: ExplorerNodeProps) {
   const [activeDropFolderId, setActiveDropFolderId] = useState<string | null>(
@@ -87,6 +105,15 @@ export function ExplorerNode({
         onMoveItem?.(data.type, data.id, folderId);
       }}
     >
+      {inlineInput?.type === "createFolder" &&
+        inlineInput.parentFolderId === folderId && (
+          <InlineExplorerInput
+            type="folder"
+            paddingLeft={paddingLeft}
+            onSubmit={onInlineSubmit ?? (() => {})}
+            onCancel={onInlineCancel ?? (() => {})}
+          />
+        )}
       {childFolders.map((folder) => {
         const isExpanded = expandedFolders.has(folder.id);
         const isSelected = selectedFolderId === folder.id;
@@ -162,7 +189,25 @@ export function ExplorerNode({
                 )}
               </span>
               <Folder size={14} className="shrink-0 text-blue-500" />
-              <span className="truncate">{folder.name}</span>
+              {inlineInput?.type === "rename" &&
+              inlineInput.itemType === "folder" &&
+              inlineInput.id === folder.id ? (
+                <div
+                  className="flex-1"
+                  onClick={(e) => e.stopPropagation()}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                >
+                  <InlineExplorerInput
+                    type="folder"
+                    initialValue={inlineInput.initialName}
+                    isRename={true}
+                    onSubmit={onInlineSubmit ?? (() => {})}
+                    onCancel={onInlineCancel ?? (() => {})}
+                  />
+                </div>
+              ) : (
+                <span className="truncate">{folder.name}</span>
+              )}
             </button>
 
             {isExpanded && (
@@ -176,14 +221,28 @@ export function ExplorerNode({
                 onToggleFolder={onToggleFolder}
                 onSelectFolder={onSelectFolder}
                 onSelectNote={onSelectNote}
+                onDoubleClickNote={onDoubleClickNote}
                 onMoveItem={onMoveItem}
                 onContextMenu={onContextMenu}
+                inlineInput={inlineInput}
+                onInlineSubmit={onInlineSubmit}
+                onInlineCancel={onInlineCancel}
                 depth={depth + 1}
               />
             )}
           </div>
         );
       })}
+
+      {inlineInput?.type === "createFile" &&
+        inlineInput.parentFolderId === folderId && (
+          <InlineExplorerInput
+            type="note"
+            paddingLeft={paddingLeft + 22}
+            onSubmit={onInlineSubmit ?? (() => {})}
+            onCancel={onInlineCancel ?? (() => {})}
+          />
+        )}
 
       {childNotes.map((note) => {
         const isSelected = selectedNoteId === note.id;
@@ -203,6 +262,10 @@ export function ExplorerNode({
             onClick={(e) => {
               e.stopPropagation();
               onSelectNote(note.id);
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              onDoubleClickNote?.(note.id);
             }}
             draggable
             onDragStart={(e) => {
@@ -242,7 +305,25 @@ export function ExplorerNode({
             }}
           >
             <FileText size={14} className="shrink-0 text-neutral-500" />
-            <span className="truncate">{note.title}</span>
+            {inlineInput?.type === "rename" &&
+            inlineInput.itemType === "note" &&
+            inlineInput.id === note.id ? (
+              <div
+                className="flex-1"
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+              >
+                <InlineExplorerInput
+                  type="note"
+                  initialValue={inlineInput.initialName}
+                  isRename={true}
+                  onSubmit={onInlineSubmit ?? (() => {})}
+                  onCancel={onInlineCancel ?? (() => {})}
+                />
+              </div>
+            ) : (
+              <span className="truncate">{note.title}</span>
+            )}
           </button>
         );
       })}

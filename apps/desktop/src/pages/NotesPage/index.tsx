@@ -1,130 +1,179 @@
-import { FileText } from "lucide-react";
-import { BucketSelector, NoteEditor } from "@features/note-editor";
+import { FileText, PanelLeft } from "lucide-react";
+import { EditorTabBar, EditorToolbar, NoteEditor, NotePropertiesPanel } from "@features/note-editor";
 import { VaultExplorer } from "@features/vault-explorer";
-import {
-  Button,
-  ConfirmDialog,
-  ErrorBanner,
-  Input,
-  Modal,
-  PageHeader,
-  Textarea,
-} from "@shared/ui";
+import { ConfirmDialog, ErrorBanner } from "@shared/ui";
 import { useNotesPageViewModel } from "./model/useNotesPageViewModel";
+import { ExplorerResizeHandle } from "./ui/ExplorerResizeHandle";
+import { useLocalStorage } from "@shared/lib/hooks";
+
+const MIN_EXPLORER_WIDTH = 240;
+const COLLAPSE_THRESHOLD = 160;
+const MAX_EXPLORER_WIDTH = 520;
+const DEFAULT_EXPLORER_WIDTH = 320;
 
 export function NotesPage() {
   const page = useNotesPageViewModel();
 
-  return (
-    <section className="flex min-h-[calc(100dvh-5.5rem)] flex-col space-y-4">
-      <PageHeader
-        title="Notes vault"
-        description="A local markdown workspace with folders, files, and a focused editor."
-      />
+  const [explorerWidthStr, setExplorerWidthStr] = useLocalStorage(
+    "notesExplorerWidth",
+    String(DEFAULT_EXPLORER_WIDTH),
+  );
+  const explorerWidth =
+    parseInt(explorerWidthStr, 10) || DEFAULT_EXPLORER_WIDTH;
 
+  const [isExplorerCollapsedStr, setIsExplorerCollapsedStr] = useLocalStorage(
+    "notesExplorerCollapsed",
+    "false",
+  );
+  const isExplorerCollapsed = isExplorerCollapsedStr === "true";
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = explorerWidth;
+
+    let currentCollapsed = isExplorerCollapsed;
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = startWidth + (moveEvent.clientX - startX);
+
+      if (newWidth < COLLAPSE_THRESHOLD) {
+        if (!currentCollapsed) {
+          setIsExplorerCollapsedStr("true");
+          currentCollapsed = true;
+        }
+      } else {
+        if (currentCollapsed) {
+          setIsExplorerCollapsedStr("false");
+          currentCollapsed = false;
+        }
+        if (newWidth >= MIN_EXPLORER_WIDTH) {
+          const clampedWidth = Math.min(newWidth, MAX_EXPLORER_WIDTH);
+          setExplorerWidthStr(String(clampedWidth));
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  return (
+    <section className="flex h-[calc(100dvh-5.5rem)] min-h-0 flex-col overflow-hidden">
       <ErrorBanner message={page.error} />
 
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
-        <VaultExplorer
-          explorer={page.explorer}
-          onCreateFile={() => {
-            page.setCreateDraft({
-              ...page.createDraft,
-              bucketId: page.explorer.selectedBucketId,
-              folderId: page.explorer.lastSelectedFolderId,
-            });
-            page.setIsCreateOpen(true);
-          }}
-        />
-
-        {page.explorer.selectedNoteId ? (
-          <NoteEditor
-            buckets={page.explorer.buckets}
-            draft={page.draft}
-            isDirty={page.isDirty}
-            isSubmitting={page.isSubmitting}
-            onDraftChange={page.setDraft}
-            onSave={() => void page.saveNote()}
-            onCancel={page.cancelEdit}
-            onDelete={() =>
-              page.setDeleteTargetId(page.explorer.selectedNoteId)
-            }
-          />
-        ) : (
-          <div className="flex items-center justify-center rounded-md border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/50">
-            <div className="flex flex-col items-center gap-2 text-neutral-500">
-              <FileText size={32} />
-              <p>Select a markdown file to edit</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <Modal
-        title="Create markdown file"
-        description="Add a local markdown file to your vault."
-        open={page.isCreateOpen}
-        onClose={() => page.setIsCreateOpen(false)}
+      <div
+        className="relative grid min-h-0 flex-1 overflow-hidden"
+        style={{
+          gridTemplateColumns: isExplorerCollapsed
+            ? "40px minmax(0, 1fr)"
+            : `${explorerWidth}px 6px minmax(0, 1fr)`,
+        }}
       >
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm font-medium">Title</label>
-            <Input
-              value={page.createDraft.title}
-              onChange={(event) =>
-                page.setCreateDraft({
-                  ...page.createDraft,
-                  title: event.target.value,
-                })
-              }
-              placeholder="File name"
-              autoFocus
-            />
+        {isExplorerCollapsed ? (
+          <div className="flex flex-col items-center border-r border-neutral-200 bg-neutral-50 pt-2 dark:border-neutral-800 dark:bg-neutral-900/50">
+            <button
+              className="rounded-md p-2 text-neutral-500 transition-colors hover:bg-neutral-200/50 hover:text-neutral-700 dark:hover:bg-neutral-800/50 dark:hover:text-neutral-300"
+              onClick={() => setIsExplorerCollapsedStr("false")}
+              title="Show Explorer"
+            >
+              <PanelLeft size={20} />
+            </button>
           </div>
-          <BucketSelector
-            buckets={page.explorer.buckets}
-            value={page.createDraft.bucketId ?? ""}
-            onChange={(bucketId) =>
-              page.setCreateDraft({ ...page.createDraft, bucketId })
-            }
+        ) : (
+          <>
+            <div className="min-h-0 min-w-0 overflow-hidden">
+              <VaultExplorer 
+                explorer={page.explorer}
+                onOpenNote={(noteId) => {
+                  const note = page.explorer.notes.find((n) => n.id === noteId);
+                  if (note) void page.tabs.openTab(note);
+                }}
+                onOpenNoteInNewTab={(noteId) => {
+                  const note = page.explorer.notes.find((n) => n.id === noteId);
+                  if (note) page.tabs.openInNewTab(note);
+                }}
+                onShowProperties={(noteId) => {
+                  const note = page.explorer.notes.find((n) => n.id === noteId);
+                  if (note) {
+                    void page.tabs.openTab(note);
+                    page.setIsPropertiesOpen(true);
+                  }
+                }}
+              />
+            </div>
+
+            <ExplorerResizeHandle
+              onMouseDown={handleMouseDown}
+              onDoubleClick={() => setIsExplorerCollapsedStr("true")}
+            />
+          </>
+        )}
+
+        <div className="relative flex min-w-0 flex-col overflow-hidden">
+          <EditorTabBar
+            tabs={page.tabs.openTabs}
+            activeTabId={page.tabs.activeTabId}
+            onTabClick={(id) => page.tabs.setActiveTabId(id)}
+            onTabClose={(id) => void page.tabs.closeTab(id)}
+            onMiddleClick={(id) => void page.tabs.closeTab(id)}
           />
-          <div>
-            <label className="mb-2 block text-sm font-medium">Markdown</label>
-            <Textarea
-              className="min-h-40 font-mono"
-              value={page.createDraft.markdown}
-              onChange={(event) =>
-                page.setCreateDraft({
-                  ...page.createDraft,
-                  markdown: event.target.value,
-                })
-              }
-              placeholder="Start writing..."
+
+          <EditorToolbar
+            viewMode={page.editorViewMode}
+            onViewModeChange={page.setEditorViewMode}
+            isDirty={page.isDirty}
+            onSave={() => void page.saveNote()}
+          />
+
+          <div className="flex-1 min-h-0 min-w-0">
+            {page.tabs.activeTabId ? (
+              <NoteEditor
+                draft={page.activeDraft}
+                viewMode={page.editorViewMode}
+                onDraftChange={page.setDraft}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center rounded-md border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/50">
+                <div className="flex flex-col items-center gap-2 text-neutral-500">
+                  <FileText size={32} />
+                  <p>Select a markdown file to edit</p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {page.isPropertiesOpen && page.explorer.selectedNoteId && (
+            <NotePropertiesPanel
+              note={page.explorer.notes.find((n) => n.id === page.explorer.selectedNoteId)!}
+              buckets={page.explorer.buckets}
+              isOpen={page.isPropertiesOpen}
+              onClose={() => page.setIsPropertiesOpen(false)}
+              onDelete={() => {
+                page.setDeleteTargetId(page.explorer.selectedNoteId);
+                page.setIsPropertiesOpen(false);
+              }}
             />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => page.setIsCreateOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => void page.createNote()}
-              disabled={page.isSubmitting || !page.createDraft.title.trim()}
-            >
-              {page.isSubmitting ? "Creating..." : "Create file"}
-            </Button>
-          </div>
+          )}
         </div>
-      </Modal>
+      </div>
 
       <ConfirmDialog
         open={Boolean(page.deleteTargetId)}
         title="Delete file"
-        description="This hides the markdown file from your local vault."
+        description="This removes the markdown file from your local vault."
         confirmLabel="Delete"
-        isPending={page.isSubmitting}
+        isPending={page.explorer.isDeletingNote}
         onConfirm={() => void page.deleteNote()}
         onClose={() => page.setDeleteTargetId(null)}
       />
