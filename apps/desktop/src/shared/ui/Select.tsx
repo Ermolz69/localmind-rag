@@ -34,7 +34,7 @@ export function Select({ className = "", children, value, onChange, title, ...pr
 
   const options = React.Children.toArray(children)
     .filter(React.isValidElement)
-    .map((child: any) => ({
+    .map((child: React.ReactElement) => ({
       value: child.props.value,
       label: child.props.children,
       title: child.props.title,
@@ -45,7 +45,7 @@ export function Select({ className = "", children, value, onChange, title, ...pr
   const handleSelect = (newValue: string) => {
     setIsOpen(false);
     if (onChange) {
-      onChange({ target: { value: newValue } } as any);
+      onChange({ target: { value: newValue } } as unknown as React.ChangeEvent<HTMLSelectElement>);
     }
   };
 
@@ -56,7 +56,7 @@ export function Select({ className = "", children, value, onChange, title, ...pr
         title={title || selectedOption?.title}
         onClick={handleToggle}
         className="flex h-11 w-full items-center justify-between rounded-xl border border-border bg-card px-4 text-sm leading-5 text-foreground shadow-sm outline-none transition-[border-color,box-shadow,background-color] focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60"
-        {...(props as any)}
+        {...(props as unknown as React.ButtonHTMLAttributes<HTMLButtonElement>)}
       >
         <span className="truncate">{selectedOption?.label}</span>
         <ChevronDown size={16} className="ml-2 shrink-0 opacity-50" />
