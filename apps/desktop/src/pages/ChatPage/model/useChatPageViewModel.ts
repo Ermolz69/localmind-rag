@@ -36,6 +36,7 @@ export function useChatPageViewModel() {
     setActiveSourceMessageId: messages.setActiveSourceMessageId,
     setSelectedConversationId: conversations.setSelectedConversationId,
     updateMessage: messages.updateMessage,
+    rememberMessageSources: messages.rememberMessageSources,
   });
 
   useEffect(() => {
@@ -56,12 +57,10 @@ export function useChatPageViewModel() {
     messages.threadEndRef,
   ]);
 
-  const messageCounts = Object.fromEntries(
+  const sourceCounts = Object.fromEntries(
     conversations.conversations.map((conversation) => [
       conversation.id,
-      conversation.id === conversations.selectedConversationId
-        ? messages.selectedMessages.length
-        : 0,
+      messages.sourceCountsByConversation[conversation.id] ?? 0,
     ]),
   );
 
@@ -89,7 +88,7 @@ export function useChatPageViewModel() {
       messages.messagesError ??
       send.sendMessageError,
     isSidebarOpen,
-    messageCounts,
+    messageCounts: sourceCounts,
     deleteConversation,
     selectConversation,
     setIsSidebarOpen: (open: boolean) => setSidebarPreference(String(open)),

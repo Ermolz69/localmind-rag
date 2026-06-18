@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessageDto } from "@entities/chat";
 import type { RagSource } from "@entities/source";
 import { chatsApi } from "@shared/api";
@@ -13,6 +13,45 @@ export type ChatMessageView = {
   error?: string;
 };
 
+type SourceCacheEntry = {
+  content: string;
+  sources: RagSource[];
+};
+
+type SourceCache = Record<string, SourceCacheEntry[]>;
+
+const sourceCacheStorageKey = "localmind.chat.messageSources.v1";
+
+function normalizeContent(content: string) {
+  return content.trim().replace(/\s+/g, " ");
+}
+
+function readSourceCache(): SourceCache {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  const raw = window.localStorage.getItem(sourceCacheStorageKey);
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as SourceCache;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSourceCache(cache: SourceCache) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(sourceCacheStorageKey, JSON.stringify(cache));
+}
+
 function mapPersistedMessage(message: ChatMessageDto): ChatMessageView {
   return {
     id: message.id,
@@ -21,6 +60,73 @@ function mapPersistedMessage(message: ChatMessageDto): ChatMessageView {
     status: "ready",
     sources: [],
   };
+}
+
+function findCachedSources(
+  conversationId: string,
+  content: string,
+  cache: SourceCache,
+) {
+  const normalizedContent = normalizeContent(content);
+  return (
+    cache[conversationId]?.find(
+      (entry) => normalizeContent(entry.content) === normalizedContent,
+    )?.sources ?? []
+  );
+}
+
+function mergePersistedMessages(
+  conversationId: string,
+  messages: ChatMessageDto[],
+  existingMessages: ChatMessageView[],
+  cache: SourceCache,
+) {
+  return messages.map((message) => {
+    const mapped = mapPersistedMessage(message);
+    if (mapped.role !== "assistant") {
+      return mapped;
+    }
+
+    const existingSources =
+      existingMessages.find(
+        (existing) =>
+          existing.role === "assistant" &&
+          normalizeContent(existing.content) ===
+            normalizeContent(mapped.content),
+      )?.sources ?? [];
+
+    const cachedSources = findCachedSources(
+      conversationId,
+      mapped.content,
+      cache,
+    );
+
+    return {
+      ...mapped,
+      sources: existingSources.length > 0 ? existingSources : cachedSources,
+    };
+  });
+}
+
+function countSources(
+  messages: ChatMessageView[] | undefined,
+  cacheEntries: SourceCacheEntry[] | undefined,
+) {
+  const chunkIds = new Set<string>();
+
+  for (const message of messages ?? []) {
+    for (const source of message.sources) {
+      chunkIds.add(source.chunkId);
+    }
+  }
+
+  for (const entry of cacheEntries ?? []) {
+    for (const source of entry.sources) {
+      chunkIds.add(source.chunkId);
+    }
+  }
+
+  return chunkIds.size;
 }
 
 export function useConversationMessages(selectedConversationId: string | null) {
@@ -32,6 +138,8 @@ export function useConversationMessages(selectedConversationId: string | null) {
   const [activeSourceMessageId, setActiveSourceMessageId] = useState<
     string | null
   >(null);
+  const [sourceCacheByConversation, setSourceCacheByConversation] =
+    useState<SourceCache>(() => readSourceCache());
   const threadEndRef = useRef<HTMLDivElement | null>(null);
 
   const messagesQuery = useApiQuery(
@@ -70,6 +178,31 @@ export function useConversationMessages(selectedConversationId: string | null) {
     );
   }, [activeSourceMessageId, selectedMessages]);
 
+  const selectedCachedSources = selectedConversationId
+    ? (sourceCacheByConversation[selectedConversationId]?.at(-1)?.sources ?? [])
+    : [];
+
+  const sourceCountsByConversation = useMemo(() => {
+    const conversationIds = new Set([
+      ...Object.keys(messagesByConversation),
+      ...Object.keys(sourceCacheByConversation),
+    ]);
+    const counts: Record<string, number> = {};
+
+    for (const conversationId of conversationIds) {
+      counts[conversationId] = countSources(
+        messagesByConversation[conversationId],
+        sourceCacheByConversation[conversationId],
+      );
+    }
+
+    return counts;
+  }, [messagesByConversation, sourceCacheByConversation]);
+
+  useEffect(() => {
+    writeSourceCache(sourceCacheByConversation);
+  }, [sourceCacheByConversation]);
+
   const loadMessages = useCallback(
     async (conversationId: string, force = false) => {
       if (!force && loadedMessageConversationIds.has(conversationId)) {
@@ -78,10 +211,18 @@ export function useConversationMessages(selectedConversationId: string | null) {
 
       const messages = await messagesQuery.execute();
       if (messages) {
-        setMessagesByConversation((current) => ({
-          ...current,
-          [conversationId]: messages.map(mapPersistedMessage),
-        }));
+        setMessagesByConversation((current) => {
+          const existingMessages = current[conversationId] ?? [];
+          return {
+            ...current,
+            [conversationId]: mergePersistedMessages(
+              conversationId,
+              messages,
+              existingMessages,
+              sourceCacheByConversation,
+            ),
+          };
+        });
         setLoadedMessageConversationIds((current) => {
           const next = new Set(current);
           next.add(conversationId);
@@ -89,7 +230,32 @@ export function useConversationMessages(selectedConversationId: string | null) {
         });
       }
     },
-    [loadedMessageConversationIds, messagesQuery],
+    [loadedMessageConversationIds, messagesQuery, sourceCacheByConversation],
+  );
+
+  const rememberMessageSources = useCallback(
+    (conversationId: string, content: string, sources: RagSource[]) => {
+      const normalizedContent = normalizeContent(content);
+      if (!normalizedContent || sources.length === 0) {
+        return;
+      }
+
+      setSourceCacheByConversation((current) => {
+        const currentEntries = current[conversationId] ?? [];
+        const nextEntries = [
+          ...currentEntries.filter(
+            (entry) => normalizeContent(entry.content) !== normalizedContent,
+          ),
+          { content, sources },
+        ].slice(-50);
+
+        return {
+          ...current,
+          [conversationId]: nextEntries,
+        };
+      });
+    },
+    [],
   );
 
   const appendMessages = useCallback(
@@ -144,6 +310,11 @@ export function useConversationMessages(selectedConversationId: string | null) {
       next.delete(conversationId);
       return next;
     });
+    setSourceCacheByConversation((current) => {
+      const next = { ...current };
+      delete next[conversationId];
+      return next;
+    });
   }, []);
 
   const selectConversationSources = useCallback(
@@ -161,8 +332,11 @@ export function useConversationMessages(selectedConversationId: string | null) {
     [messagesByConversation],
   );
 
+  const assistantSources = selectedAssistantMessage?.sources ?? [];
+
   return {
-    activeSources: selectedAssistantMessage?.sources ?? [],
+    activeSources:
+      assistantSources.length > 0 ? assistantSources : selectedCachedSources,
     activeSourceMessageId,
     appendMessages,
     initializeConversationMessages,
@@ -170,10 +344,12 @@ export function useConversationMessages(selectedConversationId: string | null) {
     loadMessages,
     messagesError: messagesQuery.error,
     removeConversationMessages,
+    rememberMessageSources,
     selectedAssistantMessage,
     selectedMessages,
     selectConversationSources,
     setActiveSourceMessageId,
+    sourceCountsByConversation,
     threadEndRef,
     updateMessage,
   };
