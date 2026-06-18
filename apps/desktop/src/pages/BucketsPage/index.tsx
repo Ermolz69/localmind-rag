@@ -96,7 +96,7 @@ export function BucketsPage() {
                 className={cn(
                   "group relative cursor-pointer overflow-hidden rounded-xl border border-border/50 bg-card p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md",
                   isSelected
-                    ? "ring-2 ring-primary bg-primary/5"
+                    ? "bg-primary/5 ring-2 ring-primary"
                     : "hover:bg-accent/30",
                 )}
                 onClick={() => bucketsPage.setSelectedBucketId(bucket.id)}
@@ -144,7 +144,7 @@ export function BucketsPage() {
                   <div
                     className={cn(
                       "flex items-center gap-1.5 rounded-lg border border-transparent bg-background/40 p-1 opacity-0 transition-all focus-within:opacity-100 group-hover:border-border/50 group-hover:opacity-100",
-                      isSelected ? "opacity-100 border-border/50" : "",
+                      isSelected ? "border-border/50 opacity-100" : "",
                     )}
                     onClick={(e) => e.stopPropagation()}
                   >

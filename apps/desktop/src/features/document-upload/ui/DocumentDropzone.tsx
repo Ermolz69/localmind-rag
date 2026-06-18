@@ -21,6 +21,9 @@ export function DocumentDropzone({
         "flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border bg-card px-4 py-6 text-center transition",
         isDragging && "bg-muted",
       )}
+      onDragEnter={(event) => {
+        event.preventDefault();
+      }}
       onDragOver={(event) => {
         event.preventDefault();
         onDraggingChange(true);

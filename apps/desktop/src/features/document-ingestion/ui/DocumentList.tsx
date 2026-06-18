@@ -42,8 +42,8 @@ function DocumentListItem({
   const canProcess = ["Queued", "Failed"].includes(document.status) && !job;
 
   return (
-    <div className="group grid grid-cols-[minmax(0,1fr)_8rem_10rem_auto] items-start gap-3 border-b border-border px-4 py-3 transition-colors duration-200 hover:bg-muted/50 last:border-b-0">
-      <div ref={infoRef} className="min-w-0 mt-2">
+    <div className="group grid grid-cols-[minmax(0,1fr)_8rem_10rem_8rem] items-start gap-3 border-b border-border px-4 py-3 transition-colors duration-200 last:border-b-0 hover:bg-muted/50">
+      <div ref={infoRef} className="mt-2 min-w-0">
         <p className="truncate text-sm font-medium text-card-foreground">
           {document.name}
         </p>
@@ -57,7 +57,9 @@ function DocumentListItem({
           <InlineError
             message={
               document.status === "Failed"
-                ? (document.lastError ?? job?.errorMessage ?? "Ingestion failed.")
+                ? (document.lastError ??
+                  job?.errorMessage ??
+                  "Ingestion failed.")
                 : document.id
             }
           />
@@ -71,7 +73,7 @@ function DocumentListItem({
       </div>
       <StatusBadge
         label={job?.status ?? document.status}
-        className={`w-max mt-[7px] ${
+        className={`mx-auto mt-[7px] w-28 justify-center ${
           documentStatusStyles[document.status] ?? documentStatusStyles.Queued
         }`}
       />
@@ -152,10 +154,13 @@ export function DocumentList({
 
   return (
     <div className="space-y-3">
-      <div ref={listRef} className="overflow-hidden rounded-md border border-border bg-card">
-        <div className="grid grid-cols-[minmax(0,1fr)_8rem_10rem_auto] gap-3 border-b border-border px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
+      <div
+        ref={listRef}
+        className="overflow-hidden rounded-md border border-border bg-card"
+      >
+        <div className="grid grid-cols-[minmax(0,1fr)_8rem_10rem_8rem] gap-3 border-b border-border px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
           <span>Name</span>
-          <span>Status</span>
+          <span className="text-center">Status</span>
           <span>Created</span>
           <span className="justify-self-end">Action</span>
         </div>

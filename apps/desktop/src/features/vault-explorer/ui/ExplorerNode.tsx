@@ -51,6 +51,7 @@ export function ExplorerNode({
   const [activeDropFolderId, setActiveDropFolderId] = useState<string | null>(
     null,
   );
+  const [activeDropNoteId, setActiveDropNoteId] = useState<string | null>(null);
   const childFolders = folders
     .filter((f) => f.parentFolderId === folderId)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -62,7 +63,30 @@ export function ExplorerNode({
   const paddingLeft = depth * 12 + 8;
 
   return (
-    <div className="flex flex-col">
+    <div
+      className="flex flex-col"
+      onDragEnter={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const data = getVaultItemDragData(e.dataTransfer);
+        if (!data) {
+          return;
+        }
+        if (data.type === "folder" && data.id === folderId) {
+          return;
+        }
+        onMoveItem?.(data.type, data.id, folderId);
+      }}
+    >
       {childFolders.map((folder) => {
         const isExpanded = expandedFolders.has(folder.id);
         const isSelected = selectedFolderId === folder.id;
@@ -94,6 +118,10 @@ export function ExplorerNode({
                   type: "folder",
                   id: folder.id,
                 });
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
               }}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -168,6 +196,8 @@ export function ExplorerNode({
               "flex items-center gap-1.5 rounded-sm px-2 py-1 text-sm transition-colors hover:bg-neutral-200 dark:hover:bg-neutral-800",
               isSelected &&
                 "bg-blue-100 text-blue-900 dark:bg-blue-900/50 dark:text-blue-100",
+              activeDropNoteId === note.id &&
+                "bg-primary/10 ring-2 ring-inset ring-primary/40",
             )}
             style={{ paddingLeft: `${paddingLeft + 22}px` }}
             onClick={(e) => {
@@ -181,6 +211,31 @@ export function ExplorerNode({
                 type: "note",
                 id: note.id,
               });
+            }}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = "move";
+              setActiveDropNoteId(note.id);
+            }}
+            onDragLeave={() => {
+              setActiveDropNoteId((current) =>
+                current === note.id ? null : current,
+              );
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setActiveDropNoteId(null);
+              const data = getVaultItemDragData(e.dataTransfer);
+              if (!data || data.id === note.id) {
+                return;
+              }
+              onMoveItem?.(data.type, data.id, folderId);
             }}
             onContextMenu={(e) => {
               onContextMenu?.(e, "note", note.id, note.title);

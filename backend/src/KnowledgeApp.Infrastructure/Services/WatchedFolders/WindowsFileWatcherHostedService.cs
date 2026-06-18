@@ -243,14 +243,14 @@ public sealed class WindowsFileWatcherHostedService(
                     | NotifyFilters.CreationTime
             };
 
-            watcher.Created += (_, args) => EnqueueCreatedOrChanged(folder.Path, args.FullPath);
-            watcher.Changed += (_, args) => EnqueueCreatedOrChanged(folder.Path, args.FullPath);
-            watcher.Deleted += (_, args) => EnqueueDeleted(folder.Path, args.FullPath);
-            watcher.Renamed += (_, args) => EnqueueRenamed(folder.Path, args.OldFullPath, args.FullPath);
+            watcher.Created += (_, args) => EnqueueCreatedOrChanged(folder.Path, args?.FullPath ?? string.Empty);
+            watcher.Changed += (_, args) => EnqueueCreatedOrChanged(folder.Path, args?.FullPath ?? string.Empty);
+            watcher.Deleted += (_, args) => EnqueueDeleted(folder.Path, args?.FullPath ?? string.Empty);
+            watcher.Renamed += (_, args) => EnqueueRenamed(folder.Path, args?.OldFullPath ?? string.Empty, args?.FullPath ?? string.Empty);
 
             watcher.Error += (_, args) =>
             {
-                logger.LogWarning(args.GetException(), "Watched folder FileSystemWatcher error.");
+                logger.LogWarning(args?.GetException(), "Watched folder FileSystemWatcher error.");
 
                 statusStore.RecordFolderError(
                     folder.Path,

@@ -140,7 +140,10 @@ export function SemanticSearchPage() {
                 } found`
               : "Enter a search to find snippets."}
           </span>
-          <Tooltip content={page.selectedBucketName} className="flex min-w-0 max-w-[150px] sm:max-w-[250px] md:max-w-[350px]">
+          <Tooltip
+            content={page.selectedBucketName}
+            className="flex min-w-0 max-w-[150px] sm:max-w-[250px] md:max-w-[350px]"
+          >
             <span className="flex w-full min-w-0 items-center gap-2">
               <SlidersHorizontal size={14} className="shrink-0" aria-hidden />
               <span className="truncate">{page.selectedBucketName}</span>

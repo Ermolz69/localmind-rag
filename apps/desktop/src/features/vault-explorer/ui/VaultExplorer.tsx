@@ -129,6 +129,9 @@ export function VaultExplorer({
           isRootDropActive && "bg-primary/10 ring-2 ring-inset ring-primary/40",
         )}
         onClick={() => explorer.selectFolder(null)} // Click empty space to deselect
+        onDragEnter={(e) => {
+          e.preventDefault();
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           e.dataTransfer.dropEffect = "move";

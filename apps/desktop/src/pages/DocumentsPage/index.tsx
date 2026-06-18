@@ -5,7 +5,14 @@ import {
 } from "@features/document-ingestion";
 import { DocumentDropzone } from "@features/document-upload";
 import { BucketPanel } from "@features/bucket-management";
-import { Button, ErrorBanner, PageHeader, Select, Toolbar, Tooltip } from "@shared/ui";
+import {
+  Button,
+  ErrorBanner,
+  PageHeader,
+  Select,
+  Toolbar,
+  Tooltip,
+} from "@shared/ui";
 import { useDocumentsPageViewModel } from "./model/useDocumentsPageViewModel";
 
 const documentStatuses = [
@@ -59,7 +66,9 @@ export function DocumentsPage() {
               title={page.selectedBucketName || "All buckets"}
               onChange={(event) => page.setSelectedBucketId(event.target.value)}
             >
-              <option value="" title="All buckets">All buckets</option>
+              <option value="" title="All buckets">
+                All buckets
+              </option>
               {page.buckets.map((bucket) => (
                 <option key={bucket.id} value={bucket.id} title={bucket.name}>
                   {bucket.name}
@@ -76,7 +85,9 @@ export function DocumentsPage() {
               title={page.selectedStatus || "All statuses"}
               onChange={(event) => page.setSelectedStatus(event.target.value)}
             >
-              <option value="" title="All statuses">All statuses</option>
+              <option value="" title="All statuses">
+                All statuses
+              </option>
               {documentStatuses.map((status) => (
                 <option key={status} value={status} title={status}>
                   {status}
