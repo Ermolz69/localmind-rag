@@ -116,7 +116,9 @@ class TableRowWidget extends WidgetType {
 
   toDOM() {
     const row = document.createElement("span");
-    row.className = this.isHeader ? "cm-md-table-row cm-md-table-header" : "cm-md-table-row";
+    row.className = this.isHeader
+      ? "cm-md-table-row cm-md-table-header"
+      : "cm-md-table-row";
 
     for (const cellText of this.cells) {
       const cell = document.createElement("span");
@@ -167,7 +169,12 @@ class ImageWidget extends WidgetType {
   }
 }
 
-function intersects(from: number, to: number, activeFrom: number, activeTo: number) {
+function intersects(
+  from: number,
+  to: number,
+  activeFrom: number,
+  activeTo: number,
+) {
   return from <= activeTo && to >= activeFrom;
 }
 
@@ -192,7 +199,10 @@ const jsKeywordPattern =
 const jsTokenPattern =
   /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\/\/.*$|\b\d+(?:\.\d+)?\b|\b(?:true|false|null|undefined)\b)/g;
 
-function highlightCodeLine(code: string, language: string | null): HighlightPart[] {
+function highlightCodeLine(
+  code: string,
+  language: string | null,
+): HighlightPart[] {
   const normalizedLanguage = language?.toLowerCase() ?? "";
   if (
     normalizedLanguage &&
@@ -270,7 +280,11 @@ function addCodeDecorations(
   text: string,
   language: string | null,
 ) {
-  builder.add(lineFrom, lineFrom, Decoration.line({ class: "cm-md-code-line" }));
+  builder.add(
+    lineFrom,
+    lineFrom,
+    Decoration.line({ class: "cm-md-code-line" }),
+  );
 
   for (const part of highlightCodeLine(text, language)) {
     if (part.className === "cm-md-code-token" || part.from === part.to) {
@@ -351,11 +365,7 @@ function addCollapsedRange(
     return;
   }
 
-  builder.add(
-    from,
-    to,
-    Decoration.replace({ widget: new EmptyWidget() }),
-  );
+  builder.add(from, to, Decoration.replace({ widget: new EmptyWidget() }));
 }
 
 function replaceLineWithWidget(
@@ -533,7 +543,11 @@ function livePreviewDecorations(view: EditorView) {
   let inFence = false;
   let fenceLanguage: string | null = null;
 
-  for (let lineNumber = 1; lineNumber <= view.state.doc.lines; lineNumber += 1) {
+  for (
+    let lineNumber = 1;
+    lineNumber <= view.state.doc.lines;
+    lineNumber += 1
+  ) {
     const line = view.state.doc.line(lineNumber);
     const text = line.text;
     const activeLine = active
@@ -608,12 +622,7 @@ function livePreviewDecorations(view: EditorView) {
       const level = Math.min(headingMatch[1].length, 6);
       const contentFrom =
         line.from + headingMatch[1].length + headingMatch[2].length;
-      addCollapsedRange(
-        builder,
-        line.from,
-        contentFrom,
-        active,
-      );
+      addCollapsedRange(builder, line.from, contentFrom, active);
       builder.add(
         contentFrom,
         line.to,
@@ -696,7 +705,8 @@ const editorTheme = EditorView.theme({
     color: "hsl(var(--foreground))",
   },
   ".cm-scroller": {
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
     fontSize: "15px",
     lineHeight: "1.75",
     padding: "1.25rem 1.5rem 5rem",
@@ -766,7 +776,8 @@ const editorTheme = EditorView.theme({
     borderRadius: "0.25rem",
     backgroundColor: "hsl(var(--muted))",
     padding: "0.05rem 0.25rem",
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
   },
   ".cm-md-quote-line": {
     borderLeft: "0.1875rem solid hsl(var(--primary))",
@@ -796,7 +807,8 @@ const editorTheme = EditorView.theme({
   },
   ".cm-md-code-line": {
     backgroundColor: "hsl(var(--muted))",
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
   },
   ".cm-md-code-token": {
     color: "hsl(var(--foreground))",

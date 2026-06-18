@@ -114,7 +114,8 @@ export function useNoteEditor({
   }, [activeNoteId, notes]);
 
   const activeDraft = activeNoteId
-    ? drafts[activeNoteId] ?? (activeNote ? toNoteDraft(activeNote) : emptyDraft)
+    ? (drafts[activeNoteId] ??
+      (activeNote ? toNoteDraft(activeNote) : emptyDraft))
     : emptyDraft;
 
   const isDirty = useMemo(() => {

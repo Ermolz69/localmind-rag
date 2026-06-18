@@ -22,7 +22,7 @@ export function EditorTabBar({
   }
 
   return (
-    <div className="flex h-9 w-full overflow-x-auto overflow-y-hidden border-b border-border bg-muted/30 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800">
+    <div className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800 flex h-9 w-full overflow-x-auto overflow-y-hidden border-b border-border bg-muted/30">
       <div className="flex h-full min-w-max">
         {tabs.map((tab) => {
           const isActive = tab.noteId === activeTabId;
@@ -44,8 +44,8 @@ export function EditorTabBar({
               }}
             >
               <FileText size={14} className="shrink-0 opacity-70" aria-hidden />
-              
-              <span className="truncate select-none">
+
+              <span className="select-none truncate">
                 {tab.title || "Untitled"}
                 <span className="opacity-50">.md</span>
               </span>
@@ -64,7 +64,9 @@ export function EditorTabBar({
                   type="button"
                   className={cn(
                     "flex h-4 w-4 items-center justify-center rounded-sm hover:bg-muted",
-                    tab.isDirty ? "hidden group-hover:flex" : "opacity-0 group-hover:opacity-100",
+                    tab.isDirty
+                      ? "hidden group-hover:flex"
+                      : "opacity-0 group-hover:opacity-100",
                     isActive && !tab.isDirty ? "opacity-100" : "",
                   )}
                   onClick={(e) => {

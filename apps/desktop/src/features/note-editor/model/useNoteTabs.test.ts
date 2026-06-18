@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NoteDto } from "@entities/note";
-import {
-  getCloseTabDecision,
-  getOpenTabDecision,
-} from "./useNoteTabs";
+import { getCloseTabDecision, getOpenTabDecision } from "./useNoteTabs";
 import type { OpenNoteTab } from "./types";
 
 function note(id: string, title = id): NoteDto {

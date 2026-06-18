@@ -1,5 +1,10 @@
 import { FileText, PanelLeft } from "lucide-react";
-import { EditorTabBar, EditorToolbar, NoteEditor, NotePropertiesPanel } from "@features/note-editor";
+import {
+  EditorTabBar,
+  EditorToolbar,
+  NoteEditor,
+  NotePropertiesPanel,
+} from "@features/note-editor";
 import { VaultExplorer } from "@features/vault-explorer";
 import { ConfirmDialog, ErrorBanner } from "@shared/ui";
 import { useNotesPageViewModel } from "./model/useNotesPageViewModel";
@@ -93,7 +98,7 @@ export function NotesPage() {
         ) : (
           <>
             <div className="min-h-0 min-w-0 overflow-hidden">
-              <VaultExplorer 
+              <VaultExplorer
                 explorer={page.explorer}
                 onOpenNote={(noteId) => {
                   const note = page.explorer.notes.find((n) => n.id === noteId);
@@ -136,7 +141,7 @@ export function NotesPage() {
             onSave={() => void page.saveNote()}
           />
 
-          <div className="flex-1 min-h-0 min-w-0">
+          <div className="min-h-0 min-w-0 flex-1">
             {page.tabs.activeTabId ? (
               <NoteEditor
                 draft={page.activeDraft}
@@ -152,10 +157,14 @@ export function NotesPage() {
               </div>
             )}
           </div>
-          
+
           {page.isPropertiesOpen && page.explorer.selectedNoteId && (
             <NotePropertiesPanel
-              note={page.explorer.notes.find((n) => n.id === page.explorer.selectedNoteId)!}
+              note={
+                page.explorer.notes.find(
+                  (n) => n.id === page.explorer.selectedNoteId,
+                )!
+              }
               buckets={page.explorer.buckets}
               isOpen={page.isPropertiesOpen}
               onClose={() => page.setIsPropertiesOpen(false)}

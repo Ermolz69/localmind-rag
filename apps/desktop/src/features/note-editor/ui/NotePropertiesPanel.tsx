@@ -22,7 +22,7 @@ export function NotePropertiesPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute inset-y-0 right-0 z-20 flex w-72 flex-col border-l border-border bg-card shadow-2xl slide-in-from-right-full animate-in duration-200">
+    <div className="slide-in-from-right-full animate-in absolute inset-y-0 right-0 z-20 flex w-72 flex-col border-l border-border bg-card shadow-2xl duration-200">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-card-foreground">
           <FileText size={16} aria-hidden />
@@ -38,14 +38,18 @@ export function NotePropertiesPanel({
 
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4">
         <div>
-          <label className="text-xs font-medium text-muted-foreground">Title</label>
+          <label className="text-xs font-medium text-muted-foreground">
+            Title
+          </label>
           <p className="mt-1 break-words text-sm font-medium text-foreground">
             {note.title}
           </p>
         </div>
 
         <div>
-          <label className="text-xs font-medium text-muted-foreground">Location</label>
+          <label className="text-xs font-medium text-muted-foreground">
+            Location
+          </label>
           <div className="mt-1">
             <BucketSelector
               buckets={buckets}
@@ -60,16 +64,22 @@ export function NotePropertiesPanel({
         </div>
 
         <div>
-          <label className="text-xs font-medium text-muted-foreground">Created</label>
+          <label className="text-xs font-medium text-muted-foreground">
+            Created
+          </label>
           <p className="mt-1 text-sm text-foreground">
             {new Date(note.createdAt).toLocaleString()}
           </p>
         </div>
 
         <div>
-          <label className="text-xs font-medium text-muted-foreground">Last modified</label>
+          <label className="text-xs font-medium text-muted-foreground">
+            Last modified
+          </label>
           <p className="mt-1 text-sm text-foreground">
-            {note.updatedAt ? new Date(note.updatedAt).toLocaleString() : "Never"}
+            {note.updatedAt
+              ? new Date(note.updatedAt).toLocaleString()
+              : "Never"}
           </p>
         </div>
 
