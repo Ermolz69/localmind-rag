@@ -75,7 +75,7 @@ Priority levels:
 | US-05 | Must | As a user, I want to create buckets, so that I can organize documents by topic. | User can create a bucket from the UI and see it in the bucket list. |
 | US-06 | Must | As a user, I want uploaded documents to go into a selected bucket or a default bucket, so that no document is left unorganized. | Upload with selected bucket stores `Document.BucketId`; upload without selection resolves to last selected or `Default`. |
 | US-07 | Must | As a user, I want to filter documents by bucket, so that I can focus on one knowledge area. | Documents page supports all-bucket view and selected-bucket filtering. |
-| US-08 | Could | As a user, I want to rename or delete buckets, so that I can maintain my knowledge base over time. | Bucket edit/delete actions exist and preserve offline data consistency. |
+| US-08 | Should | As a user, I want to rename or delete buckets, so that I can maintain my knowledge base over time. | Bucket edit/delete actions exist and preserve offline data consistency. Implemented: `PUT /api/v1/buckets/{id}`, `DELETE /api/v1/buckets/{id}`. |
 
 ### Epic 3: Document Upload and Ingestion
 
@@ -87,6 +87,7 @@ Priority levels:
 | US-12 | Must | As a user, I want documents to be split into chunks, so that search and RAG can use relevant fragments. | Ingestion creates `DocumentChunk` records in stable order; reindexing replaces old chunks. |
 | US-13 | Should | As a user, I want chunks to keep page or slide references where possible, so that answers can cite useful sources. | PDF chunks store page number; PPTX chunks store slide number; DOCX chunks keep document-level source metadata. |
 | US-14 | Must | As a user, I want to see document processing status, so that I know whether a file is pending, processing, chunking, embedding, indexed, failed, or cancelled. | UI displays `Pending`, `Processing`, `Chunking`, `Embedding`, `Indexed`, `Failed`, and `Cancelled` states plus progress and failure reason when available. |
+| US-26 | Should | As a user, I want to configure folders on my machine to be watched automatically, so that new files are ingested without manual upload. | User can add watched folders in settings; the watcher detects new/changed files and queues ingestion with configurable debounce, delete policy, and storage mode (link-only or copy). Implemented: `GET /api/v1/watched-folders/status`, `POST /api/v1/watched-folders/rescan`, `POST /api/v1/watched-folders/cleanup`. |
 
 ### Epic 4: Notes
 
@@ -96,6 +97,7 @@ Priority levels:
 | US-16 | Must | As a user, I want to edit and delete notes, so that my local knowledge base remains useful. | User can update note title/content and delete notes from the UI. |
 | US-17 | Should | As a user, I want notes to belong to buckets, so that documents and notes share the same organization model. | Notes can be assigned to a bucket and filtered or displayed with bucket context. |
 | US-18 | Could | As a user, I want to link notes to other notes or documents, so that I can build relationships between ideas. | Note links can be stored and displayed in a basic linked-notes view. |
+| US-25 | Should | As a user, I want to organize notes into folders, so that I can maintain a structured hierarchy inside a bucket. | User can create, rename, delete, and move note folders; a tree endpoint returns the full folder/note hierarchy. Implemented: `GET /api/v1/buckets/{bucketId}/note-folders`, `GET /api/v1/buckets/{bucketId}/notes/tree`, `POST /api/v1/buckets/{bucketId}/note-folders`, `PUT /api/v1/note-folders/{id}`, `DELETE /api/v1/note-folders/{id}`, `POST /api/v1/note-folders/{id}/move`, `POST /api/v1/notes/{id}/move`. |
 
 ### Epic 5: Local Search and RAG
 
@@ -103,6 +105,7 @@ Priority levels:
 | --- | --- | --- | --- |
 | US-19 | Should | As a user, I want semantic search over indexed documents, so that I can find information by meaning rather than exact words. | Search endpoint returns relevant chunks with document id, chunk id, score, page number, and snippet. |
 | US-20 | Should | As a user, I want to ask questions over my local documents, so that I can get answers grounded in my own files. | Chat endpoint builds RAG context from local chunks and returns an answer with source references. |
+| US-27 | Should | As a user, I want chat titles to be generated automatically from my first message, so that I can identify conversations without renaming them manually. | After the first message, the client calls `POST /api/v1/chats/{id}/generate-title`; the generated title is not overwritten if the user has manually renamed the chat. |
 | US-21 | Could | As a user, I want to choose or configure the local AI model, so that I can balance speed and answer quality. | Settings expose provider, model names, runtime path, model path, and basic runtime status. |
 
 ### Epic 6: Portable Packaging and Quality
@@ -110,7 +113,7 @@ Priority levels:
 | ID | Priority | User Story | Acceptance Criteria |
 | --- | --- | --- | --- |
 | US-22 | Must | As a user, I want a portable Windows package, so that I can run the app without installing developer tools. | Release artifact contains desktop executable, LocalApi sidecar, config, and runtime folders. |
-| US-23 | Must | As a developer, I want CI checks to run automatically, so that broken commits are caught early. | GitHub Actions runs backend format/build/tests, frontend lint/typecheck/build, color guard, Docker compose validation, test reports, and coverage. |
+| US-23 | Must | As a developer, I want CI checks to run automatically, so that broken commits are caught early. | GitHub Actions runs backend format/build/unit-tests/integration-tests/RAG-evaluation-tests/architecture-tests, frontend format/lint/typecheck/color-guard/build, API contract drift validation, test reports, and coverage. |
 | US-24 | Should | As a developer, I want architecture tests, so that project layers stay clean as the app grows. | Tests prevent Domain/Application from depending on Infrastructure and protect frontend slice boundaries where applicable. |
 
 ## 3. Non-Functional Requirements
@@ -208,12 +211,13 @@ These stories make the app more useful but can be reduced if the MVP is at risk:
 
 These stories are useful but not required for the 6-week MVP:
 
-- US-08: Rename or delete buckets.
 - US-18: Link notes to notes or documents.
 - US-21: Advanced AI model configuration.
 - Remote sync, cloud backup, accounts, and conflict resolution.
 - OCR and scanned document support.
 - Auto-update and installer signing.
+
+Note: US-08 (bucket rename/delete), US-25 (note folders), US-26 (watched folders), and US-27 (chat title generation) were originally post-MVP or lower priority but have since been implemented.
 
 ### Risk 1: Local AI Runtime Packaging Is Complex
 

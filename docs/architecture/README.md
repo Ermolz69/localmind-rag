@@ -15,11 +15,13 @@ This section describes the system as it is implemented now. It avoids future-ten
 7. [Ingestion and RAG](./rag-pipeline.md) explains upload, semantic search, and chat answers with sources.
 8. [AI runtime](./ai-runtime.md) explains provider abstraction, llama.cpp, model listing, chat, and embeddings.
 9. [Data and storage](./database.md) explains SQLite, local files, embeddings, and offline persistence.
-10. [Frontend architecture](./frontend.md) explains the feature-sliced UI and LocalApi-only communication.
-11. [Security and sync](./security-and-sync.md) explains loopback access, token protection, upload guardrails, and offline-first synchronization.
-12. [Observability](./observability.md) explains diagnostics and logs.
-13. [Diagrams](./diagrams.md) indexes the focused Mermaid diagrams.
-14. [Architecture decisions](./decisions/README.md) records why the system is built this way.
+10. [Watched folders](./watched-folders.md) explains the folder watcher, settings shape, debounce, rescan, cleanup, and storage modes.
+11. [Notes and folders](./notes.md) explains the note folder hierarchy, tree endpoint, move, and note tags.
+12. [Frontend architecture](./frontend.md) explains the feature-sliced UI and LocalApi-only communication.
+13. [Security and sync](./security-and-sync.md) explains loopback access, token protection, upload guardrails, and offline-first synchronization.
+14. [Observability](./observability.md) explains diagnostics and logs.
+15. [Diagrams](./diagrams.md) indexes the focused Mermaid diagrams.
+16. [Architecture decisions](./decisions/README.md) records why the system is built this way.
 
 ## Current Invariants
 

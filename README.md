@@ -75,13 +75,13 @@ Project releases are published through GitHub Releases. Release notes describe w
 
 - Backend format
 - Backend build
-- Backend tests
-- Frontend format
-- Frontend lint
-- Frontend typecheck
+- Backend unit tests
+- Backend integration tests
+- Backend RAG evaluation tests
+- Backend architecture tests
+- Frontend check: format, lint, typecheck, color guard
 - Frontend build
-- Frontend color guard
-- Docker compose config
+- API contract drift
 - Check summary
 
 ## Repository Hygiene
