@@ -5,6 +5,10 @@ import {
   DocumentList,
   INGESTION_LIFECYCLE_STATUSES,
 } from "@features/document-ingestion";
+import {
+  DocumentPreviewModal,
+  useDocumentPreview,
+} from "@features/document-preview";
 import { routes } from "@shared/constants/routes";
 import {
   Button,
@@ -20,6 +24,7 @@ import { useDocumentsPageViewModel } from "@pages/DocumentsPage/model/useDocumen
 export function BucketDetailsPage() {
   const { bucketId = "" } = useParams();
   const navigate = useNavigate();
+  const preview = useDocumentPreview();
   const page = useDocumentsPageViewModel({
     selectedBucketId: bucketId,
     onSelectedBucketIdChange: (nextBucketId) => {
@@ -142,9 +147,19 @@ export function BucketDetailsPage() {
         isLoadingMore={page.isLoadingMore}
         jobsByDocumentId={page.jobsByDocumentId}
         onProcess={(document) => void page.processDocument(document)}
+        onPreview={(document) => void preview.openPreview(document)}
         onRetry={(jobId) => void page.retryJob(jobId)}
         onCancel={(jobId) => void page.cancelJob(jobId)}
         onLoadMore={() => void page.loadMore()}
+      />
+
+      <DocumentPreviewModal
+        document={preview.document}
+        error={preview.error}
+        isLoading={preview.isLoading}
+        open={preview.isOpen}
+        preview={preview.preview}
+        onClose={preview.closePreview}
       />
     </section>
   );

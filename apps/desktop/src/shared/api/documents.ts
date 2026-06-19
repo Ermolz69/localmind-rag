@@ -4,7 +4,7 @@ import type {
   OperationQuery,
 } from "@shared/contracts";
 import { toQueryString } from "./common";
-import { request } from "./http";
+import { getApiBaseUrl, request } from "./http";
 
 export const documentsApi = {
   getDocuments: (params: OperationQuery<"ListDocuments"> = {}) =>
@@ -21,6 +21,15 @@ export const documentsApi = {
     request<OperationData<"GetDocumentPreview">>(
       `/documents/${documentId}/preview`,
     ),
+
+  getPreviewFileUrl: (previewUrl: string) => {
+    const baseUrl = getApiBaseUrl();
+    const path = previewUrl.startsWith("/api/v1/")
+      ? previewUrl
+      : `/api/v1${previewUrl.startsWith("/") ? previewUrl : `/${previewUrl}`}`;
+
+    return `${baseUrl}${path}`;
+  },
 
   uploadDocument: (
     file: File,

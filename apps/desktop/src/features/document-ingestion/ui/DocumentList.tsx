@@ -1,4 +1,4 @@
-import { FileText, Loader2, Play, RotateCcw, X } from "lucide-react";
+import { Eye, FileText, Loader2, Play, RotateCcw, X } from "lucide-react";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import type { DocumentSummary } from "@entities/document";
 import type { IngestionJobDto } from "@shared/contracts";
@@ -14,6 +14,7 @@ type DocumentListProps = {
   isLoadingMore: boolean;
   jobsByDocumentId?: Record<string, IngestionJobDto>;
   onProcess: (document: DocumentSummary) => void;
+  onPreview?: (document: DocumentSummary) => void;
   onRetry?: (jobId: string) => void;
   onCancel?: (jobId: string) => void;
   onLoadMore: () => void;
@@ -26,6 +27,7 @@ function DocumentListItem({
   onRetry,
   onCancel,
   onProcess,
+  onPreview,
 }: {
   document: DocumentSummary;
   job?: IngestionJobDto;
@@ -33,6 +35,7 @@ function DocumentListItem({
   onRetry?: (jobId: string) => void;
   onCancel?: (jobId: string) => void;
   onProcess: (document: DocumentSummary) => void;
+  onPreview?: (document: DocumentSummary) => void;
 }) {
   const [infoRef] = useAutoAnimate<HTMLDivElement>();
   const [actionsRef] = useAutoAnimate<HTMLDivElement>();
@@ -44,7 +47,7 @@ function DocumentListItem({
   const hasJobDetails = job !== undefined;
 
   return (
-    <div className="group grid grid-cols-[minmax(0,1fr)_8rem_10rem_8rem] items-start gap-3 border-b border-border px-4 py-3 transition-colors duration-200 last:border-b-0 hover:bg-muted/50">
+    <div className="group grid grid-cols-[minmax(0,1fr)_8rem_10rem_minmax(10rem,auto)] items-start gap-3 border-b border-border px-4 py-3 transition-colors duration-200 last:border-b-0 hover:bg-muted/50">
       <div ref={infoRef} className="mt-2 min-w-0">
         <p className="truncate text-sm font-medium text-card-foreground">
           {document.name}
@@ -83,7 +86,13 @@ function DocumentListItem({
       <span className="mt-2 text-sm text-muted-foreground">
         {new Date(document.createdAt).toLocaleDateString()}
       </span>
-      <div ref={actionsRef} className="flex justify-end gap-2">
+      <div ref={actionsRef} className="flex flex-wrap justify-end gap-2">
+        {onPreview ? (
+          <Button variant="secondary" onClick={() => onPreview(document)}>
+            <Eye size={16} aria-hidden />
+            Preview
+          </Button>
+        ) : null}
         {job?.canRetry && onRetry ? (
           <Button
             variant="secondary"
@@ -131,6 +140,7 @@ export function DocumentList({
   isLoadingMore,
   jobsByDocumentId = {},
   onProcess,
+  onPreview,
   onRetry,
   onCancel,
   onLoadMore,
@@ -161,7 +171,7 @@ export function DocumentList({
         ref={listRef}
         className="overflow-hidden rounded-md border border-border bg-card"
       >
-        <div className="grid grid-cols-[minmax(0,1fr)_8rem_10rem_8rem] gap-3 border-b border-border px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
+        <div className="grid grid-cols-[minmax(0,1fr)_8rem_10rem_minmax(10rem,auto)] gap-3 border-b border-border px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
           <span>Name</span>
           <span className="text-center">Status</span>
           <span>Created</span>
@@ -176,6 +186,7 @@ export function DocumentList({
             onRetry={onRetry}
             onCancel={onCancel}
             onProcess={onProcess}
+            onPreview={onPreview}
           />
         ))}
       </div>
