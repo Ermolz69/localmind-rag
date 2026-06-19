@@ -13,11 +13,18 @@ public sealed class SettingsService(
     IDateTimeProvider dateTimeProvider,
     ISettingsDefaultsProvider defaultsProvider,
     SettingsValidator validator,
-    IOperationLogRepository operationLogRepository) : ISettingsService
+    IOperationLogRepository operationLogRepository,
+    IAppSettingsCache settingsCache,
+    ISettingsChangeSignal settingsChangeSignal) : ISettingsService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task<AppSettingsDto> GetAsync(CancellationToken cancellationToken = default)
+    public Task<AppSettingsDto> GetAsync(CancellationToken cancellationToken = default)
+    {
+        return settingsCache.GetOrCreateAsync(LoadAsync, cancellationToken);
+    }
+
+    private async Task<AppSettingsDto> LoadAsync(CancellationToken cancellationToken)
     {
         Dictionary<string, string>? storedSettings = await dbContext.AppSettings
             .Where(x => SettingsKeys.KnownKeys.Contains(x.Key))
@@ -173,6 +180,8 @@ public sealed class SettingsService(
         }, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await settingsCache.InvalidateAsync(CancellationToken.None);
+        await settingsChangeSignal.PublishAsync(CancellationToken.None);
 
         return Result.Success();
     }

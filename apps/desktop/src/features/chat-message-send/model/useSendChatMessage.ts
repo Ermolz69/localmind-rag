@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BucketDto } from "@entities/bucket";
 import type { ChatConversation } from "@entities/chat";
+import type { RagSource } from "@entities/source";
 import type { RetrievalFilters, SearchFilterKey } from "@entities/search";
 import {
   buildFilterChips,
@@ -27,6 +28,11 @@ type UseSendChatMessageOptions = {
     messageId: string,
     updater: (message: ChatMessageView) => ChatMessageView,
   ) => void;
+  rememberMessageSources: (
+    conversationId: string,
+    content: string,
+    sources: RagSource[],
+  ) => void;
 };
 
 function isAbortError(error: unknown) {
@@ -48,6 +54,7 @@ export function useSendChatMessage({
   setActiveSourceMessageId,
   setSelectedConversationId,
   updateMessage,
+  rememberMessageSources,
 }: UseSendChatMessageOptions) {
   const [question, setQuestion] = useState("");
   const [activeFilters, setActiveFilters] = useState<RetrievalFilters>({});
@@ -155,6 +162,7 @@ export function useSendChatMessage({
     setActiveSourceMessageId(assistantMessageId);
 
     let streamedText = "";
+    let latestSources: RagSource[] = [];
 
     try {
       for await (const chunk of chatsApi.streamChatMessage(
@@ -164,11 +172,14 @@ export function useSendChatMessage({
         abortController.signal,
       )) {
         streamedText += chunk.text ?? "";
+        if (chunk.sources?.length) {
+          latestSources = chunk.sources;
+        }
 
         updateMessage(conversationId, assistantMessageId, (message) => ({
           ...message,
           content: streamedText || message.content,
-          sources: chunk.sources ?? message.sources,
+          sources: latestSources.length > 0 ? latestSources : message.sources,
           status: "pending",
         }));
 
@@ -182,6 +193,7 @@ export function useSendChatMessage({
         content: streamedText || message.content,
         status: "ready",
       }));
+      rememberMessageSources(conversationId, streamedText, latestSources);
 
       setActiveSourceMessageId(assistantMessageId);
     } catch (error) {
@@ -191,6 +203,7 @@ export function useSendChatMessage({
           content: streamedText || "Generation cancelled.",
           status: "ready",
         }));
+        rememberMessageSources(conversationId, streamedText, latestSources);
         return;
       }
 
@@ -204,6 +217,7 @@ export function useSendChatMessage({
         status: "error",
         error: message,
       }));
+      rememberMessageSources(conversationId, streamedText, latestSources);
     } finally {
       if (abortControllerRef.current === abortController) {
         abortControllerRef.current = null;
@@ -219,6 +233,7 @@ export function useSendChatMessage({
     isStreaming,
     newConversationTitle,
     question,
+    rememberMessageSources,
     selectedConversationId,
     setActiveSourceMessageId,
     setSelectedConversationId,

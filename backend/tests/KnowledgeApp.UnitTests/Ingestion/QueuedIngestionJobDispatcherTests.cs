@@ -3,6 +3,7 @@ using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -103,6 +104,60 @@ public sealed class QueuedIngestionJobDispatcherTests
         Assert.Equal(2, processed);
         Assert.Equal([firstJob.Id, secondJob.Id], processor.ProcessedJobIds);
         Assert.DoesNotContain(thirdJob.Id, processor.ProcessedJobIds);
+    }
+
+    [Fact]
+    public async Task RecoverPendingBatchAsync_Should_Order_Equal_Timestamps_By_Id()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        DateTimeOffset createdAt = new(2026, 5, 13, 8, 0, 0, TimeSpan.Zero);
+        IngestionJob secondJob = new()
+        {
+            Id = Guid.Parse("00000000-0000-0000-0000-000000000002"),
+            CreatedAt = createdAt,
+            DocumentId = Guid.NewGuid(),
+            Status = IngestionJobStatus.Pending,
+        };
+        IngestionJob firstJob = new()
+        {
+            Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+            CreatedAt = createdAt,
+            DocumentId = Guid.NewGuid(),
+            Status = IngestionJobStatus.Pending,
+        };
+        database.Context.IngestionJobs.AddRange(secondJob, firstJob);
+        await database.Context.SaveChangesAsync();
+        FakeIngestionJobProcessor processor = new();
+        QueuedIngestionJobDispatcher dispatcher = new(
+            new IngestionJobRepository(database.Context),
+            processor,
+            Options.Create(new IngestionWorkerOptions { RecoveryBatchSize = 2 }),
+            NullLogger<QueuedIngestionJobDispatcher>.Instance);
+
+        int processed = await dispatcher.RecoverPendingBatchAsync();
+
+        Assert.Equal(2, processed);
+        Assert.Equal([firstJob.Id, secondJob.Id], processor.ProcessedJobIds);
+    }
+
+    [Fact]
+    public async Task IngestionJobs_Should_Have_Recovery_Composite_Index()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        await using System.Data.Common.DbCommand command =
+            database.Context.Database.GetDbConnection().CreateCommand();
+        command.CommandText =
+            """PRAGMA index_info('IX_ingestion_jobs_Status_CreatedAtUnixTimeMs_Id');""";
+
+        List<string> columns = [];
+        await using System.Data.Common.DbDataReader reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            columns.Add(reader.GetString(2));
+        }
+
+        Assert.Equal(["Status", "CreatedAtUnixTimeMs", "Id"], columns);
     }
 
     [Fact]

@@ -56,4 +56,12 @@ Diagnostics include:
 - latest failed jobs with `errorCode`, `errorMessage`, `retryCount`, `processedAt`, and `lastOperationId`;
 - local runtime paths and storage sizes without exposing document content.
 
+## Queue Dispatch And Recovery
+
+New pending jobs are dispatched through the in-process ingestion signal. Recovery remains a
+safety net for startup and missed signals, with a production interval of 60 seconds. Each
+recovery batch is filtered, ordered, and limited in SQLite by `Status`,
+`CreatedAtUnixTimeMs`, and `Id`; the matching composite index keeps oldest-first selection
+bounded and deterministic.
+
 The detailed RAG flow is described in [RAG pipeline](./rag-pipeline.md).

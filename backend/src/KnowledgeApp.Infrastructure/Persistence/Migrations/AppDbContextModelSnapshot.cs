@@ -519,6 +519,9 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("CreatedAtUnixTimeMs")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("CurrentStep")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -557,7 +560,7 @@ namespace KnowledgeApp.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DocumentId");
 
-                    b.HasIndex("Status");
+                    b.HasIndex("Status", "CreatedAtUnixTimeMs", "Id");
 
                     b.ToTable("ingestion_jobs", (string)null);
                 });

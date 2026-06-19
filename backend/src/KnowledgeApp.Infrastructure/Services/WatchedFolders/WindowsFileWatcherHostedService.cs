@@ -15,16 +15,14 @@ public sealed class WindowsFileWatcherHostedService(
     IWatchedFolderStatusStore statusStore,
     IDateTimeProvider dateTimeProvider,
     IWatchedFileFilterService filterService,
+    ISettingsChangeSignal settingsChangeSignal,
     KnowledgeApp.Infrastructure.Services.Runtime.RuntimeProcessManager processManager,
     ILogger<WindowsFileWatcherHostedService> logger) : BackgroundService
 {
     private static readonly TimeSpan LoopDelay = TimeSpan.FromMilliseconds(250);
-    private static readonly TimeSpan SettingsReloadInterval = TimeSpan.FromSeconds(5);
 
     private readonly Dictionary<string, WatcherRegistration> watchers = new(PathComparer);
     private readonly HashSet<string> startupReconciledFolderKeys = new(PathComparer);
-
-    private DateTimeOffset lastSettingsReloadAt = DateTimeOffset.MinValue;
 
     private WatchedFoldersSettingsDto currentSettings = new(
         Enabled: false,
@@ -37,40 +35,38 @@ public sealed class WindowsFileWatcherHostedService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using PeriodicTimer timer = new(LoopDelay);
+        Task<bool> tickTask = timer.WaitForNextTickAsync(stoppingToken).AsTask();
+        Task settingsChangedTask = settingsChangeSignal.ReadAsync(stoppingToken).AsTask();
 
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            if (processManager.IsShuttingDown)
-            {
-                break;
-            }
+            await ReloadSettingsSafelyAsync(stoppingToken);
 
-            try
+            while (!stoppingToken.IsCancellationRequested && !processManager.IsShuttingDown)
             {
-                await ReloadSettingsIfNeededAsync(stoppingToken);
-                await ProcessReadyChangesAsync(stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception exception)
-            {
-                logger.LogWarning(exception, "Watched folder service loop failed.");
+                Task completedTask = await Task.WhenAny(tickTask, settingsChangedTask);
 
-                statusStore.RecordGlobalError(
-                    "Watcher error. Check watched folder settings and permissions.",
-                    dateTimeProvider.UtcNow);
-            }
+                if (completedTask == settingsChangedTask)
+                {
+                    await settingsChangedTask;
+                    await ReloadSettingsSafelyAsync(stoppingToken);
+                    settingsChangedTask = settingsChangeSignal.ReadAsync(stoppingToken).AsTask();
+                }
 
-            try
-            {
-                await timer.WaitForNextTickAsync(stoppingToken);
+                if (completedTask == tickTask)
+                {
+                    if (!await tickTask)
+                    {
+                        break;
+                    }
+
+                    await ProcessReadyChangesSafelyAsync(stoppingToken);
+                    tickTask = timer.WaitForNextTickAsync(stoppingToken).AsTask();
+                }
             }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
         }
     }
 
@@ -88,17 +84,8 @@ public sealed class WindowsFileWatcherHostedService(
         base.Dispose();
     }
 
-    private async Task ReloadSettingsIfNeededAsync(CancellationToken cancellationToken)
+    private async Task ReloadSettingsAsync(CancellationToken cancellationToken)
     {
-        DateTimeOffset now = dateTimeProvider.UtcNow;
-
-        if (now - lastSettingsReloadAt < SettingsReloadInterval)
-        {
-            return;
-        }
-
-        lastSettingsReloadAt = now;
-
         using IServiceScope scope = scopeFactory.CreateScope();
 
         ISettingsService settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
@@ -112,6 +99,47 @@ public sealed class WindowsFileWatcherHostedService(
             ApplyWatcherSettings(currentSettings);
 
         await RunStartupReconciliationAsync(foldersToReconcile, cancellationToken);
+    }
+
+    private async Task ReloadSettingsSafelyAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ReloadSettingsAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            RecordLoopFailure(exception);
+        }
+    }
+
+    private async Task ProcessReadyChangesSafelyAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ProcessReadyChangesAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            RecordLoopFailure(exception);
+        }
+    }
+
+    private void RecordLoopFailure(Exception exception)
+    {
+        logger.LogWarning(exception, "Watched folder service loop failed.");
+
+        statusStore.RecordGlobalError(
+            "Watcher error. Check watched folder settings and permissions.",
+            dateTimeProvider.UtcNow);
     }
 
     private IReadOnlyList<StartupReconciliationRequest> ApplyWatcherSettings(WatchedFoldersSettingsDto settings)
@@ -215,14 +243,14 @@ public sealed class WindowsFileWatcherHostedService(
                     | NotifyFilters.CreationTime
             };
 
-            watcher.Created += (_, args) => EnqueueCreatedOrChanged(folder.Path, args.FullPath);
-            watcher.Changed += (_, args) => EnqueueCreatedOrChanged(folder.Path, args.FullPath);
-            watcher.Deleted += (_, args) => EnqueueDeleted(folder.Path, args.FullPath);
-            watcher.Renamed += (_, args) => EnqueueRenamed(folder.Path, args.OldFullPath, args.FullPath);
+            watcher.Created += (_, args) => EnqueueCreatedOrChanged(folder.Path, args?.FullPath ?? string.Empty);
+            watcher.Changed += (_, args) => EnqueueCreatedOrChanged(folder.Path, args?.FullPath ?? string.Empty);
+            watcher.Deleted += (_, args) => EnqueueDeleted(folder.Path, args?.FullPath ?? string.Empty);
+            watcher.Renamed += (_, args) => EnqueueRenamed(folder.Path, args?.OldFullPath ?? string.Empty, args?.FullPath ?? string.Empty);
 
             watcher.Error += (_, args) =>
             {
-                logger.LogWarning(args.GetException(), "Watched folder FileSystemWatcher error.");
+                logger.LogWarning(args?.GetException(), "Watched folder FileSystemWatcher error.");
 
                 statusStore.RecordFolderError(
                     folder.Path,

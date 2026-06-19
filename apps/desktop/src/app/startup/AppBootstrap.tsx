@@ -36,34 +36,8 @@ export function AppBootstrap({ children }: PropsWithChildren) {
       (event) => applyRuntimeInfo(event.payload),
     );
 
-    let unlistenClose: (() => void) | undefined;
-    import("@tauri-apps/api/window")
-      .then(({ getCurrentWindow }) => {
-        getCurrentWindow()
-          .onCloseRequested(async (event) => {
-            event.preventDefault();
-            const appWindow = getCurrentWindow();
-            const timeout = setTimeout(() => void appWindow.destroy(), 4000);
-            try {
-              const { invoke } = await import("@tauri-apps/api/core");
-              await invoke("shutdown_everything");
-            } finally {
-              clearTimeout(timeout);
-              void appWindow.destroy();
-            }
-          })
-          .then((unlistenCb) => {
-            unlistenClose = unlistenCb;
-          })
-          .catch(() => {});
-      })
-      .catch(() => {});
-
     return () => {
       disposed = true;
-      if (unlistenClose) {
-        unlistenClose();
-      }
       void unlisten.then((dispose) => dispose());
     };
   }, [applyRuntimeInfo]);

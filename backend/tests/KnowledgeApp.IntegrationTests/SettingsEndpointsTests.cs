@@ -58,6 +58,9 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
         try
         {
             using HttpClient client = factory.CreateClient();
+            AppSettingsDto? initialSettings =
+                await client.GetApiDataAsync<AppSettingsDto>("/api/v1/settings");
+            Assert.NotNull(initialSettings);
 
             AppSettingsDto request = new AppSettingsDto(
                 Appearance: new AppearanceSettingsDto("Dark"),

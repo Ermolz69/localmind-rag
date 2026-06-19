@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { NoteDto } from "@entities/note";
 import { notesApi } from "@shared/api";
 import { useApiMutation } from "@shared/lib/hooks";
@@ -11,23 +11,35 @@ const emptyDraft: NoteDraft = {
   folderId: null,
 };
 
+function toNoteDraft(note: NoteDto): NoteDraft {
+  return {
+    title: note.title,
+    markdown: note.markdown,
+    bucketId: note.bucketId,
+    folderId: note.folderId,
+  };
+}
+
 type UseNoteEditorOptions = {
   onCreated: (note: NoteDto) => void;
-  onDeleted: (noteId: string) => void;
   onUpdated: (note: NoteDto) => void;
-  selectedNote: NoteDto | null;
+  notes: NoteDto[];
+  activeNoteId: string | null;
+  setTabDirty: (noteId: string, isDirty: boolean) => void;
+  updateTabTitle: (noteId: string, title: string) => void;
 };
 
 export function useNoteEditor({
   onCreated,
-  onDeleted,
   onUpdated,
-  selectedNote,
+  notes,
+  activeNoteId,
+  setTabDirty,
+  updateTabTitle,
 }: UseNoteEditorOptions) {
-  const [draft, setDraft] = useState<NoteDraft>(emptyDraft);
+  const [drafts, setDrafts] = useState<Record<string, NoteDraft>>({});
   const [createDraft, setCreateDraft] = useState<NoteDraft>(emptyDraft);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const createMutation = useApiMutation(
     (nextDraft: NoteDraft) =>
@@ -41,64 +53,157 @@ export function useNoteEditor({
   );
 
   const updateMutation = useApiMutation(
-    (id: string, nextDraft: NoteDraft) =>
-      notesApi.updateNote(id, {
-        title: nextDraft.title,
-        markdown: nextDraft.markdown,
-        folderId: nextDraft.folderId,
+    (payload: { id: string; draft: NoteDraft }) =>
+      notesApi.updateNote(payload.id, {
+        title: payload.draft.title,
+        markdown: payload.draft.markdown,
+        folderId: payload.draft.folderId,
       }),
     { fallbackError: "Failed to save note." },
   );
 
-  const deleteMutation = useApiMutation(
-    (id: string) => notesApi.deleteNote(id),
-    {
-      fallbackError: "Failed to delete note.",
-    },
-  );
+  // Initialize draft when a new note becomes active
+  useEffect(() => {
+    if (!activeNoteId) return;
+    setDrafts((prev) => {
+      if (prev[activeNoteId]) return prev;
+      const note = notes.find((n) => n.id === activeNoteId);
+      if (!note) return prev;
+      return {
+        ...prev,
+        [activeNoteId]: toNoteDraft(note),
+      };
+    });
+  }, [activeNoteId, notes]);
+
+  // Clean up drafts for deleted notes and sync non-dirty drafts on external changes
+  useEffect(() => {
+    setDrafts((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      // Remove deleted
+      for (const id of Object.keys(next)) {
+        if (!notes.find((n) => n.id === id)) {
+          delete next[id];
+          changed = true;
+        }
+      }
+
+      // Sync non-dirty drafts if note changed externally
+      for (const note of notes) {
+        const draft = next[note.id];
+        if (draft) {
+          const isDirty =
+            draft.title !== note.title ||
+            draft.markdown !== note.markdown ||
+            draft.folderId !== note.folderId;
+          if (!isDirty && draft.bucketId !== note.bucketId) {
+            next[note.id] = toNoteDraft(note);
+            changed = true;
+          }
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [notes]);
+
+  const activeNote = useMemo(() => {
+    return notes.find((n) => n.id === activeNoteId) ?? null;
+  }, [activeNoteId, notes]);
+
+  const activeDraft = activeNoteId
+    ? (drafts[activeNoteId] ??
+      (activeNote ? toNoteDraft(activeNote) : emptyDraft))
+    : emptyDraft;
 
   const isDirty = useMemo(() => {
-    if (!selectedNote) {
-      return false;
-    }
-
+    if (!activeNote) return false;
     return (
-      draft.title !== selectedNote.title ||
-      draft.markdown !== selectedNote.markdown
+      activeDraft.title !== activeNote.title ||
+      activeDraft.markdown !== activeNote.markdown ||
+      activeDraft.folderId !== activeNote.folderId
     );
-  }, [draft, selectedNote]);
+  }, [activeDraft, activeNote]);
+
+  const setDraft = useCallback(
+    (draft: NoteDraft) => {
+      if (!activeNoteId) return;
+      setDrafts((prev) => ({ ...prev, [activeNoteId]: draft }));
+
+      const note = notes.find((n) => n.id === activeNoteId);
+      if (note) {
+        const isCurrentlyDirty =
+          draft.title !== note.title ||
+          draft.markdown !== note.markdown ||
+          draft.folderId !== note.folderId;
+        setTabDirty(activeNoteId, isCurrentlyDirty);
+        updateTabTitle(activeNoteId, draft.title);
+      }
+    },
+    [activeNoteId, notes, setTabDirty, updateTabTitle],
+  );
+
+  const cancelEdit = useCallback(() => {
+    if (!activeNote) return;
+    const cleanDraft = toNoteDraft(activeNote);
+    setDrafts((prev) => ({ ...prev, [activeNote.id]: cleanDraft }));
+    setTabDirty(activeNote.id, false);
+    updateTabTitle(activeNote.id, activeNote.title);
+  }, [activeNote, setTabDirty, updateTabTitle]);
+
+  const saveNote = useCallback(async () => {
+    if (!activeNote || !isDirty) return;
+
+    const currentDraft = drafts[activeNote.id];
+    if (!currentDraft) return;
+
+    const success = await updateMutation.mutate({
+      id: activeNote.id,
+      draft: currentDraft,
+    });
+
+    if (success !== null) {
+      const savedNote: NoteDto = {
+        ...activeNote,
+        title: currentDraft.title.trim(),
+        markdown: currentDraft.markdown,
+        folderId: currentDraft.folderId,
+      };
+
+      setDrafts((prev) => ({
+        ...prev,
+        [savedNote.id]: toNoteDraft(savedNote),
+      }));
+      onUpdated(savedNote);
+      setTabDirty(savedNote.id, false);
+      updateTabTitle(savedNote.id, savedNote.title);
+    }
+  }, [
+    activeNote,
+    isDirty,
+    drafts,
+    updateMutation,
+    onUpdated,
+    setTabDirty,
+    updateTabTitle,
+  ]);
 
   useEffect(() => {
-    if (selectedNote) {
-      setDraft({
-        title: selectedNote.title,
-        markdown: selectedNote.markdown,
-        bucketId: selectedNote.bucketId,
-        folderId: selectedNote.folderId,
-      });
-    } else {
-      setDraft(emptyDraft);
-    }
-  }, [selectedNote]);
-
-  function cancelEdit() {
-    if (!selectedNote) {
-      return;
-    }
-
-    setDraft({
-      title: selectedNote.title,
-      markdown: selectedNote.markdown,
-      bucketId: selectedNote.bucketId,
-      folderId: selectedNote.folderId,
-    });
-  }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        void saveNote();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [saveNote]);
 
   async function createNote() {
     const title = createDraft.title.trim();
-    if (!title) {
-      return;
-    }
+    if (!title) return;
 
     const note = await createMutation.mutate({
       title,
@@ -114,53 +219,17 @@ export function useNoteEditor({
     }
   }
 
-  async function saveNote() {
-    if (!selectedNote) {
-      return;
-    }
-
-    const success = await updateMutation.mutate(selectedNote.id, draft);
-    if (success !== null) {
-      onUpdated({
-        ...selectedNote,
-        title: draft.title,
-        markdown: draft.markdown,
-        bucketId: selectedNote.bucketId,
-        folderId: draft.folderId,
-      });
-    }
-  }
-
-  async function deleteNote() {
-    if (!deleteTargetId) {
-      return;
-    }
-
-    const success = await deleteMutation.mutate(deleteTargetId);
-    if (success !== null) {
-      onDeleted(deleteTargetId);
-      setDeleteTargetId(null);
-    }
-  }
-
   return {
+    activeDraft,
     cancelEdit,
     createDraft,
     createNote,
-    deleteNote,
-    deleteTargetId,
-    draft,
     isCreateOpen,
     isDirty,
-    isSubmitting:
-      createMutation.isPending ||
-      updateMutation.isPending ||
-      deleteMutation.isPending,
-    noteEditorError:
-      createMutation.error ?? updateMutation.error ?? deleteMutation.error,
+    isSubmitting: createMutation.isPending || updateMutation.isPending,
+    noteEditorError: createMutation.error ?? updateMutation.error,
     saveNote,
     setCreateDraft,
-    setDeleteTargetId,
     setDraft,
     setIsCreateOpen,
   };

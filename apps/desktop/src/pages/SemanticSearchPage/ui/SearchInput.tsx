@@ -206,6 +206,7 @@ export function SearchInput({
           setCursorPos(event.currentTarget.selectionStart ?? 0)
         }
         placeholder={placeholder}
+        autoComplete="off"
       />
     </div>
   );

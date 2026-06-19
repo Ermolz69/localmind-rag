@@ -36,6 +36,7 @@ export function useNoteList() {
   const notesPage = useCursorPage<NoteDto>(
     loadNotesPage,
     "Unable to load notes.",
+    `${selectedBucketId}:${debouncedQuery}`,
   );
 
   const selectedNote =

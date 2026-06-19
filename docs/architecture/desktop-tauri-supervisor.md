@@ -91,7 +91,9 @@ Statuses:
 7. On success, status becomes `Ready`.
 8. On timeout, status becomes `Failed`.
 9. If the process exits after startup, status becomes `Crashed`.
-10. On window close, supervisor stops LocalApi.
+10. On window close, Rust synchronously stops LocalApi and allows the native
+    Tauri close request to continue. React must not cancel or re-dispatch the
+    close event.
 
 Backoff schedule:
 

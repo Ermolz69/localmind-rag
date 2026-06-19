@@ -1,4 +1,4 @@
-import { FolderPlus, RefreshCw, Pencil, Trash2 } from "lucide-react";
+import { FolderPlus, RefreshCw, Pencil, Trash2, Folder } from "lucide-react";
 import { useBuckets } from "@features/bucket-management";
 import { cn } from "@shared/lib/cn";
 import {
@@ -94,58 +94,63 @@ export function BucketsPage() {
               <div
                 key={bucket.id}
                 className={cn(
-                  "cursor-pointer rounded-md border border-border bg-card p-4 text-left transition hover:bg-muted",
-                  isSelected &&
-                    "bg-primary text-primary-foreground hover:bg-primary",
+                  "group relative cursor-pointer overflow-hidden rounded-xl border border-border/50 bg-card p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md",
+                  isSelected
+                    ? "bg-primary/5 ring-2 ring-primary"
+                    : "hover:bg-accent/30",
                 )}
                 onClick={() => bucketsPage.setSelectedBucketId(bucket.id)}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <h2
-                      className="truncate text-sm font-semibold"
-                      title={bucket.name}
-                    >
-                      {bucket.name}
-                    </h2>
-                    <p
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <div
                       className={cn(
-                        "mt-2 text-xs",
+                        "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors",
                         isSelected
-                          ? "text-primary-foreground/90"
-                          : "text-muted-foreground",
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border/50 bg-muted/50 text-muted-foreground group-hover:bg-background",
                       )}
                     >
-                      {bucket.syncStatus}{" "}
-                      {documentCount !== undefined ? (
-                        <span
-                          className={
-                            isSelected ? "text-white" : "text-muted-foreground"
-                          }
-                        >
-                          · {documentCount} documents
-                        </span>
-                      ) : null}
-                    </p>
+                      <Folder size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2
+                        className="truncate text-base font-semibold leading-tight text-foreground"
+                        title={bucket.name}
+                      >
+                        {bucket.name}
+                      </h2>
+                      <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+                        {bucket.syncStatus && (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500/80"></span>
+                            {bucket.syncStatus}
+                          </span>
+                        )}
+                        {documentCount !== undefined ? (
+                          <>
+                            {bucket.syncStatus && (
+                              <span className="h-3 w-[1px] bg-border/80"></span>
+                            )}
+                            <span className="truncate">
+                              {documentCount} documents
+                            </span>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
+
                   <div
                     className={cn(
-                      "flex items-center gap-2 rounded-md p-1 transition-colors",
-                      isSelected
-                        ? "bg-primary/10 ring-1 ring-primary/20"
-                        : "hover:bg-muted/50",
+                      "flex items-center gap-1.5 rounded-lg border border-transparent bg-background/40 p-1 opacity-0 transition-all focus-within:opacity-100 group-hover:border-border/50 group-hover:opacity-100",
+                      isSelected ? "border-border/50 opacity-100" : "",
                     )}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Button
                       variant="ghost"
-                      className={cn(
-                        "h-9 w-9 p-0",
-                        "rounded-md",
-                        isSelected
-                          ? "text-primary-foreground hover:bg-primary/20"
-                          : "text-muted-foreground hover:bg-muted",
-                      )}
+                      className="h-9 w-9 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditBucketId(bucket.id);
@@ -153,20 +158,20 @@ export function BucketsPage() {
                         setRenameModalOpen(true);
                       }}
                     >
-                      <Pencil size={16} aria-hidden />
+                      <Pencil size={18} aria-hidden />
                     </Button>
 
                     {bucket.name !== "Default" && (
                       <Button
                         variant="ghost"
-                        className="h-9 w-9 rounded-md bg-transparent p-0 text-rose-400 hover:bg-transparent hover:text-rose-500"
+                        className="h-9 w-9 rounded-md bg-transparent p-0 text-rose-400 hover:bg-rose-500/10 hover:text-rose-500"
                         onClick={(e) => {
                           e.stopPropagation();
                           setDeleteBucketId(bucket.id);
                           setDeleteConfirmOpen(true);
                         }}
                       >
-                        <Trash2 size={16} aria-hidden />
+                        <Trash2 size={18} aria-hidden />
                       </Button>
                     )}
                   </div>

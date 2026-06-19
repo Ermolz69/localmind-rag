@@ -5,10 +5,24 @@ import {
 } from "@features/document-ingestion";
 import { DocumentDropzone } from "@features/document-upload";
 import { BucketPanel } from "@features/bucket-management";
-import { Button, ErrorBanner, PageHeader, Select, Toolbar } from "@shared/ui";
+import {
+  Button,
+  ErrorBanner,
+  PageHeader,
+  Select,
+  Toolbar,
+  Tooltip,
+} from "@shared/ui";
 import { useDocumentsPageViewModel } from "./model/useDocumentsPageViewModel";
 
-const documentStatuses = ["Queued", "Processing", "Indexed", "Failed"];
+const documentStatuses = [
+  "Draft",
+  "Uploaded",
+  "Queued",
+  "Processing",
+  "Indexed",
+  "Failed",
+];
 
 export function DocumentsPage() {
   const page = useDocumentsPageViewModel();
@@ -49,11 +63,14 @@ export function DocumentsPage() {
               id="bucket-filter"
               className="max-w-56"
               value={page.selectedBucketId}
+              title={page.selectedBucketName || "All buckets"}
               onChange={(event) => page.setSelectedBucketId(event.target.value)}
             >
-              <option value="">All buckets</option>
+              <option value="" title="All buckets">
+                All buckets
+              </option>
               {page.buckets.map((bucket) => (
-                <option key={bucket.id} value={bucket.id}>
+                <option key={bucket.id} value={bucket.id} title={bucket.name}>
                   {bucket.name}
                 </option>
               ))}
@@ -65,18 +82,26 @@ export function DocumentsPage() {
               id="status-filter"
               className="max-w-44"
               value={page.selectedStatus}
+              title={page.selectedStatus || "All statuses"}
               onChange={(event) => page.setSelectedStatus(event.target.value)}
             >
-              <option value="">All statuses</option>
+              <option value="" title="All statuses">
+                All statuses
+              </option>
               {documentStatuses.map((status) => (
-                <option key={status} value={status}>
+                <option key={status} value={status} title={status}>
                   {status}
                 </option>
               ))}
             </Select>
-            <span className="text-sm text-muted-foreground">
-              {page.selectedBucketName}
-            </span>
+            <Tooltip
+              content={page.selectedBucketName}
+              className="flex min-w-0 flex-1"
+            >
+              <span className="block w-full truncate text-sm text-muted-foreground">
+                {page.selectedBucketName}
+              </span>
+            </Tooltip>
           </Toolbar>
 
           <DocumentDropzone

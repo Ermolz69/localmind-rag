@@ -113,12 +113,12 @@ export const chatsApi = {
     request<OperationData<"UpdateChat">>(`/chats/${conversationId}`, {
       method: "PUT",
       body: JSON.stringify(payload),
-    }),
+    }).then(() => true),
 
   deleteChat: (conversationId: OperationPath<"DeleteChat">["id"]) =>
     request<OperationData<"DeleteChat">>(`/chats/${conversationId}`, {
       method: "DELETE",
-    }),
+    }).then(() => true),
 
   sendChatMessage: (
     conversationId: OperationPath<"SendChatMessage">["id"],

@@ -54,4 +54,12 @@ Feature folders are the canonical navigation model:
 - Runtime-specific behavior is hidden behind provider contracts; llama.cpp is the first provider.
 - LocalApi is loopback-first and can require a local token for mutating endpoints.
 
+## Settings Runtime State
+
+Application settings are cached process-locally without a TTL. Concurrent cache misses are
+single-flight, and a successful settings update invalidates the cache before publishing a
+coalescing in-process change signal. Watched-folder supervision loads settings at startup and
+reacts to that signal instead of polling SQLite. The 250 ms watcher timer is reserved for file
+event debounce processing.
+
 Related decisions live in [Architecture Decisions](./decisions/README.md).
