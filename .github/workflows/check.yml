@@ -357,6 +357,54 @@ jobs:
       - name: Color guard
         run: node apps/desktop/scripts/check-colors.cjs
 
+  frontend-tests:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - frontend-check
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup frontend
+        uses: ./.github/actions/setup-frontend
+
+      - name: Run frontend tests
+        run: pnpm --filter desktop test
+
+  tauri-check:
+    name: Tauri shell check
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Rust format check
+        run: cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
+
+      - name: Rust clippy
+        run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings
+
+      - name: Rust check
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+
   frontend-build:
     name: Frontend build
     runs-on: windows-latest
@@ -425,7 +473,9 @@ jobs:
       - backend-rag-evaluation-tests
       - backend-architecture-tests
       - frontend-check
+      - frontend-tests
       - frontend-build
+      - tauri-check
       - api-contract-drift
 
     steps:
@@ -442,7 +492,9 @@ jobs:
           echo "| Backend RAG evaluation tests | ${{ needs.backend-rag-evaluation-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Backend architecture tests | ${{ needs.backend-architecture-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend check | ${{ needs.frontend-check.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Frontend tests | ${{ needs.frontend-tests.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Frontend build | ${{ needs.frontend-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Tauri shell check | ${{ needs.tauri-check.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| API contract drift | ${{ needs.api-contract-drift.result }} |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if any check failed

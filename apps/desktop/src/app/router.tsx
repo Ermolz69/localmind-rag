@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@widgets/AppShell/AppShell";
+import { BucketDetailsPage } from "@pages/BucketDetailsPage";
 import { BucketsPage } from "@pages/BucketsPage";
 import { ChatPage } from "@pages/ChatPage";
 import { DashboardPage } from "@pages/DashboardPage";
@@ -16,6 +17,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "buckets", element: <BucketsPage /> },
+      { path: "buckets/:bucketId", element: <BucketDetailsPage /> },
       { path: "documents", element: <DocumentsPage /> },
       { path: "search", element: <SemanticSearchPage /> },
       { path: "notes", element: <NotesPage /> },
