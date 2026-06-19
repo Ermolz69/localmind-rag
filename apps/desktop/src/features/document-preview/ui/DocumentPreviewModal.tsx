@@ -29,7 +29,7 @@ export function DocumentPreviewModal({
   const title = document?.name ?? "Document preview";
   const description = preview
     ? `${preview.previewKind} preview`
-    : "Loading preview";
+    : "Generating preview";
 
   return (
     <Modal
@@ -60,7 +60,7 @@ function PreviewHeader({
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
       <Badge>
-        {isLoading ? "Loading" : (preview?.previewKind ?? "Preview")}
+        {isLoading ? "Generating" : (preview?.previewKind ?? "Preview")}
       </Badge>
       {preview?.contentType ? <span>{preview.contentType}</span> : null}
       {error ? <InlineError message={error} /> : null}
@@ -134,7 +134,7 @@ function LoadingPreview() {
   return (
     <div className="flex h-full min-h-[28rem] items-center justify-center gap-3 text-sm text-muted-foreground">
       <Loader2 className="animate-spin" size={18} aria-hidden />
-      Loading preview...
+      Generating preview...
     </div>
   );
 }

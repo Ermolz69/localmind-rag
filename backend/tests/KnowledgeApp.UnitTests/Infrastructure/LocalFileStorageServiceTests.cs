@@ -40,6 +40,7 @@ public sealed class LocalFileStorageServiceTests : IDisposable
         public string DataDirectory => Path.Combine(root, "data");
         public string DatabasePath => Path.Combine(DataDirectory, "knowledge-app.db");
         public string FilesDirectory => Path.Combine(root, "files");
+        public string PreviewDirectory => Path.Combine(root, "previews");
         public string IndexDirectory => Path.Combine(root, "indexes");
         public string LogsDirectory => Path.Combine(root, "logs");
 

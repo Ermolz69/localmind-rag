@@ -34,6 +34,9 @@ public static class ErrorMessages
         public const string PreviewFileMissing = "Document preview file is unavailable.";
         public const string PreviewUnavailable = "Document preview is unavailable.";
         public const string PreviewUnsupported = "Document preview is not supported for this file type.";
+        public const string PreviewConverterUnavailable = "Document preview converter is unavailable.";
+        public const string PreviewConversionFailed = "Document preview conversion failed.";
+        public const string PreviewConversionTimeout = "Document preview conversion timed out.";
         public const string UnsupportedFileType = "Document file extension is not supported.";
     }
 

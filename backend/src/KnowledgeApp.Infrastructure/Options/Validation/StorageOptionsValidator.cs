@@ -19,6 +19,11 @@ public sealed class StorageOptionsValidator : IValidateOptions<StorageOptions>
             failures.Add("LocalRuntime:FilesPath must be a valid non-empty directory path.");
         }
 
+        if (!OptionsValidationRules.IsValidPath(options.PreviewsPath))
+        {
+            failures.Add("LocalRuntime:PreviewsPath must be a valid non-empty directory path.");
+        }
+
         if (!OptionsValidationRules.IsValidPath(options.LogsPath))
         {
             failures.Add("LocalRuntime:LogsPath must be a valid non-empty directory path.");

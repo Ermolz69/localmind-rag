@@ -10,7 +10,8 @@ namespace KnowledgeApp.Application.Documents;
 
 public sealed class GetDocumentPreviewHandler(
     IDocumentRepository documentRepository,
-    IAppPathProvider paths)
+    IAppPathProvider paths,
+    IDocumentPreviewConversionService previewConversionService)
 {
     private const int MaxInlineTextBytes = 256 * 1024;
     private static readonly Encoding StrictUtf8 = new UTF8Encoding(false, true);
@@ -51,22 +52,18 @@ public sealed class GetDocumentPreviewHandler(
             FileType.PlainText or FileType.Markdown or FileType.Html =>
                 await BuildInlineTextResponseAsync(query.DocumentId, source, cancellationToken),
 
-            FileType.Docx or FileType.Pptx or FileType.Unknown =>
-                Result<DocumentPreviewResponse>.Success(new DocumentPreviewResponse(
-                    query.DocumentId,
-                    source.FileName,
-                    ResolveContentType(source.FileType),
-                    DocumentPreviewKind.Unsupported,
-                    ErrorCode: ErrorCodes.Documents.PreviewUnsupported,
-                    Message: ErrorMessages.Documents.PreviewUnsupported)),
+            FileType.Docx or FileType.Pptx =>
+                await BuildConvertedPdfResponseAsync(query.DocumentId, source, cancellationToken),
 
-            _ => Result<DocumentPreviewResponse>.Success(new DocumentPreviewResponse(
+            FileType.Unknown => Result<DocumentPreviewResponse>.Success(CreateUnsupportedResponse(
                 query.DocumentId,
                 source.FileName,
-                ResolveContentType(source.FileType),
-                DocumentPreviewKind.Unsupported,
-                ErrorCode: ErrorCodes.Documents.PreviewUnsupported,
-                Message: ErrorMessages.Documents.PreviewUnsupported)),
+                ResolveContentType(source.FileType))),
+
+            _ => Result<DocumentPreviewResponse>.Success(CreateUnsupportedResponse(
+                query.DocumentId,
+                source.FileName,
+                ResolveContentType(source.FileType))),
         };
     }
 
@@ -84,24 +81,92 @@ public sealed class GetDocumentPreviewHandler(
 
         DocumentPreviewSource source = sourceResult.Value!;
 
-        if (source.FileType != FileType.Pdf)
+        if (source.FileType == FileType.Pdf)
         {
-            return Result<DocumentPreviewFile>.Failure(ApplicationErrors.UnsupportedMedia(
-                ErrorCodes.Documents.PreviewUnsupported,
-                ErrorMessages.Documents.PreviewUnsupported));
+            if (!source.IsPreviewFileAvailable)
+            {
+                return Result<DocumentPreviewFile>.Failure(ApplicationErrors.NotFound(
+                    ErrorCodes.Documents.PreviewFileMissing,
+                    ErrorMessages.Documents.PreviewFileMissing));
+            }
+
+            return Result<DocumentPreviewFile>.Success(new DocumentPreviewFile(
+                source.FilePath,
+                source.FileName,
+                ResolveContentType(source.FileType)));
         }
 
-        if (!source.IsPreviewFileAvailable)
+        if (source.FileType is FileType.Docx or FileType.Pptx)
         {
-            return Result<DocumentPreviewFile>.Failure(ApplicationErrors.NotFound(
-                ErrorCodes.Documents.PreviewFileMissing,
-                ErrorMessages.Documents.PreviewFileMissing));
+            if (!source.IsPreviewFileAvailable)
+            {
+                return Result<DocumentPreviewFile>.Failure(ApplicationErrors.NotFound(
+                    ErrorCodes.Documents.PreviewFileMissing,
+                    ErrorMessages.Documents.PreviewFileMissing));
+            }
+
+            Result<DocumentPreviewConversionResult> conversionResult =
+                await ConvertToPdfPreviewAsync(query.DocumentId, source, cancellationToken);
+
+            if (!conversionResult.IsSuccess)
+            {
+                return Result<DocumentPreviewFile>.Failure(conversionResult.Error!);
+            }
+
+            DocumentPreviewConversionResult conversion = conversionResult.Value!;
+
+            return Result<DocumentPreviewFile>.Success(new DocumentPreviewFile(
+                conversion.PreviewFilePath,
+                conversion.PreviewFileName,
+                conversion.ContentType));
         }
 
-        return Result<DocumentPreviewFile>.Success(new DocumentPreviewFile(
-            source.FilePath,
+        return Result<DocumentPreviewFile>.Failure(ApplicationErrors.UnsupportedMedia(
+            ErrorCodes.Documents.PreviewUnsupported,
+            ErrorMessages.Documents.PreviewUnsupported));
+    }
+
+    private async Task<Result<DocumentPreviewResponse>> BuildConvertedPdfResponseAsync(
+        Guid documentId,
+        DocumentPreviewSource source,
+        CancellationToken cancellationToken)
+    {
+        Result<DocumentPreviewConversionResult> conversionResult =
+            await ConvertToPdfPreviewAsync(documentId, source, cancellationToken);
+
+        if (!conversionResult.IsSuccess)
+        {
+            return Result<DocumentPreviewResponse>.Success(CreateErrorResponse(
+                documentId,
+                source.FileName,
+                ResolveContentType(source.FileType),
+                conversionResult.Error!.Code,
+                conversionResult.Error.Message));
+        }
+
+        DocumentPreviewConversionResult conversion = conversionResult.Value!;
+
+        return Result<DocumentPreviewResponse>.Success(new DocumentPreviewResponse(
+            documentId,
             source.FileName,
-            ResolveContentType(source.FileType)));
+            conversion.ContentType,
+            DocumentPreviewKind.Pdf,
+            PreviewUrl: $"/api/v1/documents/{documentId}/preview/file"));
+    }
+
+    private Task<Result<DocumentPreviewConversionResult>> ConvertToPdfPreviewAsync(
+        Guid documentId,
+        DocumentPreviewSource source,
+        CancellationToken cancellationToken)
+    {
+        return previewConversionService.GetOrCreatePdfPreviewAsync(
+            new DocumentPreviewConversionRequest(
+                documentId,
+                source.FilePath,
+                source.FileName,
+                source.ContentHash,
+                source.FileType),
+            cancellationToken);
     }
 
     private async Task<Result<DocumentPreviewSource>> ResolveSourceAsync(
@@ -125,6 +190,7 @@ public sealed class GetDocumentPreviewHandler(
             return Result<DocumentPreviewSource>.Success(new DocumentPreviewSource(
                 document.Name,
                 string.Empty,
+                string.Empty,
                 FileType.Unknown,
                 IsPreviewFileAvailable: false));
         }
@@ -139,6 +205,7 @@ public sealed class GetDocumentPreviewHandler(
         return Result<DocumentPreviewSource>.Success(new DocumentPreviewSource(
             file.FileName,
             fullPath ?? string.Empty,
+            file.ContentHash,
             fileType,
             isAvailable));
     }
@@ -243,6 +310,20 @@ public sealed class GetDocumentPreviewHandler(
             Message: message);
     }
 
+    private static DocumentPreviewResponse CreateUnsupportedResponse(
+        Guid documentId,
+        string fileName,
+        string contentType)
+    {
+        return new DocumentPreviewResponse(
+            documentId,
+            fileName,
+            contentType,
+            DocumentPreviewKind.Unsupported,
+            ErrorCode: ErrorCodes.Documents.PreviewUnsupported,
+            Message: ErrorMessages.Documents.PreviewUnsupported);
+    }
+
     private static DocumentPreviewKind ResolvePreviewKind(FileType fileType) => fileType switch
     {
         FileType.PlainText => DocumentPreviewKind.Text,
@@ -257,12 +338,15 @@ public sealed class GetDocumentPreviewHandler(
         FileType.PlainText => "text/plain; charset=utf-8",
         FileType.Markdown => "text/markdown; charset=utf-8",
         FileType.Html => "text/html; charset=utf-8",
+        FileType.Docx => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        FileType.Pptx => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         _ => "application/octet-stream",
     };
 
     private sealed record DocumentPreviewSource(
         string FileName,
         string FilePath,
+        string ContentHash,
         FileType FileType,
         bool IsPreviewFileAvailable);
 }

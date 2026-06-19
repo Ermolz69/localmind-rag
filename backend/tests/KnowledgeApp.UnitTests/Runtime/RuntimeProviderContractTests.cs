@@ -129,6 +129,8 @@ public sealed class RuntimeProviderContractTests
 
         public string FilesDirectory => Path.Combine(root, "files");
 
+        public string PreviewDirectory => Path.Combine(root, "previews");
+
         public string IndexDirectory => Path.Combine(root, "index");
 
         public string LogsDirectory => Path.Combine(root, "logs");
