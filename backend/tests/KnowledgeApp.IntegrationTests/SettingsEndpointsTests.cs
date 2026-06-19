@@ -203,6 +203,49 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
     }
 
     [Fact]
+    public async Task PutSettings_Should_Save_Dark_Alternative_Theme()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        AppSettingsDto request = new AppSettingsDto(
+            Appearance: new AppearanceSettingsDto("GraphiteBlue"),
+            Ai: new AiSettingsDto(
+                Provider: "Ollama",
+                ChatModel: "llama3.2",
+                EmbeddingModel: "nomic-embed-text",
+                RuntimePath: "runtime/ai/bin/ollama.exe",
+                ModelsPath: "runtime/ai/models"),
+            RuntimePaths: new RuntimePathsSettingsDto(
+                DataPath: "runtime/app/data",
+                DatabasePath: "runtime/app/data/knowledge-app.db",
+                FilesPath: "runtime/app/files",
+                IndexPath: "runtime/app/indexes",
+                LogsPath: "runtime/app/logs"),
+            Sync: new SyncSettingsDto(
+                Enabled: true,
+                AutoSync: false),
+            Diagnostics: new DiagnosticsSettingsDto(
+                Enabled: true),
+            WatchedFolders: CreateDefaultWatchedFoldersSettings());
+
+        using HttpResponseMessage response = await client.PutAsJsonAsync("/api/v1/settings", request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        AppSettingsDto? saved = await client.GetApiDataAsync<AppSettingsDto>("/api/v1/settings");
+
+        Assert.NotNull(saved);
+        Assert.Equal("GraphiteBlue", saved.Appearance.Theme);
+
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Domain.Entities.AppSetting storedTheme = await db.AppSettings.SingleAsync(x => x.Key == "App.Theme");
+
+        Assert.Equal("GraphiteBlue", storedTheme.Value);
+    }
+
+    [Fact]
     public async Task PutSettings_Should_Return_ProblemDetails_For_Invalid_Settings()
     {
         using HttpClient client = factory.CreateClient();

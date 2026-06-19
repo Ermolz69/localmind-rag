@@ -25,3 +25,103 @@
   --accent: 42 90% 58%;
   --accent-foreground: 220 16% 10%;
 }
+
+.dark.theme-graphite-blue {
+  --background: 216 28% 7%;
+  --foreground: 210 67% 96%;
+  --card: 215 21% 11%;
+  --card-foreground: 210 67% 96%;
+  --surface-2: 216 24% 16%;
+  --muted: 213 26% 18%;
+  --muted-foreground: 215 15% 61%;
+  --border: 212 12% 21%;
+  --border-strong: 211 10% 42%;
+  --primary: 212 100% 67%;
+  --primary-hover: 209 100% 74%;
+  --primary-active: 212 93% 58%;
+  --primary-foreground: 209 81% 8%;
+  --accent: 233 100% 74%;
+  --accent-foreground: 230 84% 12%;
+  --success: 128 49% 49%;
+  --warning: 41 72% 48%;
+  --destructive: 4 100% 72%;
+  --info: 208 100% 74%;
+  --focus-ring: 211 100% 77%;
+  --disabled: 213 26% 18%;
+  --disabled-foreground: 214 13% 49%;
+}
+
+.dark.theme-midnight-violet {
+  --background: 240 23% 9%;
+  --foreground: 228 100% 98%;
+  --card: 240 21% 12%;
+  --card-foreground: 228 100% 98%;
+  --surface-2: 236 22% 15%;
+  --muted: 234 21% 19%;
+  --muted-foreground: 229 21% 64%;
+  --border: 231 21% 24%;
+  --border-strong: 227 16% 46%;
+  --primary: 255 92% 76%;
+  --primary-hover: 255 100% 80%;
+  --primary-active: 255 81% 69%;
+  --primary-foreground: 257 48% 11%;
+  --accent: 42 93% 64%;
+  --accent-foreground: 39 100% 7%;
+  --success: 158 64% 52%;
+  --warning: 43 96% 56%;
+  --destructive: 0 90% 71%;
+  --info: 213 93% 68%;
+  --focus-ring: 256 100% 85%;
+  --disabled: 234 21% 19%;
+  --disabled-foreground: 228 15% 52%;
+}
+
+.dark.theme-slate-teal {
+  --background: 204 24% 8%;
+  --foreground: 200 37% 97%;
+  --card: 202 26% 12%;
+  --card-foreground: 200 37% 97%;
+  --surface-2: 202 24% 15%;
+  --muted: 203 23% 18%;
+  --muted-foreground: 205 12% 60%;
+  --border: 203 20% 21%;
+  --border-strong: 199 18% 41%;
+  --primary: 168 61% 53%;
+  --primary-hover: 165 64% 60%;
+  --primary-active: 168 63% 44%;
+  --primary-foreground: 168 71% 8%;
+  --accent: 40 100% 64%;
+  --accent-foreground: 37 100% 8%;
+  --success: 150 66% 52%;
+  --warning: 36 100% 64%;
+  --destructive: 354 100% 71%;
+  --info: 212 100% 67%;
+  --focus-ring: 168 71% 70%;
+  --disabled: 203 23% 18%;
+  --disabled-foreground: 205 10% 53%;
+}
+
+.dark.theme-carbon-gray {
+  --background: 0 0% 9%;
+  --foreground: 0 0% 96%;
+  --card: 0 0% 15%;
+  --card-foreground: 0 0% 96%;
+  --surface-2: 0 0% 18%;
+  --muted: 0 0% 19%;
+  --muted-foreground: 0 0% 66%;
+  --border: 0 0% 22%;
+  --border-strong: 0 0% 46%;
+  --primary: 218 100% 74%;
+  --primary-hover: 218 100% 79%;
+  --primary-active: 217 88% 66%;
+  --primary-foreground: 209 73% 9%;
+  --accent: 137 49% 50%;
+  --accent-foreground: 145 54% 7%;
+  --success: 137 49% 50%;
+  --warning: 47 88% 53%;
+  --destructive: 357 95% 64%;
+  --info: 218 100% 64%;
+  --focus-ring: 218 100% 83%;
+  --disabled: 0 0% 19%;
+  --disabled-foreground: 0 0% 52%;
+}

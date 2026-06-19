@@ -33,6 +33,10 @@ type MessageComposerProps = {
   onCancel?: () => void;
 };
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function MessageComposer({
   value,
   disabled,
@@ -138,6 +142,35 @@ export function MessageComposer({
 
   const insertCommand = useCallback(
     (command: string) => {
+      const commandName = command.trim();
+      const emptyCommandLinePattern = new RegExp(
+        `(^|\\n)${escapeRegExp(commandName)}[ \\t]*(?=\\n|$)`,
+      );
+      const existingEmptyCommand = value.match(emptyCommandLinePattern);
+
+      if (existingEmptyCommand) {
+        const matchIndex = existingEmptyCommand.index ?? 0;
+        const matchText = existingEmptyCommand[0];
+        const startsWithNewline = matchText.startsWith("\n");
+        const before = value.slice(0, matchIndex);
+        const after = value.slice(matchIndex + matchText.length);
+        const nextValue =
+          !startsWithNewline && after.startsWith("\n")
+            ? before + after.slice(1)
+            : before + after;
+
+        onChange(nextValue);
+
+        setTimeout(() => {
+          textareaRef.current?.focus();
+          const nextCursor = Math.min(matchIndex, nextValue.length);
+          textareaRef.current?.setSelectionRange(nextCursor, nextCursor);
+          setCursorPos(nextCursor);
+        }, 0);
+        setIsActionMenuOpen(false);
+        return;
+      }
+
       const current = value.trimEnd();
       const prefix = current.length > 0 ? `${current}\n` : "";
       const nextValue = `${prefix}${command}`;

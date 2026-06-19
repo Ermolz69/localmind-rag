@@ -8,6 +8,8 @@ import { toAppSettings, toAppSettingsDto } from "@entities/settings";
 import { getFieldErrors, settingsApi, watchedFoldersApi } from "@shared/api";
 import { useApiMutation, useApiQuery } from "@shared/lib/hooks";
 import { useTheme } from "@shared/theme/theme-provider";
+import { fromApiThemeName, toApiThemeName } from "@shared/theme/themes";
+import type { ThemeName } from "@shared/theme/tokens";
 
 export function useSettingsForm() {
   const { theme, setTheme } = useTheme();
@@ -94,6 +96,33 @@ export function useSettingsForm() {
   function resetSettings() {
     setDraftState(settings);
     setHasLocalChanges(false);
+
+    if (settings) {
+      setTheme(fromApiThemeName(settings.appearance.theme));
+    }
+  }
+
+  function setSelectedTheme(nextTheme: ThemeName) {
+    setTheme(nextTheme);
+
+    setDraftState((currentDraft) => {
+      if (!currentDraft) {
+        return currentDraft;
+      }
+
+      const nextDraft: AppSettings = {
+        ...currentDraft,
+        appearance: {
+          ...currentDraft.appearance,
+          theme: toApiThemeName(nextTheme),
+        },
+      };
+
+      setHasLocalChanges(
+        JSON.stringify(settings) !== JSON.stringify(nextDraft),
+      );
+      return nextDraft;
+    });
   }
 
   return {
@@ -107,7 +136,7 @@ export function useSettingsForm() {
     resetSettings,
     saveSettings,
     setDraft,
-    setTheme,
+    setTheme: setSelectedTheme,
     setThemeModalOpen,
     theme,
     themeModalOpen,
