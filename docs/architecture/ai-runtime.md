@@ -16,10 +16,11 @@ llama.cpp is the first implemented provider. The API shape is ready for Ollama o
 
 ## LocalApi Endpoints
 
-- `GET /api/runtime/providers` returns provider visibility and selected-provider metadata.
-- `GET /api/runtime/status` returns LocalApi readiness, selected provider status, setup requirements, and runtime paths.
-- `POST /api/runtime/ai/setup` installs or verifies local runtime assets where supported.
-- `POST /api/runtime/ai/start` starts the selected provider where supported.
-- `GET /api/runtime/models` lists available models through the selected provider.
+- `GET /api/v1/runtime/providers` returns provider visibility and selected-provider metadata.
+- `GET /api/v1/runtime/status` returns LocalApi readiness, selected provider status, setup requirements, and runtime paths.
+- `POST /api/v1/runtime/ai/setup` installs or verifies local runtime assets where supported.
+- `GET /api/v1/runtime/ai/setup/{setupId}/events` streams setup progress as SSE events (`progress`, `completed`, `failed`).
+- `POST /api/v1/runtime/ai/start` starts the selected provider where supported.
+- `GET /api/v1/runtime/models` lists available models through the selected provider.
 
 RAG chat, semantic search, and ingestion embedding generation depend on provider abstractions instead of concrete runtime clients.
