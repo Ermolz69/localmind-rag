@@ -1732,6 +1732,46 @@ export interface components {
     DiagnosticsSettingsDto: {
       /** @description Whether diagnostics panel and page are enabled. */
       enabled: boolean;
+      /**
+       * @description Whether advanced local development settings are visible.
+       * @default false
+       */
+      developerModeEnabled: boolean;
+      /**
+       * @description Minimum application log level.
+       * @default Information
+       */
+      minimumLogLevel: string;
+      /**
+       * @description Whether diagnostics are written to category-specific files.
+       * @default false
+       */
+      useSeparateLogFiles: boolean;
+      /**
+       * @description Whether warnings and errors are written to the error log file.
+       * @default true
+       */
+      enableErrorLogs: boolean;
+      /**
+       * @description Whether database command logs are written.
+       * @default false
+       */
+      enableSqlLogs: boolean;
+      /**
+       * @description Whether HTTP request logs are written.
+       * @default true
+       */
+      enableHttpLogs: boolean;
+      /**
+       * @description Whether diagnostic events are written to a structured log file.
+       * @default false
+       */
+      enableDiagnosticEventLogs: boolean;
+      /**
+       * @description Whether debug trace logs are written.
+       * @default false
+       */
+      enableDebugTrace: boolean;
     };
     /** @description Storage size diagnostics in bytes. */
     DiagnosticsStorageDto: {

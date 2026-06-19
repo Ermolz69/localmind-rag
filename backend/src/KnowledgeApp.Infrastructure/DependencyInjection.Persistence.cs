@@ -11,12 +11,14 @@ public static partial class DependencyInjection
     private static IServiceCollection AddPersistence(this IServiceCollection services)
     {
         services.AddScoped<KnowledgeApp.Infrastructure.Persistence.Interceptors.SyncOutboxSaveChangesInterceptor>();
+        services.AddScoped<KnowledgeApp.Infrastructure.Persistence.Interceptors.SqlCommandLoggingInterceptor>();
 
         services.AddDbContext<AppDbContext>((provider, options) =>
         {
             IAppPathProvider? paths = provider.GetRequiredService<IAppPathProvider>();
             options.UseSqlite($"Data Source={paths.DatabasePath}");
             options.AddInterceptors(provider.GetRequiredService<KnowledgeApp.Infrastructure.Persistence.Interceptors.SyncOutboxSaveChangesInterceptor>());
+            options.AddInterceptors(provider.GetRequiredService<KnowledgeApp.Infrastructure.Persistence.Interceptors.SqlCommandLoggingInterceptor>());
         });
 
         services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());

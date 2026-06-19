@@ -25,6 +25,89 @@ public sealed class SettingsServiceTests
     }
 
     [Fact]
+    public async Task GetAsync_Should_Return_Default_Developer_Diagnostics_Settings()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        SettingsService service = CreateService(
+            database.Context,
+            new RecordingSettingsCache(),
+            new RecordingSettingsChangeSignal());
+
+        AppSettingsDto settings = await service.GetAsync();
+
+        Assert.NotNull(settings.Diagnostics);
+        Assert.False(settings.Diagnostics.DeveloperModeEnabled);
+        Assert.Equal("Information", settings.Diagnostics.MinimumLogLevel);
+        Assert.False(settings.Diagnostics.UseSeparateLogFiles);
+        Assert.True(settings.Diagnostics.EnableErrorLogs);
+        Assert.False(settings.Diagnostics.EnableSqlLogs);
+        Assert.True(settings.Diagnostics.EnableHttpLogs);
+        Assert.False(settings.Diagnostics.EnableDiagnosticEventLogs);
+        Assert.False(settings.Diagnostics.EnableDebugTrace);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_Persist_Developer_Diagnostics_Settings()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        RecordingLogSettingsApplier logSettings = new();
+        SettingsService service = CreateService(
+            database.Context,
+            new RecordingSettingsCache(),
+            new RecordingSettingsChangeSignal(),
+            logSettings);
+
+        AppSettingsDto request = CreateSettings() with
+        {
+            Diagnostics = new DiagnosticsSettingsDto(
+                Enabled: true,
+                DeveloperModeEnabled: true,
+                MinimumLogLevel: "Debug",
+                UseSeparateLogFiles: true,
+                EnableErrorLogs: false,
+                EnableSqlLogs: true,
+                EnableHttpLogs: false,
+                EnableDiagnosticEventLogs: true,
+                EnableDebugTrace: true),
+        };
+
+        await service.UpdateAsync(request);
+
+        Dictionary<string, string> stored = await database.Context.AppSettings
+            .ToDictionaryAsync(setting => setting.Key, setting => setting.Value);
+
+        Assert.Equal("True", stored[SettingsKeys.DiagnosticsDeveloperModeEnabled]);
+        Assert.Equal("Debug", stored[SettingsKeys.DiagnosticsMinimumLogLevel]);
+        Assert.Equal("True", stored[SettingsKeys.DiagnosticsUseSeparateLogFiles]);
+        Assert.Equal("False", stored[SettingsKeys.DiagnosticsEnableErrorLogs]);
+        Assert.Equal("True", stored[SettingsKeys.DiagnosticsEnableSqlLogs]);
+        Assert.Equal("False", stored[SettingsKeys.DiagnosticsEnableHttpLogs]);
+        Assert.Equal("True", stored[SettingsKeys.DiagnosticsEnableDiagnosticEventLogs]);
+        Assert.Equal("True", stored[SettingsKeys.DiagnosticsEnableDebugTrace]);
+        Assert.NotNull(logSettings.LastSettings);
+        Assert.True(logSettings.LastSettings.UseSeparateLogFiles);
+        Assert.False(logSettings.LastSettings.EnableErrorLogs);
+        Assert.True(logSettings.LastSettings.EnableSqlLogs);
+    }
+
+    [Fact]
+    public void SettingsValidator_Should_Reject_Unsupported_Log_Level()
+    {
+        SettingsValidator validator = new(new AcceptingWatchedFolderPathValidator());
+        AppSettingsDto request = CreateSettings() with
+        {
+            Diagnostics = new DiagnosticsSettingsDto(
+                Enabled: true,
+                MinimumLogLevel: "Chatty"),
+        };
+
+        KnowledgeApp.Application.Common.Results.ApplicationError error =
+            validator.Validate(request).AssertFailure(KnowledgeApp.Application.Common.Results.ErrorType.Validation);
+
+        Assert.Contains(error.Details ?? [], detail => detail.Field == "diagnostics.minimumLogLevel");
+    }
+
+    [Fact]
     public async Task UpdateAsync_Should_Not_Invalidate_Or_Publish_When_Save_Fails()
     {
         await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
@@ -55,7 +138,26 @@ public sealed class SettingsServiceTests
             new SettingsValidator(new AcceptingWatchedFolderPathValidator()),
             new FakeOperationLogRepository(),
             cache,
-            signal);
+            signal,
+            new RecordingLogSettingsApplier());
+    }
+
+    private static SettingsService CreateService(
+        IAppDbContext dbContext,
+        RecordingSettingsCache cache,
+        RecordingSettingsChangeSignal signal,
+        ILogSettingsApplier logSettingsApplier)
+    {
+        AppSettingsDto defaults = CreateSettings();
+        return new SettingsService(
+            dbContext,
+            new FixedDateTimeProvider(),
+            new FakeSettingsDefaultsProvider(defaults),
+            new SettingsValidator(new AcceptingWatchedFolderPathValidator()),
+            new FakeOperationLogRepository(),
+            cache,
+            signal,
+            logSettingsApplier);
     }
 
     private static AppSettingsDto CreateSettings()
@@ -65,7 +167,16 @@ public sealed class SettingsServiceTests
             new AiSettingsDto("LlamaCpp", "chat", "embedding", "runtime", "models"),
             new RuntimePathsSettingsDto("data", "database", "files", "index", "logs"),
             new SyncSettingsDto(false, false),
-            new DiagnosticsSettingsDto(true),
+            new DiagnosticsSettingsDto(
+                Enabled: true,
+                DeveloperModeEnabled: false,
+                MinimumLogLevel: "Information",
+                UseSeparateLogFiles: false,
+                EnableErrorLogs: true,
+                EnableSqlLogs: false,
+                EnableHttpLogs: true,
+                EnableDiagnosticEventLogs: false,
+                EnableDebugTrace: false),
             new WatchedFoldersSettingsDto(false, 1000, "MarkDeleted", []));
     }
 
@@ -99,6 +210,16 @@ public sealed class SettingsServiceTests
             CancellationToken cancellationToken)
         {
             return Task.FromResult<IReadOnlyList<OperationLog>>([]);
+        }
+    }
+
+    private sealed class RecordingLogSettingsApplier : ILogSettingsApplier
+    {
+        public DiagnosticsSettingsDto? LastSettings { get; private set; }
+
+        public void Apply(DiagnosticsSettingsDto settings)
+        {
+            LastSettings = settings;
         }
     }
 

@@ -22,6 +22,8 @@ export function SettingsSections({
   const [isCleaning, setIsCleaning] = useState(false);
   const [isRescanningAll, setIsRescanningAll] = useState(false);
   const [rescanningPath, setRescanningPath] = useState<string | null>(null);
+  const developerModeEnabled = draft.diagnostics?.developerModeEnabled ?? false;
+  const useSeparateLogFiles = draft.diagnostics?.useSeparateLogFiles ?? false;
 
   async function handleRescan(path?: string) {
     if (path) {
@@ -111,64 +113,66 @@ export function SettingsSections({
 
   return (
     <div className="space-y-6">
-      <Section
-        id="runtime-paths"
-        title="Runtime paths"
-        description="Local folders used by the desktop backend."
-      >
-        <div className="grid gap-3 md:grid-cols-2">
-          <TextField
-            label="Data path"
-            value={draft.runtimePaths.dataPath}
-            onChange={(dataPath) =>
-              onChange({
-                ...draft,
-                runtimePaths: { ...draft.runtimePaths, dataPath },
-              })
-            }
-          />
-          <TextField
-            label="Database path"
-            value={draft.runtimePaths.databasePath}
-            onChange={(databasePath) =>
-              onChange({
-                ...draft,
-                runtimePaths: { ...draft.runtimePaths, databasePath },
-              })
-            }
-          />
-          <TextField
-            label="Files path"
-            value={draft.runtimePaths.filesPath}
-            onChange={(filesPath) =>
-              onChange({
-                ...draft,
-                runtimePaths: { ...draft.runtimePaths, filesPath },
-              })
-            }
-          />
-          <TextField
-            label="Index path"
-            value={draft.runtimePaths.indexPath}
-            onChange={(indexPath) =>
-              onChange({
-                ...draft,
-                runtimePaths: { ...draft.runtimePaths, indexPath },
-              })
-            }
-          />
-          <TextField
-            label="Logs path"
-            value={draft.runtimePaths.logsPath}
-            onChange={(logsPath) =>
-              onChange({
-                ...draft,
-                runtimePaths: { ...draft.runtimePaths, logsPath },
-              })
-            }
-          />
-        </div>
-      </Section>
+      {developerModeEnabled ? (
+        <Section
+          id="runtime-paths"
+          title="Runtime paths"
+          description="Local folders used by the desktop backend. Changing these paths may require restarting LocalMind."
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            <TextField
+              label="Data path"
+              value={draft.runtimePaths.dataPath}
+              onChange={(dataPath) =>
+                onChange({
+                  ...draft,
+                  runtimePaths: { ...draft.runtimePaths, dataPath },
+                })
+              }
+            />
+            <TextField
+              label="Database path"
+              value={draft.runtimePaths.databasePath}
+              onChange={(databasePath) =>
+                onChange({
+                  ...draft,
+                  runtimePaths: { ...draft.runtimePaths, databasePath },
+                })
+              }
+            />
+            <TextField
+              label="Files path"
+              value={draft.runtimePaths.filesPath}
+              onChange={(filesPath) =>
+                onChange({
+                  ...draft,
+                  runtimePaths: { ...draft.runtimePaths, filesPath },
+                })
+              }
+            />
+            <TextField
+              label="Index path"
+              value={draft.runtimePaths.indexPath}
+              onChange={(indexPath) =>
+                onChange({
+                  ...draft,
+                  runtimePaths: { ...draft.runtimePaths, indexPath },
+                })
+              }
+            />
+            <TextField
+              label="Logs path"
+              value={draft.runtimePaths.logsPath}
+              onChange={(logsPath) =>
+                onChange({
+                  ...draft,
+                  runtimePaths: { ...draft.runtimePaths, logsPath },
+                })
+              }
+            />
+          </div>
+        </Section>
+      ) : null}
 
       <Section
         id="ai"
@@ -197,20 +201,24 @@ export function SettingsSections({
               onChange({ ...draft, ai: { ...draft.ai, embeddingModel } })
             }
           />
-          <TextField
-            label="Runtime path"
-            value={draft.ai.runtimePath}
-            onChange={(runtimePath) =>
-              onChange({ ...draft, ai: { ...draft.ai, runtimePath } })
-            }
-          />
-          <TextField
-            label="Models path"
-            value={draft.ai.modelsPath}
-            onChange={(modelsPath) =>
-              onChange({ ...draft, ai: { ...draft.ai, modelsPath } })
-            }
-          />
+          {developerModeEnabled ? (
+            <>
+              <TextField
+                label="Runtime path"
+                value={draft.ai.runtimePath}
+                onChange={(runtimePath) =>
+                  onChange({ ...draft, ai: { ...draft.ai, runtimePath } })
+                }
+              />
+              <TextField
+                label="Models path"
+                value={draft.ai.modelsPath}
+                onChange={(modelsPath) =>
+                  onChange({ ...draft, ai: { ...draft.ai, modelsPath } })
+                }
+              />
+            </>
+          ) : null}
         </div>
       </Section>
 
@@ -284,7 +292,172 @@ export function SettingsSections({
               <option value="true">Enabled</option>
             </Select>
           </label>
+          <label className="space-y-1 text-sm font-medium text-foreground">
+            <span>Developer mode</span>
+            <Select
+              value={String(developerModeEnabled)}
+              onChange={(event) =>
+                onChange({
+                  ...draft,
+                  diagnostics: {
+                    ...draft.diagnostics,
+                    developerModeEnabled: event.target.value === "true",
+                  },
+                })
+              }
+            >
+              <option value="false">Disabled</option>
+              <option value="true">Enabled</option>
+            </Select>
+          </label>
         </div>
+        {developerModeEnabled ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <label className="space-y-1 text-sm font-medium text-foreground">
+              <span>Minimum log level</span>
+              <Select
+                value={draft.diagnostics.minimumLogLevel}
+                onChange={(event) =>
+                  onChange({
+                    ...draft,
+                    diagnostics: {
+                      ...draft.diagnostics,
+                      minimumLogLevel: event.target.value,
+                    },
+                  })
+                }
+              >
+                <option value="Trace">Trace</option>
+                <option value="Debug">Debug</option>
+                <option value="Information">Information</option>
+                <option value="Warning">Warning</option>
+                <option value="Error">Error</option>
+                <option value="Critical">Critical</option>
+                <option value="None">None</option>
+              </Select>
+            </label>
+            <label className="space-y-1 text-sm font-medium text-foreground">
+              <span>HTTP logs</span>
+              <Select
+                value={String(draft.diagnostics.enableHttpLogs)}
+                onChange={(event) =>
+                  onChange({
+                    ...draft,
+                    diagnostics: {
+                      ...draft.diagnostics,
+                      enableHttpLogs: event.target.value === "true",
+                    },
+                  })
+                }
+              >
+                <option value="false">Warnings only</option>
+                <option value="true">Enabled</option>
+              </Select>
+            </label>
+            <label className="space-y-1 text-sm font-medium text-foreground">
+              <span>Separate log files</span>
+              <Select
+                value={String(useSeparateLogFiles)}
+                onChange={(event) =>
+                  onChange({
+                    ...draft,
+                    diagnostics: {
+                      ...draft.diagnostics,
+                      useSeparateLogFiles: event.target.value === "true",
+                    },
+                  })
+                }
+              >
+                <option value="false">General file only</option>
+                <option value="true">Enabled</option>
+              </Select>
+            </label>
+            {useSeparateLogFiles ? (
+              <>
+                <label className="space-y-1 text-sm font-medium text-foreground">
+                  <span>Error log file</span>
+                  <Select
+                    value={String(draft.diagnostics.enableErrorLogs)}
+                    onChange={(event) =>
+                      onChange({
+                        ...draft,
+                        diagnostics: {
+                          ...draft.diagnostics,
+                          enableErrorLogs: event.target.value === "true",
+                        },
+                      })
+                    }
+                  >
+                    <option value="false">Disabled</option>
+                    <option value="true">Enabled</option>
+                  </Select>
+                </label>
+                <label className="space-y-1 text-sm font-medium text-foreground">
+                  <span>Diagnostic events file</span>
+                  <Select
+                    value={String(draft.diagnostics.enableDiagnosticEventLogs)}
+                    onChange={(event) =>
+                      onChange({
+                        ...draft,
+                        diagnostics: {
+                          ...draft.diagnostics,
+                          enableDiagnosticEventLogs:
+                            event.target.value === "true",
+                        },
+                      })
+                    }
+                  >
+                    <option value="false">Disabled</option>
+                    <option value="true">Enabled</option>
+                  </Select>
+                </label>
+              </>
+            ) : null}
+            <label className="space-y-1 text-sm font-medium text-foreground">
+              <span>SQL logs</span>
+              <Select
+                value={String(draft.diagnostics.enableSqlLogs)}
+                onChange={(event) =>
+                  onChange({
+                    ...draft,
+                    diagnostics: {
+                      ...draft.diagnostics,
+                      enableSqlLogs: event.target.value === "true",
+                    },
+                  })
+                }
+              >
+                <option value="false">Warnings only</option>
+                <option value="true">Enabled</option>
+              </Select>
+            </label>
+            <label className="space-y-1 text-sm font-medium text-foreground">
+              <span>Debug trace file</span>
+              <Select
+                value={String(draft.diagnostics.enableDebugTrace)}
+                onChange={(event) =>
+                  onChange({
+                    ...draft,
+                    diagnostics: {
+                      ...draft.diagnostics,
+                      enableDebugTrace: event.target.value === "true",
+                    },
+                  })
+                }
+              >
+                <option value="false">Disabled</option>
+                <option value="true">Enabled</option>
+              </Select>
+            </label>
+            <p className="text-sm text-muted-foreground md:col-span-2">
+              By default LocalMind writes to localmind.log only. Separate files
+              add errors.log, http.log, sql.log, advanced-events.ndjson, or
+              debug-trace.ndjson when their matching switches are enabled. Log
+              level changes apply without restart; changing the logs path may
+              require restarting LocalMind before new files move there.
+            </p>
+          </div>
+        ) : null}
       </Section>
 
       <Section
