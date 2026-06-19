@@ -95,4 +95,38 @@ internal static class ApiScenarioHelpers
 
         return answer;
     }
+
+    public static async Task<UploadDocumentResponse> UploadBytesDocumentAsync(
+        HttpClient client,
+        byte[] content,
+        string fileName,
+        string contentType)
+    {
+        using MultipartFormDataContent form = new();
+        using ByteArrayContent file = new(content);
+
+        file.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+
+        form.Add(file, "file", fileName);
+
+        using HttpResponseMessage uploadResponse =
+            await client.PostAsync("/api/v1/documents/upload", form);
+
+        Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
+
+        UploadDocumentResponse? upload =
+            await uploadResponse.Content.ReadApiDataAsync<UploadDocumentResponse>();
+
+        Assert.NotNull(upload);
+
+        return upload;
+    }
+
+    public static void AssertNoLocalPathInResponseBody(string responseBody)
+    {
+        Assert.DoesNotContain("runtime/app/files", responseBody, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(@"C:\", responseBody, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("/tmp/localmind", responseBody, StringComparison.OrdinalIgnoreCase);
+    }
 }
