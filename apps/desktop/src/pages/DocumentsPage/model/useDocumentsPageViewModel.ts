@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import {
+  filterDocumentsByLifecycleStatus,
   useDocumentList,
   useIngestionJobs,
   useProcessIngestionJob,
@@ -20,18 +21,23 @@ export function useDocumentsPageViewModel() {
     },
   });
 
-  const shouldPollJobs = useMemo(() => {
-    return (
-      upload.lastUpload !== null ||
-      documents.documents.some(
-        (d) => d.status === "Queued" || d.status === "Processing",
-      )
-    );
+  const shouldLoadJobs = useMemo(() => {
+    return upload.lastUpload !== null || documents.documents.length > 0;
   }, [upload.lastUpload, documents.documents]);
 
-  const jobs = useIngestionJobs(shouldPollJobs, () => {
+  const jobs = useIngestionJobs(shouldLoadJobs, () => {
     void documents.reloadDocuments();
   });
+
+  const filteredDocuments = useMemo(
+    () =>
+      filterDocumentsByLifecycleStatus(
+        documents.documents,
+        jobs.jobsByDocumentId,
+        documents.selectedStatus,
+      ),
+    [documents.documents, documents.selectedStatus, jobs.jobsByDocumentId],
+  );
 
   async function reload() {
     await Promise.all([documents.reloadDocuments(), documents.loadBuckets()]);
@@ -42,6 +48,7 @@ export function useDocumentsPageViewModel() {
     ...upload,
     ...process,
     ...jobs,
+    filteredDocuments,
     error:
       documents.documentListError ??
       process.processError ??

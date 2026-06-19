@@ -23,24 +23,28 @@ export function useIngestionJobs(
     let timeoutId: number;
     let isCancelled = false;
 
+    async function loadJobs() {
+      const response = await ingestionApi.getJobs({ limit: 100, offset: 0 });
+      if (isCancelled) return false;
+
+      const fetchedJobs = response.items;
+      setJobs(fetchedJobs);
+
+      const active = fetchedJobs.some((job) =>
+        ACTIVE_INGESTION_JOB_STATUSES.has(job.status),
+      );
+      setHasActiveJobs(active);
+      return active;
+    }
+
     async function poll() {
       try {
-        const response = await ingestionApi.getJobs({ limit: 100, offset: 0 });
-        if (isCancelled) return;
-
-        const fetchedJobs = response.items;
-        setJobs(fetchedJobs);
-
-        const active = fetchedJobs.some((job) =>
-          ACTIVE_INGESTION_JOB_STATUSES.has(job.status),
-        );
-        setHasActiveJobs(active);
+        const active = await loadJobs();
+        if (!isCancelled && active) {
+          timeoutId = window.setTimeout(poll, 3000);
+        }
       } catch {
         // Ignore polling errors to prevent breaking the loop aggressively
-      }
-
-      if (!isCancelled) {
-        timeoutId = window.setTimeout(poll, 3000);
       }
     }
 
@@ -78,10 +82,20 @@ export function useIngestionJobs(
     return map;
   }, [jobs]);
 
+  async function refreshJobs() {
+    const response = await ingestionApi.getJobs({ limit: 100, offset: 0 });
+    const fetchedJobs = response.items;
+    setJobs(fetchedJobs);
+    setHasActiveJobs(
+      fetchedJobs.some((job) => ACTIVE_INGESTION_JOB_STATUSES.has(job.status)),
+    );
+  }
+
   const retryMutation = useApiMutation(
     async (jobId: string) => {
       await ingestionApi.retryJob(jobId);
       await ingestionApi.processJob(jobId);
+      await refreshJobs();
     },
     { fallbackError: "Failed to retry ingestion job." },
   );
@@ -89,6 +103,7 @@ export function useIngestionJobs(
   const cancelMutation = useApiMutation(
     async (jobId: string) => {
       await ingestionApi.cancelJob(jobId);
+      await refreshJobs();
     },
     { fallbackError: "Failed to cancel ingestion job." },
   );

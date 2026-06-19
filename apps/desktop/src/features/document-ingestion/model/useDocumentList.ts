@@ -3,6 +3,7 @@ import type { BucketDto } from "@entities/bucket";
 import type { DocumentSummary } from "@entities/document";
 import { bucketsApi, documentsApi, getErrorMessage } from "@shared/api";
 import { useCursorPage, useDebouncedValue } from "@shared/lib/hooks";
+import { getDocumentStatusQuery } from "./ingestionLifecycle";
 
 export function useDocumentList() {
   const [selectedBucketId, setSelectedBucketId] = useState("");
@@ -45,7 +46,7 @@ export function useDocumentList() {
     (cursor?: string | null) =>
       documentsApi.getDocuments({
         bucketId: selectedBucketId || undefined,
-        status: selectedStatus || undefined,
+        status: getDocumentStatusQuery(selectedStatus),
         cursor: cursor ?? undefined,
         limit: 30,
       }),
