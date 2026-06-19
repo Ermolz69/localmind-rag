@@ -1,19 +1,42 @@
-import { Monitor, Moon, Palette, RefreshCw, Save, Sun } from "lucide-react";
+import {
+  Circle,
+  Layers,
+  Monitor,
+  Moon,
+  Palette,
+  RefreshCw,
+  Save,
+  Sparkles,
+  Sun,
+} from "lucide-react";
 import { SettingsSections, useSettingsForm } from "@features/settings-form";
-import { themes, type ThemeName } from "@shared/theme/tokens";
+import {
+  darkAlternativeThemes,
+  themes,
+  type ThemeName,
+} from "@shared/theme/tokens";
 import { Button, ErrorBanner, Modal, PageHeader, Skeleton } from "@shared/ui";
 
 const themeLabels: Record<ThemeName, string> = {
   light: "Light",
   dark: "Dark",
   system: "System",
+  "graphite-blue": "Graphite Blue",
+  "midnight-violet": "Midnight Violet",
+  "slate-teal-amber": "Slate Teal Amber",
+  "carbon-gray-blue": "Carbon Gray Blue",
 };
 
 const themeIcons = {
   light: Sun,
   dark: Moon,
   system: Monitor,
+  "graphite-blue": Layers,
+  "midnight-violet": Sparkles,
+  "slate-teal-amber": Palette,
+  "carbon-gray-blue": Circle,
 };
+const darkAlternativeThemeSet = new Set<ThemeName>(darkAlternativeThemes);
 
 const settingsNavigation = [
   { href: "#appearance", label: "Appearance" },
@@ -145,10 +168,11 @@ export function SettingsPage() {
           {themes.map((item) => {
             const Icon = themeIcons[item];
             const selected = page.theme === item;
+            const isDarkAlternative = darkAlternativeThemeSet.has(item);
 
             return (
               <button
-                className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm ${
                   selected
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border hover:bg-muted"
@@ -160,8 +184,15 @@ export function SettingsPage() {
                   page.setThemeModalOpen(false);
                 }}
               >
-                <Icon className="h-4 w-4" />
-                {themeLabels[item]}
+                <span className="flex min-w-0 items-center gap-2">
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{themeLabels[item]}</span>
+                </span>
+                {isDarkAlternative ? (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    Dark alternative
+                  </span>
+                ) : null}
               </button>
             );
           })}

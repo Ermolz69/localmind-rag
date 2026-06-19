@@ -1,4 +1,5 @@
 import { FolderPlus, RefreshCw, Pencil, Trash2, Folder } from "lucide-react";
+import { formatBucketSyncStatus } from "@entities/bucket";
 import { useBuckets } from "@features/bucket-management";
 import { cn } from "@shared/lib/cn";
 import {
@@ -90,6 +91,7 @@ export function BucketsPage() {
               documentCount?: number;
             };
             const documentCount = bucketWithCount.documentCount;
+            const syncStatusLabel = formatBucketSyncStatus(bucket.syncStatus);
             return (
               <div
                 key={bucket.id}
@@ -121,17 +123,13 @@ export function BucketsPage() {
                         {bucket.name}
                       </h2>
                       <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
-                        {bucket.syncStatus && (
-                          <span className="inline-flex items-center gap-1.5">
-                            <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500/80"></span>
-                            {bucket.syncStatus}
-                          </span>
-                        )}
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500/80"></span>
+                          {syncStatusLabel}
+                        </span>
                         {documentCount !== undefined ? (
                           <>
-                            {bucket.syncStatus && (
-                              <span className="h-3 w-[1px] bg-border/80"></span>
-                            )}
+                            <span aria-hidden="true">&middot;</span>
                             <span className="truncate">
                               {documentCount} documents
                             </span>

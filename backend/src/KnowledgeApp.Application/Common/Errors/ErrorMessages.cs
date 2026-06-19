@@ -91,7 +91,8 @@ public static class ErrorMessages
     public static class Settings
     {
         public const string AiProviderInvalid = "AI provider must be Ollama or LlamaCpp.";
-        public const string ThemeInvalid = "Theme must be Light, Dark, or System.";
+        public const string ThemeInvalid =
+            "Theme must be Light, Dark, System, GraphiteBlue, MidnightViolet, SlateTealAmber, or CarbonGrayBlue.";
         public const string ValidationFailed = "Settings validation failed.";
     }
 }

@@ -1,6 +1,7 @@
 import { Loader2, RefreshCw, Upload } from "lucide-react";
 import {
   DocumentList,
+  INGESTION_LIFECYCLE_STATUSES,
   QueuedIngestionNotice,
 } from "@features/document-ingestion";
 import { DocumentDropzone } from "@features/document-upload";
@@ -14,15 +15,6 @@ import {
   Tooltip,
 } from "@shared/ui";
 import { useDocumentsPageViewModel } from "./model/useDocumentsPageViewModel";
-
-const documentStatuses = [
-  "Draft",
-  "Uploaded",
-  "Queued",
-  "Processing",
-  "Indexed",
-  "Failed",
-];
 
 export function DocumentsPage() {
   const page = useDocumentsPageViewModel();
@@ -88,7 +80,7 @@ export function DocumentsPage() {
               <option value="" title="All statuses">
                 All statuses
               </option>
-              {documentStatuses.map((status) => (
+              {INGESTION_LIFECYCLE_STATUSES.map((status) => (
                 <option key={status} value={status} title={status}>
                   {status}
                 </option>
@@ -132,7 +124,7 @@ export function DocumentsPage() {
           <ErrorBanner message={page.error} />
 
           <DocumentList
-            documents={page.documents}
+            documents={page.filteredDocuments}
             isLoading={page.isLoading}
             processingDocumentId={page.processingDocumentId}
             hasMore={page.hasMore}

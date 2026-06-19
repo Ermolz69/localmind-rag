@@ -2,11 +2,9 @@ import { FileText, Loader2, Play, RotateCcw, X } from "lucide-react";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import type { DocumentSummary } from "@entities/document";
 import type { IngestionJobDto } from "@shared/contracts";
-import {
-  ACTIVE_INGESTION_JOB_STATUSES,
-  documentStatusStyles,
-} from "@shared/constants/ui";
+import { documentStatusStyles } from "@shared/constants/ui";
 import { Button, EmptyState, InlineError, StatusBadge } from "@shared/ui";
+import { getDocumentLifecycleStatus } from "../model/ingestionLifecycle";
 
 type DocumentListProps = {
   documents: DocumentSummary[];
@@ -40,6 +38,10 @@ function DocumentListItem({
   const [actionsRef] = useAutoAnimate<HTMLDivElement>();
 
   const canProcess = ["Queued", "Failed"].includes(document.status) && !job;
+  const lifecycleStatus = getDocumentLifecycleStatus(document, job);
+  const statusStyle =
+    documentStatusStyles[lifecycleStatus] ?? documentStatusStyles.Pending;
+  const hasJobDetails = job !== undefined;
 
   return (
     <div className="group grid grid-cols-[minmax(0,1fr)_8rem_10rem_8rem] items-start gap-3 border-b border-border px-4 py-3 transition-colors duration-200 last:border-b-0 hover:bg-muted/50">
@@ -48,18 +50,21 @@ function DocumentListItem({
           {document.name}
         </p>
 
-        {job && ACTIVE_INGESTION_JOB_STATUSES.has(job.status) ? (
-          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="truncate">{job.currentStep}</span>
-            <span className="font-mono">{job.progressPercent}%</span>
+        {hasJobDetails ? (
+          <div className="mt-1 space-y-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="truncate">{job.currentStep}</span>
+              <span className="font-mono">{job.progressPercent}%</span>
+            </div>
+            {job.errorMessage ? (
+              <InlineError message={job.errorMessage} />
+            ) : null}
           </div>
         ) : (
           <InlineError
             message={
               document.status === "Failed"
-                ? (document.lastError ??
-                  job?.errorMessage ??
-                  "Ingestion failed.")
+                ? (document.lastError ?? "Ingestion failed.")
                 : document.id
             }
           />
@@ -72,10 +77,8 @@ function DocumentListItem({
         ) : null}
       </div>
       <StatusBadge
-        label={job?.status ?? document.status}
-        className={`mx-auto mt-[7px] w-28 justify-center ${
-          documentStatusStyles[document.status] ?? documentStatusStyles.Queued
-        }`}
+        label={lifecycleStatus}
+        className={`mx-auto mt-[7px] w-28 justify-center ${statusStyle}`}
       />
       <span className="mt-2 text-sm text-muted-foreground">
         {new Date(document.createdAt).toLocaleDateString()}

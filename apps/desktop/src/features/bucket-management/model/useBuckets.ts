@@ -1,6 +1,8 @@
 import { useState } from "react";
+import type { BucketDto } from "@entities/bucket";
 import { bucketsApi } from "@shared/api";
 import { useApiMutation, useApiQuery } from "@shared/lib/hooks";
+import { buildBucketRenameRequest } from "./bucketRenameRequest";
 
 export function useBuckets() {
   const [selectedBucketId, setSelectedBucketId] = useState("");
@@ -23,8 +25,11 @@ export function useBuckets() {
   );
 
   const renameMutation = useApiMutation(
-    (id: string, newName: string) =>
-      bucketsApi.updateBucket(id, { name: newName, description: null }),
+    (bucket: BucketDto, newName: string) =>
+      bucketsApi.updateBucket(
+        bucket.id,
+        buildBucketRenameRequest(bucket, newName),
+      ),
     { fallbackError: "Failed to rename bucket." },
   );
 
@@ -53,9 +58,14 @@ export function useBuckets() {
     const nextName = newName.trim();
     if (!nextName) return;
 
-    await renameMutation.mutate(id, nextName);
-    await loadBuckets();
-    setSelectedBucketId(id);
+    const bucket = buckets?.find((item) => item.id === id);
+    if (!bucket) return;
+
+    const renameResult = await renameMutation.mutate(bucket, nextName);
+    if (renameResult === undefined) {
+      await loadBuckets();
+      setSelectedBucketId(id);
+    }
   }
 
   async function deleteBucket(id: string) {
