@@ -2,13 +2,33 @@
 
 ## Standard Checks
 
-Run the full local validation pipeline before pushing:
+Three tiers are available:
+
+| Command | What it runs | When to use |
+|---|---|---|
+| `task check:quick` | Backend format, frontend format/lint/typecheck, API contract drift, color guard | Fast feedback during development |
+| `task check` | Everything in `check:quick` plus frontend tests | Default pre-push validation |
+| `task check:full` | Everything in `check` plus all backend tests and Rust checks | Before a release or large merge |
+
+`pnpm check` and `pnpm check:quick` at the workspace root delegate to the same tasks.
+
+Run the standard developer check before pushing:
 
 ```bash
 task -t .config/task/Taskfile.yml check
 ```
 
-The check task runs static validation: backend format, frontend format, lint, typecheck, API contract drift, Rust format/clippy, and color guard. It does not run builds or tests — use `test:coverage` for backend tests and `test:frontend` for frontend tests.
+Run only fast static checks (no tests):
+
+```bash
+task -t .config/task/Taskfile.yml check:quick
+```
+
+Run the full heavy validation suite locally:
+
+```bash
+task -t .config/task/Taskfile.yml check:full
+```
 
 ## Frontend Tests
 

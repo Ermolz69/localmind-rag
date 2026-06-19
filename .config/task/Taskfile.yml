@@ -200,8 +200,8 @@ tasks:
       COVERAGE_REPORT_DIR: '{{.COVERAGE_REPORT_DIR | default "artifacts/coverage-report"}}'
 
   # === VALIDATION & QUALITY TASKS ===
-  check:
-    desc: Executes all lints, formatting, and validation tasks
+  check:quick:
+    desc: Fast static checks — format, lint, typecheck, API contracts, color guard (no tests, no Rust)
     deps:
       [
         check:backend:format,
@@ -209,9 +209,23 @@ tasks:
         check:frontend:lint,
         check:frontend:typecheck,
         check:api-contracts,
-        check:rust,
         check:colors,
+      ]
 
+  check:
+    desc: Developer validation — static checks plus frontend tests; run before pushing
+    deps: [check:quick, test:frontend]
+
+  check:full:
+    desc: Full local validation — all backend tests, frontend tests, and Rust checks
+    deps:
+      [
+        check,
+        test:unit,
+        test:integration,
+        test:rag,
+        test:architecture,
+        check:rust,
       ]
 
   check:format:
