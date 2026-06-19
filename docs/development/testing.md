@@ -72,6 +72,42 @@ Shared test helpers live under `TestSupport` folders.
 
 Prefer these helpers for common setup such as uploaded documents, conversations, embedded chunks, local test database state, and controlled RAG evaluation fixtures.
 
+### Unit test helpers (`KnowledgeApp.UnitTests/TestSupport`)
+
+| Helper | Location | Purpose |
+|---|---|---|
+| `ApplicationTestDatabase` | root | In-memory SQLite database with `AppDbContext`; used in place of private `TestDatabase` copies |
+| `FakeOperationLogRepository` | `Fakes/` | No-op `IOperationLogRepository`; replaces per-test private implementations |
+| `FakeDomainEventPublisher` | `Fakes/` | Captures `IDomainEvent` in `PublishedEvents`; replaces per-test private implementations |
+| `DocumentIngestionTestData` | `Builders/` | Creates a `Document` + `DocumentFile` + `IngestionJob` + temp file in one step; exposes `DocumentId`, `JobId`, `FilePath`; disposes the temp file automatically |
+| `EmbeddedChunkTestData` | `TestSupport/` | Creates a `Document` + `DocumentChunk` + `DocumentEmbedding` triplet; used in RAG and search tests |
+
+**Usage example:**
+
+```csharp
+await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+await using DocumentIngestionTestData testData = await DocumentIngestionTestData.CreateAsync(
+    database, "notes.txt", FileType.PlainText, "content to index");
+// testData.DocumentId, testData.JobId, testData.FilePath are available
+```
+
+### Integration test helpers (`KnowledgeApp.IntegrationTests/TestSupport`)
+
+| Helper | Purpose |
+|---|---|
+| `ApiScenarioHelpers.CreateConversationAsync` | POST `/api/v1/chats` and return the created `ConversationDto` |
+| `ApiScenarioHelpers.UploadTextDocumentAsync` | Upload a plain-text document via multipart form and return `UploadDocumentResponse` |
+| `ApiScenarioHelpers.UploadAndIngestAsync` | Upload and immediately process the pending ingestion job; returns `UploadDocumentResponse` |
+| `ApiScenarioHelpers.SendChatMessageAsync` | POST a message to a conversation and return the `RagAnswerDto` |
+
+### RAG evaluation test helpers (`KnowledgeApp.RagEvaluationTests/TestSupport`)
+
+| Helper | Purpose |
+|---|---|
+| `ApiScenarioHelpers.CreateConversationAsync` | Create a conversation for an evaluation run |
+| `ApiScenarioHelpers.SendChatMessageAsync` | Send a question and return the `RagAnswerDto` |
+| `ApiResponseTestExtensions` | `ReadApiDataAsync<T>` extension for asserting on wrapped API responses |
+
 ## RAG Evaluation Tests
 
 RAG evaluation tests are designed to validate retrieval quality and answer grounding rather than endpoint availability.

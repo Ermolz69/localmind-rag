@@ -2,8 +2,14 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 
+using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Documents;
+using KnowledgeApp.Contracts.Rag;
+using KnowledgeApp.Infrastructure.Persistence;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace KnowledgeApp.IntegrationTests.TestSupport;
 
@@ -51,5 +57,42 @@ internal static class ApiScenarioHelpers
         Assert.NotNull(upload);
 
         return upload;
+    }
+
+    public static async Task<UploadDocumentResponse> UploadAndIngestAsync(
+        HttpClient client,
+        IServiceProvider services,
+        string content,
+        string? fileName = null)
+    {
+        UploadDocumentResponse upload = await UploadTextDocumentAsync(client, content, fileName);
+
+        await using AsyncServiceScope scope = services.CreateAsyncScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        KnowledgeApp.Domain.Entities.IngestionJob job =
+            await db.IngestionJobs.FirstAsync(j => j.DocumentId == upload.DocumentId);
+        IIngestionJobProcessor processor =
+            scope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
+        await processor.ProcessAsync(job.Id);
+
+        return upload;
+    }
+
+    public static async Task<RagAnswerDto> SendChatMessageAsync(
+        HttpClient client,
+        Guid conversationId,
+        string question)
+    {
+        using HttpResponseMessage response = await client.PostAsJsonAsync(
+            $"/api/v1/chats/{conversationId}/messages",
+            new ChatMessageRequest(question));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        RagAnswerDto? answer = await response.Content.ReadApiDataAsync<RagAnswerDto>();
+
+        Assert.NotNull(answer);
+
+        return answer;
     }
 }

@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 
-using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Documents;
@@ -26,20 +25,11 @@ public sealed class ChatRagApiTests
         string documentText = $"Localmind RAG test source {Guid.NewGuid():N}";
 
         UploadDocumentResponse upload =
-            await ApiScenarioHelpers.UploadTextDocumentAsync(
+            await ApiScenarioHelpers.UploadAndIngestAsync(
                 client,
+                factory.Services,
                 documentText,
                 $"rag-chat-{Guid.NewGuid():N}.txt");
-
-        await using (AsyncServiceScope ingestionScope = factory.Services.CreateAsyncScope())
-        {
-            var setupDb = ingestionScope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var job = await setupDb.IngestionJobs.FirstAsync(j => j.DocumentId == upload.DocumentId);
-            IIngestionJobProcessor processor =
-                ingestionScope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
-
-            await processor.ProcessAsync(job.Id);
-        }
 
         ConversationDto conversation =
             await ApiScenarioHelpers.CreateConversationAsync(client, "RAG chat");
@@ -174,29 +164,19 @@ public sealed class ChatRagApiTests
         string documentText = $"Deleted document source {Guid.NewGuid():N}";
 
         UploadDocumentResponse upload =
-            await ApiScenarioHelpers.UploadTextDocumentAsync(
+            await ApiScenarioHelpers.UploadAndIngestAsync(
                 client,
+                factory.Services,
                 documentText,
                 $"deleted-rag-{Guid.NewGuid():N}.txt");
 
         await using (AsyncServiceScope setupScope = factory.Services.CreateAsyncScope())
         {
-            var db = setupScope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var job = await db.IngestionJobs.FirstAsync(j => j.DocumentId == upload.DocumentId);
-            IIngestionJobProcessor processor =
-                setupScope.ServiceProvider.GetRequiredService<IIngestionJobProcessor>();
-
-            await processor.ProcessAsync(job.Id);
-
-            AppDbContext setupDb =
-                setupScope.ServiceProvider.GetRequiredService<AppDbContext>();
-
+            AppDbContext db = setupScope.ServiceProvider.GetRequiredService<AppDbContext>();
             Domain.Entities.Document document =
-                await setupDb.Documents.SingleAsync(item => item.Id == upload.DocumentId);
-
+                await db.Documents.SingleAsync(item => item.Id == upload.DocumentId);
             document.DeletedAt = DateTimeOffset.UtcNow;
-
-            await setupDb.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
 
         ConversationDto conversation =
