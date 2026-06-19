@@ -30,12 +30,51 @@ public sealed class ObservabilityApiTests
         string logs = await context.ReadLogsAsync("localmind*.log");
 
         Assert.Contains("HTTP GET /api/v1/health responded 200", logs, StringComparison.Ordinal);
+        Assert.Empty(context.ReadLogsNow("http*.log"));
+        Assert.Empty(context.ReadLogsNow("errors*.log"));
+        Assert.Empty(context.ReadLogsNow("sql*.log"));
+    }
+
+    [Fact]
+    public async Task Health_Request_Should_Create_Http_Log_Entry()
+    {
+        using ObservabilityTestContext context = CreateContext(
+            useSeparateLogFiles: true,
+            enableHttpLogs: true);
+        using HttpClient client = context.Factory.CreateClient();
+
+        using HttpResponseMessage response = await client.GetAsync("/api/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        string logs = await context.ReadLogsAsync("http*.log");
+
+        Assert.Contains("HTTP GET /api/v1/health responded 200", logs, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Database_Diagnostics_Should_Create_Sql_Log_Entry_When_Enabled()
+    {
+        using ObservabilityTestContext context = CreateContext(
+            useSeparateLogFiles: true,
+            enableSqlLogs: true);
+        using HttpClient client = context.Factory.CreateClient();
+
+        using HttpResponseMessage response = await client.GetAsync("/api/v1/diagnostics/database");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        string logs = await context.ReadLogsAsync("sql*.log");
+
+        Assert.Contains("SQL SELECT", logs, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Failed_Request_Should_Create_Error_Log_With_Trace_Context()
     {
-        using ObservabilityTestContext context = CreateContext();
+        using ObservabilityTestContext context = CreateContext(
+            useSeparateLogFiles: true,
+            enableErrorLogs: true);
         using HttpClient client = context.Factory.CreateClient();
 
         AppSettingsDto request = new(
@@ -59,7 +98,9 @@ public sealed class ObservabilityApiTests
     [Fact]
     public async Task Chat_Rag_Flow_Should_Create_Advanced_Diagnostic_Events()
     {
-        using ObservabilityTestContext context = CreateContext();
+        using ObservabilityTestContext context = CreateContext(
+            useSeparateLogFiles: true,
+            enableDiagnosticEventLogs: true);
         using HttpClient client = context.Factory.CreateClient();
 
         ConversationDto conversation = await ApiScenarioHelpers.CreateConversationAsync(client);
@@ -80,12 +121,15 @@ public sealed class ObservabilityApiTests
     [Fact]
     public async Task Failed_Semantic_Search_Should_Create_Diagnostic_Failure_Event()
     {
-        using ObservabilityTestContext context = CreateContext(builder =>
-            builder.ConfigureTestServices(services =>
-            {
-                services.RemoveAll<IEmbeddingGenerator>();
-                services.AddSingleton<IEmbeddingGenerator, FailingEmbeddingGenerator>();
-            }));
+        using ObservabilityTestContext context = CreateContext(
+            builder =>
+                builder.ConfigureTestServices(services =>
+                {
+                    services.RemoveAll<IEmbeddingGenerator>();
+                    services.AddSingleton<IEmbeddingGenerator, FailingEmbeddingGenerator>();
+                }),
+            useSeparateLogFiles: true,
+            enableDiagnosticEventLogs: true);
 
         using HttpClient client = context.Factory.CreateClient();
 
@@ -102,7 +146,14 @@ public sealed class ObservabilityApiTests
         Assert.Contains("Synthetic embedding failure.", events, StringComparison.Ordinal);
     }
 
-    private static ObservabilityTestContext CreateContext(Action<IWebHostBuilder>? configure = null)
+    private static ObservabilityTestContext CreateContext(
+        Action<IWebHostBuilder>? configure = null,
+        bool useSeparateLogFiles = false,
+        bool enableErrorLogs = true,
+        bool enableHttpLogs = true,
+        bool enableSqlLogs = false,
+        bool enableDiagnosticEventLogs = false,
+        bool enableDebugTrace = false)
     {
         string root = Path.Combine(Path.GetTempPath(), "localmind-observability", Guid.NewGuid().ToString("N"));
         string logsPath = Path.Combine(root, "logs");
@@ -121,7 +172,12 @@ public sealed class ObservabilityApiTests
                     ["Observability:Mode"] = "Advanced",
                     ["Observability:LogsPath"] = logsPath,
                     ["Observability:MinimumLevel"] = "Information",
-                    ["Observability:EnableDebugTrace"] = "false",
+                    ["Observability:UseSeparateLogFiles"] = useSeparateLogFiles.ToString(),
+                    ["Observability:EnableErrorLogs"] = enableErrorLogs.ToString(),
+                    ["Observability:EnableHttpLogs"] = enableHttpLogs.ToString(),
+                    ["Observability:EnableSqlLogs"] = enableSqlLogs.ToString(),
+                    ["Observability:EnableDiagnosticEventLogs"] = enableDiagnosticEventLogs.ToString(),
+                    ["Observability:EnableDebugTrace"] = enableDebugTrace.ToString(),
                 };
 
                 configuration.AddInMemoryCollection(settings);
@@ -179,6 +235,15 @@ public sealed class ObservabilityApiTests
                 await Task.Delay(100);
             }
 
+            return string.Join(
+                Environment.NewLine,
+                Directory.Exists(logsPath)
+                    ? Directory.EnumerateFiles(logsPath, pattern).Select(ReadLogFile)
+                    : []);
+        }
+
+        public string ReadLogsNow(string pattern)
+        {
             return string.Join(
                 Environment.NewLine,
                 Directory.Exists(logsPath)

@@ -20,6 +20,14 @@ public static class SettingsKeys
     public const string SyncAutoSync = "Sync.AutoSync";
 
     public const string DiagnosticsEnabled = "Diagnostics.Enabled";
+    public const string DiagnosticsDeveloperModeEnabled = "Diagnostics.DeveloperModeEnabled";
+    public const string DiagnosticsMinimumLogLevel = "Diagnostics.MinimumLogLevel";
+    public const string DiagnosticsUseSeparateLogFiles = "Diagnostics.UseSeparateLogFiles";
+    public const string DiagnosticsEnableErrorLogs = "Diagnostics.EnableErrorLogs";
+    public const string DiagnosticsEnableSqlLogs = "Diagnostics.EnableSqlLogs";
+    public const string DiagnosticsEnableHttpLogs = "Diagnostics.EnableHttpLogs";
+    public const string DiagnosticsEnableDiagnosticEventLogs = "Diagnostics.EnableDiagnosticEventLogs";
+    public const string DiagnosticsEnableDebugTrace = "Diagnostics.EnableDebugTrace";
 
     public const string WatchedFoldersEnabled = "WatchedFolders.Enabled";
     public const string WatchedFoldersDebounceMilliseconds = "WatchedFolders.DebounceMilliseconds";
@@ -47,6 +55,14 @@ public static class SettingsKeys
         SyncEnabled,
         SyncAutoSync,
         DiagnosticsEnabled,
+        DiagnosticsDeveloperModeEnabled,
+        DiagnosticsMinimumLogLevel,
+        DiagnosticsUseSeparateLogFiles,
+        DiagnosticsEnableErrorLogs,
+        DiagnosticsEnableSqlLogs,
+        DiagnosticsEnableHttpLogs,
+        DiagnosticsEnableDiagnosticEventLogs,
+        DiagnosticsEnableDebugTrace,
         WatchedFoldersEnabled,
         WatchedFoldersDebounceMilliseconds,
         WatchedFoldersDeletePolicy,

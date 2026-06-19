@@ -610,6 +610,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/chats/{id}/generate-title": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Generates a conversation title.
+     * @description Generates a title from the first user message when the title has not been generated or manually edited.
+     */
+    post: operations["GenerateChatTitle"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/chats/{id}/messages/stream": {
     parameters: {
       query?: never;
@@ -1712,6 +1732,46 @@ export interface components {
     DiagnosticsSettingsDto: {
       /** @description Whether diagnostics panel and page are enabled. */
       enabled: boolean;
+      /**
+       * @description Whether advanced local development settings are visible.
+       * @default false
+       */
+      developerModeEnabled: boolean;
+      /**
+       * @description Minimum application log level.
+       * @default Information
+       */
+      minimumLogLevel: string;
+      /**
+       * @description Whether diagnostics are written to category-specific files.
+       * @default false
+       */
+      useSeparateLogFiles: boolean;
+      /**
+       * @description Whether warnings and errors are written to the error log file.
+       * @default true
+       */
+      enableErrorLogs: boolean;
+      /**
+       * @description Whether database command logs are written.
+       * @default false
+       */
+      enableSqlLogs: boolean;
+      /**
+       * @description Whether HTTP request logs are written.
+       * @default true
+       */
+      enableHttpLogs: boolean;
+      /**
+       * @description Whether diagnostic events are written to a structured log file.
+       * @default false
+       */
+      enableDiagnosticEventLogs: boolean;
+      /**
+       * @description Whether debug trace logs are written.
+       * @default false
+       */
+      enableDebugTrace: boolean;
     };
     /** @description Storage size diagnostics in bytes. */
     DiagnosticsStorageDto: {
@@ -3652,6 +3712,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  GenerateChatTitle: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfConversationDto"];
         };
       };
       /** @description Not Found */

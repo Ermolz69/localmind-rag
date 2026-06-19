@@ -1,5 +1,6 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Domain.Entities;
+using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -48,6 +49,23 @@ public sealed class ConversationRepository(AppDbContext dbContext) : IConversati
         return await dbContext.ChatMessages
             .Where(message => message.ConversationId == conversationId && message.DeletedAt == null)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<ChatMessage?> GetFirstUserMessageAsync(Guid conversationId, CancellationToken cancellationToken = default)
+    {
+        int userRole = (int)ChatRole.User;
+
+        return await dbContext.ChatMessages
+            .FromSqlInterpolated($"""
+                SELECT *
+                FROM chat_messages
+                WHERE ConversationId = {conversationId}
+                  AND DeletedAt IS NULL
+                  AND Role = {userRole}
+                ORDER BY CreatedAt ASC, Id ASC
+                LIMIT 1
+                """)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task AddMessageAsync(ChatMessage message, CancellationToken cancellationToken = default)

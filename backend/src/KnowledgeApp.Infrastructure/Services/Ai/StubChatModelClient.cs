@@ -11,6 +11,11 @@ public sealed class StubChatModelClient : IChatModelClient
 
     public Task<string> GenerateAsync(ChatModelRequest request, CancellationToken cancellationToken = default)
     {
+        if (!string.IsNullOrWhiteSpace(request.UserPrompt))
+        {
+            return Task.FromResult(CreateTitleFromQuestion(request.Question));
+        }
+
         if (request.Sources.Count == 0 || string.IsNullOrWhiteSpace(request.ContextText))
         {
             return Task.FromResult("No relevant local sources were found for this question.");
@@ -68,5 +73,16 @@ public sealed class StubChatModelClient : IChatModelClient
     private static string NormalizeSnippet(string snippet)
     {
         return Regex.Replace(snippet, "\\s+", " ").Trim();
+    }
+
+    private static string CreateTitleFromQuestion(string question)
+    {
+        string normalized = Regex.Replace(question, "\\s+", " ").Trim().TrimEnd('.');
+        if (normalized.Length <= 60)
+        {
+            return normalized;
+        }
+
+        return normalized[..60].Trim();
     }
 }

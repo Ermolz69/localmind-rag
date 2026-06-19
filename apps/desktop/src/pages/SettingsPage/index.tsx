@@ -38,9 +38,8 @@ const themeIcons = {
 };
 const darkAlternativeThemeSet = new Set<ThemeName>(darkAlternativeThemes);
 
-const settingsNavigation = [
+const baseSettingsNavigation = [
   { href: "#appearance", label: "Appearance" },
-  { href: "#runtime-paths", label: "Runtime paths" },
   { href: "#ai", label: "AI" },
   { href: "#sync", label: "Sync" },
   { href: "#diagnostics", label: "Diagnostics" },
@@ -49,6 +48,14 @@ const settingsNavigation = [
 
 export function SettingsPage() {
   const page = useSettingsForm();
+  const settingsNavigation =
+    (page.draft?.diagnostics.developerModeEnabled ?? false)
+      ? [
+          baseSettingsNavigation[0],
+          { href: "#runtime-paths", label: "Runtime paths" },
+          ...baseSettingsNavigation.slice(1),
+        ]
+      : baseSettingsNavigation;
 
   return (
     <div className="space-y-6">
