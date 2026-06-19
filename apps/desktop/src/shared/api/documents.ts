@@ -17,6 +17,11 @@ export const documentsApi = {
       })}`,
     ),
 
+  getDocumentPreview: (documentId: OperationPath<"GetDocumentPreview">["id"]) =>
+    request<OperationData<"GetDocumentPreview">>(
+      `/documents/${documentId}/preview`,
+    ),
+
   uploadDocument: (
     file: File,
     bucketId?: OperationQuery<"UploadDocument">["bucketId"],

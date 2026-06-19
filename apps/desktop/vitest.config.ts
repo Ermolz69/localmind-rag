@@ -17,5 +17,16 @@ export default defineConfig({
     environmentMatchGlobs: [["src/**/*.test.tsx", "jsdom"]],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     setupFiles: ["src/test/setup.ts"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: [
+        "src/**/*.test.ts",
+        "src/**/*.test.tsx",
+        "src/**/*.stories.tsx",
+        "src/test/**",
+      ],
+    },
   },
 });

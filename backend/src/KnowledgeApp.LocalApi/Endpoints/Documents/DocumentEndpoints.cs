@@ -1,4 +1,5 @@
 using KnowledgeApp.Application.Documents;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Documents;
 
@@ -63,6 +64,52 @@ public static class DocumentEndpoints
             .WithDescription("Returns document metadata by local document identifier.")
             .Produces<ApiResponse<DocumentDto>>()
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
+
+        app.MapGet("/documents/{id:guid}/preview", async (
+            Guid id,
+            GetDocumentPreviewHandler handler,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+        {
+            return (await handler.HandleAsync(new GetDocumentPreviewQuery(id), cancellationToken))
+                .ToApiResult(context);
+        })
+            .WithName("GetDocumentPreview")
+            .WithTags("Documents")
+            .WithSummary("Gets document preview metadata.")
+            .WithDescription("Returns read-only preview metadata, inline preview content, or a LocalApi file preview URL for a known document.")
+            .Produces<ApiResponse<DocumentPreviewResponse>>()
+            .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
+
+        app.MapGet("/documents/{id:guid}/preview/file", async (
+            Guid id,
+            GetDocumentPreviewHandler handler,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+        {
+            Result<DocumentPreviewFile> result =
+                await handler.HandleFileAsync(new GetDocumentPreviewFileQuery(id), cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return ApiResults.Failure(result.Error!, context);
+            }
+
+            DocumentPreviewFile file = result.Value!;
+            Stream stream = File.OpenRead(file.FilePath);
+
+            return Results.File(
+                stream,
+                file.ContentType,
+                enableRangeProcessing: true);
+        })
+            .WithName("GetDocumentPreviewFile")
+            .WithTags("Documents")
+            .WithSummary("Streams a document preview file.")
+            .WithDescription("Streams a read-only preview file for formats that require file delivery. The file is resolved from managed storage by document id.")
+            .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
+            .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound)
+            .Produces<ApiResponse<object?>>(StatusCodes.Status415UnsupportedMediaType);
 
         app.MapDelete("/documents/{id:guid}", async (
             Guid id,

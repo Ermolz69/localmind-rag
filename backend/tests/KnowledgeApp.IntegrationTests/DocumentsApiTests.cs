@@ -201,6 +201,178 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     }
 
     [Fact]
+    public async Task GetDocumentPreview_Should_Return_Inline_Text_For_Text_Document()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                $"preview-{Guid.NewGuid():N}.txt",
+                content: "hello preview");
+
+        DocumentPreviewResponse? preview =
+            await client.GetApiDataAsync<DocumentPreviewResponse>(
+                $"/api/v1/documents/{upload.DocumentId}/preview");
+
+        Assert.NotNull(preview);
+        Assert.Equal(upload.DocumentId, preview.DocumentId);
+        Assert.Equal(DocumentPreviewKind.Text, preview.PreviewKind);
+        Assert.Equal("hello preview", preview.TextContent);
+        Assert.Null(preview.PreviewUrl);
+        Assert.Null(preview.ErrorCode);
+    }
+
+    [Fact]
+    public async Task GetDocumentPreview_Should_Return_Pdf_Preview_Url_And_Stream_File()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        byte[] pdfBytes = CreatePdfBytes("Preview PDF text.");
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                $"preview-{Guid.NewGuid():N}.pdf",
+                pdfBytes,
+                "application/pdf");
+
+        DocumentPreviewResponse? preview =
+            await client.GetApiDataAsync<DocumentPreviewResponse>(
+                $"/api/v1/documents/{upload.DocumentId}/preview");
+
+        Assert.NotNull(preview);
+        Assert.Equal(DocumentPreviewKind.Pdf, preview.PreviewKind);
+        Assert.Equal($"/api/v1/documents/{upload.DocumentId}/preview/file", preview.PreviewUrl);
+        Assert.Null(preview.TextContent);
+
+        using HttpResponseMessage response = await client.GetAsync(preview.PreviewUrl);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(pdfBytes, await response.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task GetDocumentPreview_Should_Return_Unsupported_For_Docx()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                $"preview-{Guid.NewGuid():N}.docx",
+                CreateDocxBytes("Unsupported preview text."),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+        DocumentPreviewResponse? preview =
+            await client.GetApiDataAsync<DocumentPreviewResponse>(
+                $"/api/v1/documents/{upload.DocumentId}/preview");
+
+        Assert.NotNull(preview);
+        Assert.Equal(DocumentPreviewKind.Unsupported, preview.PreviewKind);
+        Assert.Equal("DOCUMENT_PREVIEW_UNSUPPORTED", preview.ErrorCode);
+        Assert.Null(preview.PreviewUrl);
+        Assert.Null(preview.TextContent);
+    }
+
+    [Fact]
+    public async Task GetDocumentPreview_Should_Return_NotFound_When_Document_Is_Missing()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        using HttpResponseMessage response =
+            await client.GetAsync($"/api/v1/documents/{Guid.NewGuid()}/preview");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        ApiResponse<object?> envelope =
+            await response.Content.ReadApiErrorAsync();
+
+        Assert.Equal("DOCUMENT_NOT_FOUND", envelope.Error!.Code);
+    }
+
+    [Fact]
+    public async Task GetDocumentPreviewFile_Should_Not_Stream_Unmanaged_File_Path()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                $"preview-{Guid.NewGuid():N}.pdf",
+                CreatePdfBytes("Managed file only."),
+                "application/pdf");
+
+        string externalPath = Path.Combine(
+            Path.GetTempPath(),
+            $"localmind-preview-{Guid.NewGuid():N}.pdf");
+
+        await File.WriteAllTextAsync(externalPath, "external content");
+
+        try
+        {
+            await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            DocumentFile file =
+                await db.DocumentFiles.SingleAsync(x => x.DocumentId == upload.DocumentId);
+
+            file.LocalPath = externalPath;
+            await db.SaveChangesAsync();
+
+            DocumentPreviewResponse? preview =
+                await client.GetApiDataAsync<DocumentPreviewResponse>(
+                    $"/api/v1/documents/{upload.DocumentId}/preview");
+
+            Assert.NotNull(preview);
+            Assert.Equal(DocumentPreviewKind.Error, preview.PreviewKind);
+            Assert.Equal("DOCUMENT_PREVIEW_FILE_MISSING", preview.ErrorCode);
+            Assert.Null(preview.PreviewUrl);
+            Assert.Null(preview.TextContent);
+
+            using HttpResponseMessage response =
+                await client.GetAsync($"/api/v1/documents/{upload.DocumentId}/preview/file");
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+        finally
+        {
+            if (File.Exists(externalPath))
+            {
+                File.Delete(externalPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task GetDocumentPreview_Should_Return_Controlled_Error_For_Corrupt_Text_File()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                $"preview-{Guid.NewGuid():N}.txt",
+                content: "valid before corruption");
+
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        DocumentFile file =
+            await db.DocumentFiles.SingleAsync(x => x.DocumentId == upload.DocumentId);
+
+        await File.WriteAllBytesAsync(file.LocalPath, [0xC3, 0x28]);
+
+        DocumentPreviewResponse? preview =
+            await client.GetApiDataAsync<DocumentPreviewResponse>(
+                $"/api/v1/documents/{upload.DocumentId}/preview");
+
+        Assert.NotNull(preview);
+        Assert.Equal(DocumentPreviewKind.Error, preview.PreviewKind);
+        Assert.Equal("DOCUMENT_PREVIEW_UNAVAILABLE", preview.ErrorCode);
+        Assert.Null(preview.PreviewUrl);
+        Assert.Null(preview.TextContent);
+    }
+
+    [Fact]
     public async Task UploadDocument_Should_Return_ValidationProblemDetails_For_Unsupported_File()
     {
         using HttpClient? client = factory.CreateClient();

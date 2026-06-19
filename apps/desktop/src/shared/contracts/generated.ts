@@ -276,6 +276,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/documents/{id}/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Gets document preview metadata.
+     * @description Returns read-only preview metadata, inline preview content, or a LocalApi file preview URL for a known document.
+     */
+    get: operations["GetDocumentPreview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/documents/{id}/preview/file": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Streams a document preview file.
+     * @description Streams a read-only preview file for formats that require file delivery. The file is resolved from managed storage by document id.
+     */
+    get: operations["GetDocumentPreviewFile"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/documents/{id}/reindex": {
     parameters: {
       query?: never;
@@ -1191,6 +1231,15 @@ export interface components {
       metadata: components["schemas"]["ApiMetadata"];
     };
     /** @description Standard LocalApi response envelope. */
+    ApiResponseOfDocumentPreviewResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["DocumentPreviewResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
     ApiResponseOfIngestionJobActionResponse: {
       /** @description True when the operation completed successfully. */
       success: boolean;
@@ -1820,6 +1869,40 @@ export interface components {
       tags?: null | {
         [key: string]: string;
       };
+    };
+    /**
+     * @description Supported document preview categories.
+     * @enum {unknown}
+     */
+    DocumentPreviewKind:
+      | "Pdf"
+      | "Text"
+      | "Markdown"
+      | "Html"
+      | "Image"
+      | "Unsupported"
+      | "Error";
+    /** @description Read-only preview metadata and inline content for a local document. */
+    DocumentPreviewResponse: {
+      /**
+       * Format: uuid
+       * @description Local document identifier.
+       */
+      documentId: string;
+      /** @description Stored document file name. */
+      fileName: string;
+      /** @description Preview content type. */
+      contentType: string;
+      /** @description Preview category that tells the frontend how to render the response. */
+      previewKind: components["schemas"]["DocumentPreviewKind"];
+      /** @description LocalApi URL for read-only file preview streams, when applicable. */
+      previewUrl?: null | string;
+      /** @description Inline text content for safe text-based previews. */
+      textContent?: null | string;
+      /** @description Stable error or unsupported-state code, when preview is unavailable. */
+      errorCode?: null | string;
+      /** @description Frontend-safe preview state message. */
+      message?: null | string;
     };
     /** @description Describes the LocalApi readiness state. */
     HealthDto: {
@@ -2843,6 +2926,75 @@ export interface operations {
       };
       /** @description Not Found */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  GetDocumentPreview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfDocumentPreviewResponse"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  GetDocumentPreviewFile: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+      /** @description Unsupported Media Type */
+      415: {
         headers: {
           [name: string]: unknown;
         };

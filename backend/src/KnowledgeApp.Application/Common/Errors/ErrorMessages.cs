@@ -31,6 +31,9 @@ public static class ErrorMessages
         public const string FileNameRequired = "Document file name is required.";
         public const string FileTooLarge = "Document file size must be less than or equal to 100 MB.";
         public const string InvalidStatus = "Document status filter is invalid.";
+        public const string PreviewFileMissing = "Document preview file is unavailable.";
+        public const string PreviewUnavailable = "Document preview is unavailable.";
+        public const string PreviewUnsupported = "Document preview is not supported for this file type.";
         public const string UnsupportedFileType = "Document file extension is not supported.";
     }
 

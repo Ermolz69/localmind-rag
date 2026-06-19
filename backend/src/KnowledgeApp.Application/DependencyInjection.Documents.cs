@@ -9,6 +9,7 @@ public static partial class DependencyInjection
     {
         services.AddScoped<DeleteDocumentHandler>();
         services.AddScoped<GetDocumentByIdHandler>();
+        services.AddScoped<GetDocumentPreviewHandler>();
         services.AddScoped<GetDocumentsHandler>();
         services.AddScoped<ReindexDocumentHandler>();
         services.AddScoped<UploadDocumentCommandValidator>();
