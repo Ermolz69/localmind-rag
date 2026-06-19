@@ -27,7 +27,17 @@ describe("toAppSettings", () => {
 
     const mappedSettings = toAppSettings(settings);
 
-    expect(mappedSettings.diagnostics).toEqual({ enabled: true });
+    expect(mappedSettings.diagnostics).toEqual({
+      enabled: true,
+      developerModeEnabled: false,
+      minimumLogLevel: "Information",
+      useSeparateLogFiles: false,
+      enableErrorLogs: true,
+      enableSqlLogs: false,
+      enableHttpLogs: true,
+      enableDiagnosticEventLogs: false,
+      enableDebugTrace: false,
+    });
     expect(mappedSettings.watchedFolders).toEqual({
       enabled: false,
       debounceMilliseconds: 1000,

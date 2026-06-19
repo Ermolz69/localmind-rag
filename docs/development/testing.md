@@ -8,7 +8,30 @@ Run the full local validation pipeline before pushing:
 task -t .config/task/Taskfile.yml check
 ```
 
-The check task executes all formatting, linting, typechecking, frontend/backend build, and architecture validation checks.
+The check task runs static validation: backend format, frontend format, lint, typecheck, API contract drift, Rust format/clippy, and color guard. It does not run builds or tests — use `test:coverage` for backend tests and `test:frontend` for frontend tests.
+
+## Frontend Tests
+
+Run frontend unit and component tests:
+
+```bash
+task -t .config/task/Taskfile.yml test:frontend
+```
+
+Or directly:
+
+```bash
+pnpm --filter desktop test
+```
+
+Test files follow these conventions:
+
+- `src/**/*.test.ts` — pure unit tests, run in a Node environment.
+- `src/**/*.test.tsx` — React component and hook tests, run in jsdom with `@testing-library/react`.
+
+Component tests have access to `@testing-library/jest-dom` matchers (`toBeInTheDocument`, `toBeVisible`, etc.) via the global setup file at `src/test/setup.ts`.
+
+In CI, the `frontend-tests` job runs after `frontend-check` and uploads no separate artifact — a failure message from Vitest is sufficient for fast feedback.
 
 ## Backend Coverage
 
