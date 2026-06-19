@@ -56,7 +56,7 @@ export function InlineExplorerInput({
       type="text"
       value={value}
       onChange={(e) => setValue(e.target.value)}
-      className="h-5 flex-1 bg-white px-1 text-sm text-foreground outline-none ring-1 ring-primary dark:bg-neutral-900"
+      className="h-5 flex-1 bg-card px-1 text-sm text-foreground outline-none ring-1 ring-primary"
       onBlur={handleSubmit}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
@@ -85,14 +85,14 @@ export function InlineExplorerInput({
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 rounded-sm bg-neutral-100 px-2 py-1 text-sm dark:bg-neutral-800",
+        "flex items-center gap-1.5 rounded-sm bg-muted px-2 py-1 text-sm",
       )}
       style={{ paddingLeft: `${paddingLeft}px` }}
     >
       {type === "folder" ? (
-        <Folder size={14} className="shrink-0 text-blue-500" />
+        <Folder size={14} className="shrink-0 text-primary" />
       ) : (
-        <FileText size={14} className="shrink-0 text-neutral-500" />
+        <FileText size={14} className="shrink-0 text-muted-foreground" />
       )}
       {inputElement}
     </div>

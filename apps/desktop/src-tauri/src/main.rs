@@ -32,6 +32,9 @@ fn main() {
             write_app_cache
         ])
         .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                window.set_icon(tauri::include_image!("./icons/128x128.png"))?;
+            }
             start_local_api_on_setup(app.handle().clone());
             Ok(())
         })

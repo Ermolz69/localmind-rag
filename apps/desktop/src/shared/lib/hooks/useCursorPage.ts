@@ -5,6 +5,7 @@ import { getErrorMessage } from "@shared/api";
 export function useCursorPage<T>(
   loadPage: (cursor?: string | null) => Promise<CursorPage<T>>,
   fallbackError = "Unable to load data.",
+  resetKey?: string,
 ) {
   const [items, setItems] = useState<T[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -21,9 +22,13 @@ export function useCursorPage<T>(
 
   const requestIdRef = useRef(0);
 
-  const reload = useCallback(() => {
-    if (reloadInFlightRef.current) {
+  const reload = useCallback((options?: { force?: boolean }) => {
+    if (reloadInFlightRef.current && !options?.force) {
       return reloadInFlightRef.current;
+    }
+
+    if (options?.force) {
+      loadMoreInFlightRef.current = null;
     }
 
     const id = ++requestIdRef.current;
@@ -103,8 +108,11 @@ export function useCursorPage<T>(
   }, [nextCursor]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    setItems([]);
+    setNextCursor(null);
+    setHasMore(false);
+    void reload({ force: true });
+  }, [reload, resetKey]);
 
   return {
     items,

@@ -86,9 +86,9 @@ export function NotesPage() {
         }}
       >
         {isExplorerCollapsed ? (
-          <div className="flex flex-col items-center border-r border-neutral-200 bg-neutral-50 pt-2 dark:border-neutral-800 dark:bg-neutral-900/50">
+          <div className="flex flex-col items-center border-r border-border bg-card pt-2">
             <button
-              className="rounded-md p-2 text-neutral-500 transition-colors hover:bg-neutral-200/50 hover:text-neutral-700 dark:hover:bg-neutral-800/50 dark:hover:text-neutral-300"
+              className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               onClick={() => setIsExplorerCollapsedStr("false")}
               title="Show Explorer"
             >
@@ -149,8 +149,8 @@ export function NotesPage() {
                 onDraftChange={page.setDraft}
               />
             ) : (
-              <div className="flex h-full items-center justify-center rounded-md border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/50">
-                <div className="flex flex-col items-center gap-2 text-neutral-500">
+              <div className="flex h-full items-center justify-center rounded-md border border-border bg-card">
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <FileText size={32} />
                   <p>Select a markdown file to edit</p>
                 </div>

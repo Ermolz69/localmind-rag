@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import type { NoteDto } from "@entities/note";
 import { bucketsApi, notesApi } from "@shared/api";
 import {
@@ -36,19 +36,8 @@ export function useNoteList() {
   const notesPage = useCursorPage<NoteDto>(
     loadNotesPage,
     "Unable to load notes.",
+    `${selectedBucketId}:${debouncedQuery}`,
   );
-  const hasMountedRef = useRef(false);
-
-  useEffect(() => {
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      return;
-    }
-
-    notesPage.setItems([]);
-    void notesPage.reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadNotesPage]);
 
   const selectedNote =
     notesPage.items.find((note) => note.id === selectedNoteId) ?? null;

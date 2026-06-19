@@ -123,9 +123,9 @@ export function ExplorerNode({
             <button
               type="button"
               className={cn(
-                "flex items-center gap-1.5 rounded-sm px-2 py-1 text-sm transition-colors hover:bg-neutral-200 dark:hover:bg-neutral-800",
+                "flex items-center gap-1.5 rounded-sm px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
                 isSelected &&
-                  "bg-blue-100 text-blue-900 dark:bg-blue-900/50 dark:text-blue-100",
+                  "bg-primary/15 font-medium text-foreground ring-1 ring-inset ring-primary/25",
                 activeDropFolderId === folder.id &&
                   "bg-primary/10 ring-2 ring-inset ring-primary/40",
               )}
@@ -176,7 +176,7 @@ export function ExplorerNode({
               }}
             >
               <span
-                className="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+                className="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground"
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleFolder(folder.id);
@@ -188,7 +188,7 @@ export function ExplorerNode({
                   <ChevronRight size={14} />
                 )}
               </span>
-              <Folder size={14} className="shrink-0 text-blue-500" />
+              <Folder size={14} className="shrink-0 text-primary" />
               {inlineInput?.type === "rename" &&
               inlineInput.itemType === "folder" &&
               inlineInput.id === folder.id ? (
@@ -252,9 +252,9 @@ export function ExplorerNode({
             key={note.id}
             type="button"
             className={cn(
-              "flex items-center gap-1.5 rounded-sm px-2 py-1 text-sm transition-colors hover:bg-neutral-200 dark:hover:bg-neutral-800",
+              "flex items-center gap-1.5 rounded-sm px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
               isSelected &&
-                "bg-blue-100 text-blue-900 dark:bg-blue-900/50 dark:text-blue-100",
+                "bg-primary/15 font-medium text-foreground ring-1 ring-inset ring-primary/25",
               activeDropNoteId === note.id &&
                 "bg-primary/10 ring-2 ring-inset ring-primary/40",
             )}
@@ -304,7 +304,7 @@ export function ExplorerNode({
               onContextMenu?.(e, "note", note.id, note.title);
             }}
           >
-            <FileText size={14} className="shrink-0 text-neutral-500" />
+            <FileText size={14} className="shrink-0 text-muted-foreground" />
             {inlineInput?.type === "rename" &&
             inlineInput.itemType === "note" &&
             inlineInput.id === note.id ? (

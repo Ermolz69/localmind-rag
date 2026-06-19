@@ -17,7 +17,7 @@ export function ExplorerResizeHandle({
       role="separator"
       aria-orientation="vertical"
     >
-      <div className="h-full w-[1px] bg-neutral-200 transition-colors group-hover:bg-primary/50 group-active:bg-primary/80 dark:bg-neutral-800 dark:group-hover:bg-primary/50 dark:group-active:bg-primary/80" />
+      <div className="h-full w-[1px] bg-border transition-colors group-hover:bg-primary/50 group-active:bg-primary/80" />
     </div>
   );
 }

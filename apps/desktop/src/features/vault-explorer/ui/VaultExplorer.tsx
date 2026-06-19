@@ -106,12 +106,12 @@ export function VaultExplorer({
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-md border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/50">
-      <div className="flex flex-col border-b border-neutral-200 dark:border-neutral-800">
+    <div className="flex h-full flex-col overflow-hidden rounded-md border border-border bg-card text-card-foreground">
+      <div className="flex flex-col border-b border-border">
         <button
           type="button"
           onClick={() => setIsVaultScopeOpen(!isVaultScopeOpen)}
-          className="flex items-center justify-between p-2 text-xs font-semibold uppercase text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          className="flex items-center justify-between p-2 text-xs font-semibold uppercase text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <span>Vault Scope</span>
           {isVaultScopeOpen ? (
@@ -193,12 +193,12 @@ export function VaultExplorer({
         onDrop={handleRootDrop}
       >
         {!explorer.selectedBucketId ? (
-          <div className="p-4 text-center text-sm text-neutral-500">
+          <div className="p-4 text-center text-sm text-muted-foreground">
             Select a vault to explore
           </div>
         ) : explorer.isLoading ? (
           <div className="flex items-center justify-center p-4">
-            <Loader2 size={24} className="animate-spin text-neutral-500" />
+            <Loader2 size={24} className="animate-spin text-muted-foreground" />
           </div>
         ) : explorer.error ? (
           <div className="p-4 text-center text-sm text-red-500">
@@ -240,14 +240,14 @@ export function VaultExplorer({
 
       {contextMenu && (
         <div
-          className="fixed z-50 min-w-40 overflow-hidden rounded-md border border-neutral-200 bg-white p-1 shadow-lg dark:border-neutral-800 dark:bg-neutral-900"
+          className="fixed z-50 min-w-40 overflow-hidden rounded-md border border-border bg-card p-1 text-card-foreground shadow-lg"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
           {(contextMenu.type === "folder" || contextMenu.type === "root") && (
             <>
               <button
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={() => {
                   setInlineInput({
                     type: "createFile",
@@ -264,7 +264,7 @@ export function VaultExplorer({
                 <Plus size={14} /> New File
               </button>
               <button
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={() => {
                   setInlineInput({
                     type: "createFolder",
@@ -281,14 +281,14 @@ export function VaultExplorer({
                 <FolderPlus size={14} /> New Folder
               </button>
               {contextMenu.type === "folder" && (
-                <div className="my-1 h-px bg-neutral-200 dark:bg-neutral-800" />
+                <div className="my-1 h-px bg-border" />
               )}
             </>
           )}
 
           {contextMenu.type === "root" && (
             <button
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
               onClick={() => {
                 void explorer.refetchTree();
                 setContextMenu(null);
@@ -305,7 +305,7 @@ export function VaultExplorer({
                 {contextMenu.type === "note" && (
                   <>
                     <button
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={() => {
                         onOpenNote?.(contextMenu.id!);
                         setContextMenu(null);
@@ -314,7 +314,7 @@ export function VaultExplorer({
                       Open
                     </button>
                     <button
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={() => {
                         onOpenNoteInNewTab?.(contextMenu.id!);
                         setContextMenu(null);
@@ -323,7 +323,7 @@ export function VaultExplorer({
                       Open in New Tab
                     </button>
                     <button
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={() => {
                         onShowProperties?.(contextMenu.id!);
                         setContextMenu(null);
@@ -331,11 +331,11 @@ export function VaultExplorer({
                     >
                       Properties
                     </button>
-                    <div className="my-1 h-px bg-neutral-200 dark:bg-neutral-800" />
+                    <div className="my-1 h-px bg-border" />
                   </>
                 )}
                 <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                   onClick={() => {
                     setInlineInput({
                       type: "rename",
@@ -349,7 +349,7 @@ export function VaultExplorer({
                   Rename
                 </button>
                 <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                   onClick={() => {
                     setTargetBucketId(explorer.selectedBucketId);
                     setMoveTarget({
@@ -362,7 +362,7 @@ export function VaultExplorer({
                 >
                   <Move size={14} /> Move to Vault...
                 </button>
-                <div className="my-1 h-px bg-neutral-200 dark:bg-neutral-800" />
+                <div className="my-1 h-px bg-border" />
                 <button
                   className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:text-red-500 dark:hover:bg-red-950/30"
                   onClick={() => {

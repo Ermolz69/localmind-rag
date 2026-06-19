@@ -27,6 +27,7 @@ export function useDocumentList() {
   const bucketsPage = useCursorPage<BucketDto>(
     loadBucketsPage,
     "Unable to load buckets.",
+    debouncedBucketQuery,
   );
 
   const selectedBucketName = useMemo(() => {
@@ -54,6 +55,7 @@ export function useDocumentList() {
   const documentsPage = useCursorPage<DocumentSummary>(
     loadDocumentsPage,
     "Unable to load documents.",
+    `${selectedBucketId}:${selectedStatus}`,
   );
 
   async function createBucket() {
