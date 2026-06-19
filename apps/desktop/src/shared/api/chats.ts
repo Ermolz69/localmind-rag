@@ -115,6 +115,16 @@ export const chatsApi = {
       body: JSON.stringify(payload),
     }).then(() => true),
 
+  generateChatTitle: (
+    conversationId: OperationPath<"GenerateChatTitle">["id"],
+  ) =>
+    request<OperationData<"GenerateChatTitle">>(
+      `/chats/${conversationId}/generate-title`,
+      {
+        method: "POST",
+      },
+    ),
+
   deleteChat: (conversationId: OperationPath<"DeleteChat">["id"]) =>
     request<OperationData<"DeleteChat">>(`/chats/${conversationId}`, {
       method: "DELETE",

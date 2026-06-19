@@ -32,6 +32,9 @@ public sealed class AiRuntimeManager(
     private static readonly JsonSerializerOptions SerializerOptions =
         new(JsonSerializerDefaults.Web);
 
+    private const string RagSystemPrompt =
+        "You are a local RAG assistant. Answer the user's question using only the provided local context. Prefer the passage that directly matches the question. Ignore adjacent topics, repeated passages, and loosely related notes. If the context is empty or irrelevant, say that no relevant local sources were found. Do not answer from general knowledge.";
+
     private readonly RuntimeOptions runtime = runtimeOptions.Value;
     private readonly EmbeddingOptions embedding = embeddingOptions.Value;
     private readonly object syncRoot = new();
@@ -149,12 +152,12 @@ public sealed class AiRuntimeManager(
                 [
                     new ChatCompletionMessage(
                         "system",
-                        "You are a local RAG assistant. Answer the user's question using only the provided local context. Prefer the passage that directly matches the question. Ignore adjacent topics, repeated passages, and loosely related notes. If the context is empty or irrelevant, say that no relevant local sources were found. Do not answer from general knowledge."),
+                        request.SystemPrompt ?? RagSystemPrompt),
                 new ChatCompletionMessage(
                     "user",
-                    BuildChatPrompt(request)),
+                    request.UserPrompt ?? BuildChatPrompt(request)),
             ],
-            Temperature: runtime.Temperature);
+            Temperature: request.Temperature ?? runtime.Temperature);
 
         using HttpClient client = new()
         {
@@ -209,12 +212,12 @@ public sealed class AiRuntimeManager(
                 [
                     new ChatCompletionMessage(
                         "system",
-                        "You are a local RAG assistant. Answer the user's question using only the provided local context. Prefer the passage that directly matches the question. Ignore adjacent topics, repeated passages, and loosely related notes. If the context is empty or irrelevant, say that no relevant local sources were found. Do not answer from general knowledge."),
+                        request.SystemPrompt ?? RagSystemPrompt),
                 new ChatCompletionMessage(
                     "user",
-                    BuildChatPrompt(request)),
+                    request.UserPrompt ?? BuildChatPrompt(request)),
             ],
-            Temperature: runtime.Temperature,
+            Temperature: request.Temperature ?? runtime.Temperature,
             Stream: true);
 
         using HttpClient client = new()

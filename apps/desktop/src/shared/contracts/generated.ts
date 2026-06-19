@@ -610,6 +610,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/chats/{id}/generate-title": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Generates a conversation title.
+     * @description Generates a title from the first user message when the title has not been generated or manually edited.
+     */
+    post: operations["GenerateChatTitle"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/chats/{id}/messages/stream": {
     parameters: {
       query?: never;
@@ -3652,6 +3672,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  GenerateChatTitle: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfConversationDto"];
         };
       };
       /** @description Not Found */
