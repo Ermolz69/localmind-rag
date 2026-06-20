@@ -4,9 +4,6 @@ using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
-using KnowledgeApp.Infrastructure.Persistence;
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.UnitTests.Documents;
 
@@ -15,7 +12,7 @@ public sealed class GetDocumentsHandlerTests
     [Fact]
     public async Task HandleAsync_Should_Return_Documents_In_CreatedAt_Descending_Order()
     {
-        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
         database.Context.Documents.AddRange(
             new Document { CreatedAt = new DateTimeOffset(2026, 5, 10, 12, 0, 0, TimeSpan.Zero), Name = "older.md", Status = DocumentStatus.Indexed },
             new Document { CreatedAt = new DateTimeOffset(2026, 5, 12, 12, 0, 0, TimeSpan.Zero), Name = "newer.md", Status = DocumentStatus.Queued });
@@ -35,7 +32,7 @@ public sealed class GetDocumentsHandlerTests
     [Fact]
     public async Task HandleAsync_Should_Return_Cursor_Page_Without_Duplicates()
     {
-        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
         Document newest = new() { CreatedAt = new DateTimeOffset(2026, 5, 13, 12, 0, 0, TimeSpan.Zero), Name = "newest.md" };
         Document middle = new() { CreatedAt = new DateTimeOffset(2026, 5, 12, 12, 0, 0, TimeSpan.Zero), Name = "middle.md" };
         Document oldest = new() { CreatedAt = new DateTimeOffset(2026, 5, 11, 12, 0, 0, TimeSpan.Zero), Name = "oldest.md" };
@@ -58,7 +55,7 @@ public sealed class GetDocumentsHandlerTests
     [Fact]
     public async Task HandleAsync_Should_Return_NotFound_When_Document_Is_Missing()
     {
-        await using TestDatabase? database = await TestDatabase.CreateAsync();
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
         GetDocumentByIdHandler handler = new GetDocumentByIdHandler(
             new KnowledgeApp.Infrastructure.Services.Persistence.DocumentRepository(database.Context),
             new KnowledgeApp.Infrastructure.Services.IngestionJobRepository(database.Context));
@@ -68,34 +65,4 @@ public sealed class GetDocumentsHandlerTests
         Assert.Equal("DOCUMENT_NOT_FOUND", document.AssertFailure(ErrorType.NotFound).Code);
     }
 
-    private sealed class TestDatabase : IAsyncDisposable
-    {
-        private readonly SqliteConnection connection;
-
-        private TestDatabase(SqliteConnection connection, AppDbContext context)
-        {
-            this.connection = connection;
-            Context = context;
-        }
-
-        public AppDbContext Context { get; }
-
-        public static async Task<TestDatabase> CreateAsync()
-        {
-            SqliteConnection? connection = new SqliteConnection("Data Source=:memory:");
-            await connection.OpenAsync();
-            DbContextOptions<AppDbContext>? options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseSqlite(connection)
-                .Options;
-            AppDbContext? context = new AppDbContext(options);
-            await context.Database.EnsureCreatedAsync();
-            return new TestDatabase((SqliteConnection)connection, context);
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            await Context.DisposeAsync();
-            await connection.DisposeAsync();
-        }
-    }
 }

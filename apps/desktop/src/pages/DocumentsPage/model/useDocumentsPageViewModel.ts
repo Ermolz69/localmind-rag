@@ -1,13 +1,15 @@
 import { useMemo } from "react";
 import {
   filterDocumentsByLifecycleStatus,
+  type UseDocumentListOptions,
   useDocumentList,
   useIngestionJobs,
   useProcessIngestionJob,
 } from "@features/document-ingestion";
 import { useDocumentUpload } from "@features/document-upload";
-export function useDocumentsPageViewModel() {
-  const documents = useDocumentList();
+
+export function useDocumentsPageViewModel(options?: UseDocumentListOptions) {
+  const documents = useDocumentList(options);
   const upload = useDocumentUpload({
     onError: documents.setDocumentListError,
     onUploaded: async () => {

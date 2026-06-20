@@ -10,6 +10,11 @@ pub mod dialogs;
 #[cfg(windows)]
 mod windows;
 
+#[cfg(windows)]
+mod job_object;
+#[cfg(windows)]
+pub use job_object::JobObject;
+
 pub fn configure_no_window(command: &mut Command) {
     #[cfg(windows)]
     windows::configure_no_window(command);

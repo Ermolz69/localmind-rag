@@ -19,6 +19,9 @@ public static class ObservabilityDependencyInjection
         AddDiagnosticLogger(builder.Services, builder.Configuration);
         AddRuntimeLogSettings(builder.Services, builder.Configuration, builder.Environment);
 
+        builder.Services.AddSingleton<ILogMaintenanceService, LogMaintenanceService>();
+        builder.Services.AddHostedService<LogRetentionService>();
+
         builder.Host.UseSerilog((context, services, logger) =>
         {
             ConfigurationReaderOptions readerOptions = new ConfigurationReaderOptions(typeof(ConsoleLoggerConfigurationExtensions).Assembly);

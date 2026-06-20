@@ -10,6 +10,8 @@ public interface IAppPathProvider
 
     string FilesDirectory { get; }
 
+    string PreviewDirectory { get; }
+
     string IndexDirectory { get; }
 
     string LogsDirectory { get; }

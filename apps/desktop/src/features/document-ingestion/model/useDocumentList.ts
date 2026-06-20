@@ -5,14 +5,36 @@ import { bucketsApi, documentsApi, getErrorMessage } from "@shared/api";
 import { useCursorPage, useDebouncedValue } from "@shared/lib/hooks";
 import { getDocumentStatusQuery } from "./ingestionLifecycle";
 
-export function useDocumentList() {
-  const [selectedBucketId, setSelectedBucketId] = useState("");
+export type UseDocumentListOptions = {
+  selectedBucketId?: string;
+  onSelectedBucketIdChange?: (bucketId: string) => void;
+};
+
+export function useDocumentList({
+  selectedBucketId: controlledSelectedBucketId,
+  onSelectedBucketIdChange,
+}: UseDocumentListOptions = {}) {
+  const [internalSelectedBucketId, setInternalSelectedBucketId] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [newBucketName, setNewBucketName] = useState("");
   const [bucketQuery, setBucketQuery] = useState("");
   const debouncedBucketQuery = useDebouncedValue(bucketQuery, 250);
   const [documentListError, setDocumentListError] = useState<string | null>(
     null,
+  );
+  const selectedBucketId =
+    controlledSelectedBucketId ?? internalSelectedBucketId;
+
+  const setSelectedBucketId = useCallback(
+    (bucketId: string) => {
+      if (onSelectedBucketIdChange) {
+        onSelectedBucketIdChange(bucketId);
+        return;
+      }
+
+      setInternalSelectedBucketId(bucketId);
+    },
+    [onSelectedBucketIdChange],
   );
 
   const loadBucketsPage = useCallback(

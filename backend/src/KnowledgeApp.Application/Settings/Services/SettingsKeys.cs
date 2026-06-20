@@ -28,6 +28,7 @@ public static class SettingsKeys
     public const string DiagnosticsEnableHttpLogs = "Diagnostics.EnableHttpLogs";
     public const string DiagnosticsEnableDiagnosticEventLogs = "Diagnostics.EnableDiagnosticEventLogs";
     public const string DiagnosticsEnableDebugTrace = "Diagnostics.EnableDebugTrace";
+    public const string DiagnosticsLogRetainedDays = "Diagnostics.LogRetainedDays";
 
     public const string WatchedFoldersEnabled = "WatchedFolders.Enabled";
     public const string WatchedFoldersDebounceMilliseconds = "WatchedFolders.DebounceMilliseconds";
@@ -63,6 +64,7 @@ public static class SettingsKeys
         DiagnosticsEnableHttpLogs,
         DiagnosticsEnableDiagnosticEventLogs,
         DiagnosticsEnableDebugTrace,
+        DiagnosticsLogRetainedDays,
         WatchedFoldersEnabled,
         WatchedFoldersDebounceMilliseconds,
         WatchedFoldersDeletePolicy,

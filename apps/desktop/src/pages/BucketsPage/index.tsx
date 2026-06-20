@@ -1,6 +1,7 @@
 import { FolderPlus, RefreshCw, Pencil, Trash2, Folder } from "lucide-react";
 import { formatBucketSyncStatus } from "@entities/bucket";
 import { useBuckets } from "@features/bucket-management";
+import { routes } from "@shared/constants/routes";
 import { cn } from "@shared/lib/cn";
 import {
   Button,
@@ -12,9 +13,11 @@ import {
   Modal,
 } from "@shared/ui";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export function BucketsPage() {
   const bucketsPage = useBuckets();
+  const navigate = useNavigate();
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [editBucketId, setEditBucketId] = useState<string | null>(null);
   const [editBucketName, setEditBucketName] = useState("");
@@ -86,7 +89,6 @@ export function BucketsPage() {
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filteredBuckets.map((bucket) => {
-            const isSelected = bucketsPage.selectedBucketId === bucket.id;
             const bucketWithCount = bucket as typeof bucket & {
               documentCount?: number;
             };
@@ -97,20 +99,16 @@ export function BucketsPage() {
                 key={bucket.id}
                 className={cn(
                   "group relative cursor-pointer overflow-hidden rounded-xl border border-border/50 bg-card p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md",
-                  isSelected
-                    ? "bg-primary/5 ring-2 ring-primary"
-                    : "hover:bg-accent/30",
+                  "hover:bg-accent/30",
                 )}
-                onClick={() => bucketsPage.setSelectedBucketId(bucket.id)}
+                onClick={() => navigate(routes.bucketDetails(bucket.id))}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex min-w-0 flex-1 items-start gap-3">
                     <div
                       className={cn(
                         "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors",
-                        isSelected
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border/50 bg-muted/50 text-muted-foreground group-hover:bg-background",
+                        "border-border/50 bg-muted/50 text-muted-foreground group-hover:bg-background",
                       )}
                     >
                       <Folder size={18} />
@@ -140,10 +138,7 @@ export function BucketsPage() {
                   </div>
 
                   <div
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-lg border border-transparent bg-background/40 p-1 opacity-0 transition-all focus-within:opacity-100 group-hover:border-border/50 group-hover:opacity-100",
-                      isSelected ? "border-border/50 opacity-100" : "",
-                    )}
+                    className="flex items-center gap-1.5 rounded-lg border border-transparent bg-background/40 p-1 opacity-0 transition-all focus-within:opacity-100 group-hover:border-border/50 group-hover:opacity-100"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Button

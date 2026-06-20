@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   AppSettings,
   WatchedFolderStatusResponse,
@@ -19,6 +19,13 @@ export function useSettingsForm() {
   const [hasLocalChanges, setHasLocalChanges] = useState(false);
   const [themeModalOpen, setThemeModalOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+
+  // Read hasLocalChanges in the effect via ref so the effect only re-runs
+  // when `data` changes — not when the dirty flag is cleared after save.
+  // Without this, clearing hasLocalChanges after save triggers the effect and
+  // resets settings/draft back to the pre-save server snapshot.
+  const hasLocalChangesRef = useRef(hasLocalChanges);
+  hasLocalChangesRef.current = hasLocalChanges;
 
   const {
     data,
@@ -48,17 +55,20 @@ export function useSettingsForm() {
     setSettings(data.settings);
 
     setDraftState((currentDraft) => {
-      if (hasLocalChanges && currentDraft) {
+      if (hasLocalChangesRef.current && currentDraft) {
         return currentDraft;
       }
 
       return data.settings;
     });
-  }, [data, hasLocalChanges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   const saveMutation = useApiMutation(
-    (nextSettings: AppSettings) =>
-      settingsApi.saveSettings(toAppSettingsDto(nextSettings)),
+    async (nextSettings: AppSettings) => {
+      await settingsApi.saveSettings(toAppSettingsDto(nextSettings));
+      return true as const;
+    },
     { fallbackError: "Unable to save settings." },
   );
 
@@ -83,7 +93,9 @@ export function useSettingsForm() {
       setDraftState(draft);
       setHasLocalChanges(false);
 
-      window.dispatchEvent(new CustomEvent("localmind:settings:changed"));
+      window.dispatchEvent(
+        new CustomEvent("localmind:settings:changed", { detail: draft }),
+      );
 
       if (!draft.diagnostics.enabled) {
         void clearDiagnosticsCache();

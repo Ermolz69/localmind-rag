@@ -128,6 +128,11 @@ tasks:
     cmds:
       - cd "{{.ROOT_DIR}}/backend" && dotnet test KnowledgeApp.slnx
 
+  test:frontend:
+    desc: Runs frontend unit and component tests
+    cmds:
+      - cd "{{.ROOT_DIR}}" && pnpm --filter desktop test
+
   test:unit:
     desc: Runs backend unit tests
     cmds:
@@ -195,8 +200,8 @@ tasks:
       COVERAGE_REPORT_DIR: '{{.COVERAGE_REPORT_DIR | default "artifacts/coverage-report"}}'
 
   # === VALIDATION & QUALITY TASKS ===
-  check:
-    desc: Executes all lints, formatting, and validation tasks
+  check:quick:
+    desc: Fast static checks — format, lint, typecheck, API contracts, color guard (no tests, no Rust)
     deps:
       [
         check:backend:format,
@@ -204,9 +209,23 @@ tasks:
         check:frontend:lint,
         check:frontend:typecheck,
         check:api-contracts,
-        check:rust,
         check:colors,
+      ]
 
+  check:
+    desc: Developer validation — static checks plus frontend tests; run before pushing
+    deps: [check:quick, test:frontend]
+
+  check:full:
+    desc: Full local validation — all backend tests, frontend tests, and Rust checks
+    deps:
+      [
+        check,
+        test:unit,
+        test:integration,
+        test:rag,
+        test:architecture,
+        check:rust,
       ]
 
   check:format:
@@ -265,7 +284,7 @@ tasks:
   docs:build:
     desc: Generates OpenAPI, .NET metadata, and builds DocFX site
     cmds:
-      - cmd: cd "{{.ROOT_DIR}}" && rm -rf artifacts/docs/site docs/auto-generated/openapi docs/auto-generated/dotnet-api
+      - cmd: cd "{{.ROOT_DIR}}" && rm -rf artifacts/docs/site docs/auto-generated/openapi docs/auto-generated/dotnet-api docs/auto-generated/dotnet-api-graph.json
       - cmd: cd "{{.ROOT_DIR}}" && mkdir -p docs/auto-generated/openapi docs/auto-generated/dotnet-api artifacts/docs/site
       - task: openapi:generate
         vars:
@@ -277,7 +296,13 @@ tasks:
           }
       - cmd: cd "{{.ROOT_DIR}}" && dotnet tool restore
       - cmd: cd "{{.ROOT_DIR}}" && dotnet tool run docfx metadata docs/docfx.json
+      - task: docs:graph
       - cmd: cd "{{.ROOT_DIR}}" && dotnet tool run docfx build docs/docfx.json
+
+  docs:graph:
+    desc: Generates .NET API graph data (JSON) from DocFX metadata
+    cmds:
+      - cmd: cd "{{.ROOT_DIR}}" && node docs/tools/generate-dotnet-api-graph.cjs
 
   openapi:generate:
     desc: Generates the OpenAPI specification JSON file

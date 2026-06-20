@@ -17,6 +17,7 @@ public static partial class DependencyInjection
         services.AddSingleton<IValidateOptions<EmbeddingOptions>, EmbeddingOptionsValidator>();
         services.AddSingleton<IValidateOptions<ChunkingOptions>, ChunkingOptionsValidator>();
         services.AddSingleton<IValidateOptions<StorageOptions>, StorageOptionsValidator>();
+        services.AddSingleton<IValidateOptions<DocumentPreviewOptions>, DocumentPreviewOptionsValidator>();
         services.AddSingleton<IValidateOptions<DatabaseOptions>, DatabaseOptionsValidator>();
         services.AddSingleton<IValidateOptions<VectorIndexOptions>, VectorIndexOptionsValidator>();
         services.AddSingleton<IValidateOptions<RagOptions>, RagOptionsValidator>();
@@ -35,6 +36,10 @@ public static partial class DependencyInjection
 
         services.AddOptions<StorageOptions>()
             .Bind(configuration.GetSection(StorageOptions.SectionName))
+            .ValidateOnStart();
+
+        services.AddOptions<DocumentPreviewOptions>()
+            .Bind(configuration.GetSection(DocumentPreviewOptions.SectionName))
             .ValidateOnStart();
 
         services.AddOptions<DatabaseOptions>()

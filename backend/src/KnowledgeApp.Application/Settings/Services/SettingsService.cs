@@ -92,7 +92,11 @@ public sealed class SettingsService(
                 EnableDebugTrace: GetBool(
                     storedSettings,
                     SettingsKeys.DiagnosticsEnableDebugTrace,
-                    defaultDiagnostics.EnableDebugTrace)),
+                    defaultDiagnostics.EnableDebugTrace),
+                LogRetainedDays: GetInt(
+                    storedSettings,
+                    SettingsKeys.DiagnosticsLogRetainedDays,
+                    defaultDiagnostics.LogRetainedDays)),
             WatchedFolders: new WatchedFoldersSettingsDto(
                 Enabled: GetBool(
                     storedSettings,
@@ -189,6 +193,10 @@ public sealed class SettingsService(
             SettingsKeys.DiagnosticsEnableDiagnosticEventLogs,
             diagnostics.EnableDiagnosticEventLogs.ToString());
         Upsert(storedSettings, SettingsKeys.DiagnosticsEnableDebugTrace, diagnostics.EnableDebugTrace.ToString());
+        Upsert(
+            storedSettings,
+            SettingsKeys.DiagnosticsLogRetainedDays,
+            diagnostics.LogRetainedDays.ToString());
 
         Upsert(storedSettings, SettingsKeys.WatchedFoldersEnabled, watchedFolders.Enabled.ToString());
         Upsert(

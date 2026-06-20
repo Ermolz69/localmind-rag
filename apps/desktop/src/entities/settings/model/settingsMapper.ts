@@ -24,6 +24,7 @@ const defaultDiagnostics: AppSettings["diagnostics"] = {
   enableHttpLogs: true,
   enableDiagnosticEventLogs: false,
   enableDebugTrace: false,
+  logRetainedDays: 14,
 };
 
 export function toAppSettings(

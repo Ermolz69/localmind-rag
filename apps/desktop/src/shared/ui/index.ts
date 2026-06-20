@@ -10,6 +10,7 @@ export { PageHeader } from "./PageHeader";
 export { Select } from "./Select";
 export { Skeleton } from "./Skeleton";
 export { StatusBadge } from "./StatusBadge";
+export { Switch } from "./Switch";
 export { Textarea } from "./Textarea";
 export { Toast } from "./Toast";
 export { Toolbar } from "./Toolbar";

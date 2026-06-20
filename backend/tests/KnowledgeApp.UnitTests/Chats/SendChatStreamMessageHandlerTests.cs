@@ -4,6 +4,7 @@ using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Contracts.Search;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
+using KnowledgeApp.UnitTests.TestSupport.Fakes;
 using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.UnitTests.Chats;
@@ -116,9 +117,4 @@ public sealed class SendChatStreamMessageHandlerTests
         }
     }
 
-    private sealed class FakeOperationLogRepository : KnowledgeApp.Application.Common.Diagnostics.IOperationLogRepository
-    {
-        public Task AddAsync(KnowledgeApp.Domain.Entities.OperationLog log, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>> GetRecentLogsAsync(int limit, string? cursor, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>>([]);
-    }
 }

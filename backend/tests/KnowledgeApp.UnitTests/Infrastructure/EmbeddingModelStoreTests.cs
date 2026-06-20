@@ -140,6 +140,9 @@ public sealed class EmbeddingModelStoreTests : IDisposable
         public string FilesDirectory =>
             Path.Combine(root, "runtime", "app", "files");
 
+        public string PreviewDirectory =>
+            Path.Combine(root, "runtime", "app", "previews");
+
         public string IndexDirectory =>
             Path.Combine(root, "runtime", "app", "indexes");
 

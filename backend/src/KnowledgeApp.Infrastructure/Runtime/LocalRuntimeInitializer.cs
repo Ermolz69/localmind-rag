@@ -23,6 +23,7 @@ public sealed class LocalRuntimeInitializer(
 
         Directory.CreateDirectory(paths.DataDirectory);
         Directory.CreateDirectory(paths.FilesDirectory);
+        Directory.CreateDirectory(paths.PreviewDirectory);
         Directory.CreateDirectory(paths.IndexDirectory);
         Directory.CreateDirectory(paths.LogsDirectory);
 

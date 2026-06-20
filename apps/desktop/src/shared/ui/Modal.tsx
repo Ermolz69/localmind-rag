@@ -1,5 +1,7 @@
 import { X } from "lucide-react";
 import type { PropsWithChildren } from "react";
+import { createPortal } from "react-dom";
+import { cn } from "../lib/cn";
 import { Button } from "./Button";
 
 type ModalProps = PropsWithChildren<{
@@ -7,6 +9,8 @@ type ModalProps = PropsWithChildren<{
   description?: string;
   open: boolean;
   onClose: () => void;
+  panelClassName?: string;
+  bodyClassName?: string;
 }>;
 
 export function Modal({
@@ -14,15 +18,22 @@ export function Modal({
   description,
   open,
   onClose,
+  panelClassName,
+  bodyClassName,
   children,
 }: ModalProps) {
   if (!open) {
     return null;
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4">
-      <div className="w-full max-w-lg rounded-md border border-border bg-card p-5 text-card-foreground shadow-xl">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm">
+      <div
+        className={cn(
+          "w-full max-w-lg rounded-md border border-border bg-card p-5 text-card-foreground shadow-xl",
+          panelClassName,
+        )}
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold">{title}</h2>
@@ -39,8 +50,9 @@ export function Modal({
             <X size={18} aria-hidden />
           </Button>
         </div>
-        <div className="mt-5">{children}</div>
+        <div className={cn("mt-5", bodyClassName)}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

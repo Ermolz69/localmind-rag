@@ -7,33 +7,30 @@ using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Options;
 using KnowledgeApp.Infrastructure.Persistence;
 using KnowledgeApp.Infrastructure.Services;
-using Microsoft.Data.Sqlite;
+using KnowledgeApp.UnitTests.TestSupport.Builders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace KnowledgeApp.UnitTests.Ingestion;
 
-public sealed class IncrementalIngestionJobProcessorTests : IAsyncDisposable
+public sealed class IncrementalIngestionJobProcessorTests
 {
-    private readonly List<string> filesToDelete = [];
-
     [Fact]
     public async Task ProcessAsync_Should_NotGenerateEmbeddingsAgain_WhenSameDocumentIsReindexedWithoutChanges()
     {
-        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
         CountingDocumentEmbeddingService embeddingService = new CountingDocumentEmbeddingService();
-
-        (Guid DocumentId, Guid JobId, string FilePath) document = await CreateDocumentWithJobAsync(
+        await using DocumentIngestionTestData testData = await DocumentIngestionTestData.CreateAsync(
             database,
             "unchanged.txt",
+            FileType.PlainText,
             "Alpha||Beta||Gamma");
-
         IngestionJobProcessor processor = CreateProcessor(database, embeddingService);
 
-        await processor.ProcessAsync(document.JobId);
+        await processor.ProcessAsync(testData.JobId);
 
         DocumentChunk[] firstChunks = await database.Context.DocumentChunks
-            .Where(chunk => chunk.DocumentId == document.DocumentId)
+            .Where(chunk => chunk.DocumentId == testData.DocumentId)
             .OrderBy(chunk => chunk.Index)
             .ToArrayAsync();
 
@@ -44,12 +41,12 @@ public sealed class IncrementalIngestionJobProcessorTests : IAsyncDisposable
         Assert.Equal(3, firstChunks.Length);
         Assert.Equal(3, embeddingService.GeneratedChunkTexts.Count);
 
-        Guid secondJobId = await CreateReindexJobAsync(database, document.DocumentId);
+        Guid secondJobId = await CreateReindexJobAsync(database, testData.DocumentId);
 
         await processor.ProcessAsync(secondJobId);
 
         DocumentChunk[] secondChunks = await database.Context.DocumentChunks
-            .Where(chunk => chunk.DocumentId == document.DocumentId)
+            .Where(chunk => chunk.DocumentId == testData.DocumentId)
             .OrderBy(chunk => chunk.Index)
             .ToArrayAsync();
 
@@ -69,20 +66,19 @@ public sealed class IncrementalIngestionJobProcessorTests : IAsyncDisposable
     [Fact]
     public async Task ProcessAsync_Should_GenerateEmbeddingOnlyForChangedChunk_WhenSameDocumentContentChanges()
     {
-        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
         CountingDocumentEmbeddingService embeddingService = new CountingDocumentEmbeddingService();
-
-        (Guid DocumentId, Guid JobId, string FilePath) document = await CreateDocumentWithJobAsync(
+        await using DocumentIngestionTestData testData = await DocumentIngestionTestData.CreateAsync(
             database,
             "changed.txt",
+            FileType.PlainText,
             "Alpha||Beta||Gamma");
-
         IngestionJobProcessor processor = CreateProcessor(database, embeddingService);
 
-        await processor.ProcessAsync(document.JobId);
+        await processor.ProcessAsync(testData.JobId);
 
         DocumentChunk[] firstChunks = await database.Context.DocumentChunks
-            .Where(chunk => chunk.DocumentId == document.DocumentId)
+            .Where(chunk => chunk.DocumentId == testData.DocumentId)
             .OrderBy(chunk => chunk.Index)
             .ToArrayAsync();
 
@@ -92,14 +88,14 @@ public sealed class IncrementalIngestionJobProcessorTests : IAsyncDisposable
 
         Assert.Equal(3, embeddingService.GeneratedChunkTexts.Count);
 
-        await File.WriteAllTextAsync(document.FilePath, "Alpha||Beta modified||Gamma");
+        await File.WriteAllTextAsync(testData.FilePath, "Alpha||Beta modified||Gamma");
 
-        Guid secondJobId = await CreateReindexJobAsync(database, document.DocumentId);
+        Guid secondJobId = await CreateReindexJobAsync(database, testData.DocumentId);
 
         await processor.ProcessAsync(secondJobId);
 
         DocumentChunk[] secondChunks = await database.Context.DocumentChunks
-            .Where(chunk => chunk.DocumentId == document.DocumentId)
+            .Where(chunk => chunk.DocumentId == testData.DocumentId)
             .OrderBy(chunk => chunk.Index)
             .ToArrayAsync();
 
@@ -126,20 +122,19 @@ public sealed class IncrementalIngestionJobProcessorTests : IAsyncDisposable
     [Fact]
     public async Task ProcessAsync_Should_RemoveDeletedChunkAndEmbedding_WhenChunkIsRemovedFromDocument()
     {
-        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
         CountingDocumentEmbeddingService embeddingService = new CountingDocumentEmbeddingService();
-
-        (Guid DocumentId, Guid JobId, string FilePath) document = await CreateDocumentWithJobAsync(
+        await using DocumentIngestionTestData testData = await DocumentIngestionTestData.CreateAsync(
             database,
             "deleted.txt",
+            FileType.PlainText,
             "Alpha||Beta||Gamma");
-
         IngestionJobProcessor processor = CreateProcessor(database, embeddingService);
 
-        await processor.ProcessAsync(document.JobId);
+        await processor.ProcessAsync(testData.JobId);
 
         DocumentChunk[] firstChunks = await database.Context.DocumentChunks
-            .Where(chunk => chunk.DocumentId == document.DocumentId)
+            .Where(chunk => chunk.DocumentId == testData.DocumentId)
             .OrderBy(chunk => chunk.Index)
             .ToArrayAsync();
 
@@ -147,14 +142,14 @@ public sealed class IncrementalIngestionJobProcessorTests : IAsyncDisposable
         Guid betaChunkId = firstChunks[1].Id;
         Guid gammaChunkId = firstChunks[2].Id;
 
-        await File.WriteAllTextAsync(document.FilePath, "Alpha||Gamma");
+        await File.WriteAllTextAsync(testData.FilePath, "Alpha||Gamma");
 
-        Guid secondJobId = await CreateReindexJobAsync(database, document.DocumentId);
+        Guid secondJobId = await CreateReindexJobAsync(database, testData.DocumentId);
 
         await processor.ProcessAsync(secondJobId);
 
         DocumentChunk[] secondChunks = await database.Context.DocumentChunks
-            .Where(chunk => chunk.DocumentId == document.DocumentId)
+            .Where(chunk => chunk.DocumentId == testData.DocumentId)
             .OrderBy(chunk => chunk.Index)
             .ToArrayAsync();
 
@@ -182,29 +177,29 @@ public sealed class IncrementalIngestionJobProcessorTests : IAsyncDisposable
     [Fact]
     public async Task ProcessAsync_Should_ReuseEmbeddingsAcrossDocuments_WhenSameContentIsUploadedAgain()
     {
-        await using TestDatabase database = await TestDatabase.CreateAsync();
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
         CountingDocumentEmbeddingService embeddingService = new CountingDocumentEmbeddingService();
-
-        (Guid FirstDocumentId, Guid FirstJobId, string FirstFilePath) firstDocument = await CreateDocumentWithJobAsync(
+        await using DocumentIngestionTestData first = await DocumentIngestionTestData.CreateAsync(
             database,
             "first.txt",
+            FileType.PlainText,
             "Alpha||Beta||Gamma");
-
         IngestionJobProcessor processor = CreateProcessor(database, embeddingService);
 
-        await processor.ProcessAsync(firstDocument.FirstJobId);
+        await processor.ProcessAsync(first.JobId);
 
         Assert.Equal(3, embeddingService.GeneratedChunkTexts.Count);
 
-        (Guid SecondDocumentId, Guid SecondJobId, string SecondFilePath) secondDocument = await CreateDocumentWithJobAsync(
+        await using DocumentIngestionTestData second = await DocumentIngestionTestData.CreateAsync(
             database,
             "second.txt",
+            FileType.PlainText,
             "Alpha||Beta||Gamma");
 
-        await processor.ProcessAsync(secondDocument.SecondJobId);
+        await processor.ProcessAsync(second.JobId);
 
         DocumentChunk[] secondDocumentChunks = await database.Context.DocumentChunks
-            .Where(chunk => chunk.DocumentId == secondDocument.SecondDocumentId)
+            .Where(chunk => chunk.DocumentId == second.DocumentId)
             .OrderBy(chunk => chunk.Index)
             .ToArrayAsync();
 
@@ -229,21 +224,8 @@ public sealed class IncrementalIngestionJobProcessorTests : IAsyncDisposable
         });
     }
 
-    public async ValueTask DisposeAsync()
-    {
-        foreach (string filePath in filesToDelete)
-        {
-            if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
-            }
-        }
-
-        await Task.CompletedTask;
-    }
-
     private static IngestionJobProcessor CreateProcessor(
-        TestDatabase database,
+        ApplicationTestDatabase database,
         CountingDocumentEmbeddingService embeddingService)
     {
         RawTextExtractor rawExtractor = new RawTextExtractor();
@@ -266,51 +248,7 @@ public sealed class IncrementalIngestionJobProcessorTests : IAsyncDisposable
             new FixedDateTimeProvider());
     }
 
-    private async Task<(Guid DocumentId, Guid JobId, string FilePath)> CreateDocumentWithJobAsync(
-        TestDatabase database,
-        string fileName,
-        string content)
-    {
-        Document document = new Document
-        {
-            Name = fileName,
-            Status = DocumentStatus.Queued
-        };
-
-        string filePath = Path.Combine(
-            Path.GetTempPath(),
-            $"localmind-incremental-ingestion-{Guid.NewGuid():N}-{fileName}");
-
-        await File.WriteAllTextAsync(filePath, content);
-
-        filesToDelete.Add(filePath);
-
-        DocumentFile documentFile = new DocumentFile
-        {
-            DocumentId = document.Id,
-            FileName = fileName,
-            FileType = FileType.PlainText,
-            LocalPath = filePath,
-            ContentHash = Guid.NewGuid().ToString("N"),
-            SizeBytes = content.Length
-        };
-
-        IngestionJob job = new IngestionJob
-        {
-            DocumentId = document.Id,
-            Status = IngestionJobStatus.Pending
-        };
-
-        database.Context.Documents.Add(document);
-        database.Context.DocumentFiles.Add(documentFile);
-        database.Context.IngestionJobs.Add(job);
-
-        await database.Context.SaveChangesAsync();
-
-        return (document.Id, job.Id, filePath);
-    }
-
-    private static async Task<Guid> CreateReindexJobAsync(TestDatabase database, Guid documentId)
+    private static async Task<Guid> CreateReindexJobAsync(ApplicationTestDatabase database, Guid documentId)
     {
         Document document = await database.Context.Documents.SingleAsync(document => document.Id == documentId);
 
@@ -380,47 +318,6 @@ public sealed class IncrementalIngestionJobProcessorTests : IAsyncDisposable
             }
 
             return Task.FromResult<IReadOnlyList<DocumentEmbedding>>(embeddings);
-        }
-    }
-
-    private sealed class FixedDateTimeProvider : IDateTimeProvider
-    {
-        public DateTimeOffset UtcNow { get; } = new(2026, 5, 13, 12, 0, 0, TimeSpan.Zero);
-    }
-
-    private sealed class TestDatabase : IAsyncDisposable
-    {
-        private readonly SqliteConnection connection;
-
-        private TestDatabase(SqliteConnection connection, AppDbContext context)
-        {
-            this.connection = connection;
-            Context = context;
-        }
-
-        public AppDbContext Context { get; }
-
-        public static async Task<TestDatabase> CreateAsync()
-        {
-            SqliteConnection connection = new SqliteConnection("Data Source=:memory:");
-
-            await connection.OpenAsync();
-
-            DbContextOptions<AppDbContext> options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseSqlite(connection)
-                .Options;
-
-            AppDbContext context = new AppDbContext(options);
-
-            await context.Database.EnsureCreatedAsync();
-
-            return new TestDatabase(connection, context);
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            await Context.DisposeAsync();
-            await connection.DisposeAsync();
         }
     }
 

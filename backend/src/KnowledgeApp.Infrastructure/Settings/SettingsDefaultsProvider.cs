@@ -49,7 +49,8 @@ public sealed class SettingsDefaultsProvider(
                 EnableSqlLogs: GetBool(observability, "EnableSqlLogs", false),
                 EnableHttpLogs: GetBool(observability, "EnableHttpLogs", true),
                 EnableDiagnosticEventLogs: GetBool(observability, "EnableDiagnosticEventLogs", false),
-                EnableDebugTrace: GetBool(observability, "EnableDebugTrace", false)),
+                EnableDebugTrace: GetBool(observability, "EnableDebugTrace", false),
+                LogRetainedDays: GetInt(observability, "RetainedFileCountLimit", 14)),
             WatchedFolders: new WatchedFoldersSettingsDto(
                 Enabled: false,
                 DebounceMilliseconds: 1000,
@@ -65,6 +66,11 @@ public sealed class SettingsDefaultsProvider(
     private static bool GetBool(IConfiguration section, string key, bool fallback)
     {
         return bool.TryParse(section[key], out bool value) ? value : fallback;
+    }
+
+    private static int GetInt(IConfiguration section, string key, int fallback)
+    {
+        return int.TryParse(section[key], out int value) ? value : fallback;
     }
 
     private static string GetString(IConfiguration section, string key, string fallback)

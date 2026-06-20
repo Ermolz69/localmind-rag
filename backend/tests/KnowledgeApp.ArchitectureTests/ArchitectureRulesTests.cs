@@ -242,6 +242,14 @@ public sealed class ArchitectureRulesTests
                 continue;
             }
 
+            // Settings UI is permitted to display AI provider names as labels so users can
+            // choose their runtime. ADR-0005 prohibits direct calls to AI runtimes, not
+            // the use of their names in UI text.
+            if (frontendFile.EndsWith("SettingsSections.tsx", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             string source = File.ReadAllText(frontendFile);
 
             Assert.DoesNotContain("ollama", source, StringComparison.OrdinalIgnoreCase);

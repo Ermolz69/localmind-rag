@@ -23,6 +23,8 @@ public sealed class AppPathProvider(
 
     public string FilesDirectory => FullPath(storage.FilesPath);
 
+    public string PreviewDirectory => FullPath(storage.PreviewsPath);
+
     public string IndexDirectory => FullPath(vectorIndex.IndexPath);
 
     public string LogsDirectory => FullPath(storage.LogsPath);

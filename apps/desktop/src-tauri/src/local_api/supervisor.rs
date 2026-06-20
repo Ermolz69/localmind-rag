@@ -10,6 +10,9 @@ use crate::{
     },
 };
 
+#[cfg(windows)]
+use crate::os;
+
 pub struct LocalApiSupervisor {
     state: Mutex<SupervisorState>,
 }
@@ -96,9 +99,40 @@ impl LocalApiSupervisor {
                     ),
                 );
 
+                // Create a Windows Job Object and assign the child to it so that
+                // the entire process tree (LocalApi + any subprocesses such as
+                // llama-server) is terminated when the job handle is closed.
+                #[cfg(windows)]
+                let job = match os::JobObject::create() {
+                    Ok(job) => {
+                        if let Err(err) = job.assign_child(&child) {
+                            paths::write_sidecar_log(
+                                &root,
+                                &format!(
+                                    "Job object assign failed; orphan processes may survive exit: {err}"
+                                ),
+                            );
+                        }
+                        Some(job)
+                    }
+                    Err(err) => {
+                        paths::write_sidecar_log(
+                            &root,
+                            &format!(
+                                "Job object create failed; orphan processes may survive exit: {err}"
+                            ),
+                        );
+                        None
+                    }
+                };
+
                 let generation = {
                     let mut state = self.state.lock().expect("supervisor state poisoned");
                     state.child = Some(child);
+                    #[cfg(windows)]
+                    {
+                        state.job = job;
+                    }
                     state.port = Some(port);
                     state.status = LocalApiStatus::Starting;
                     state.monitor_running = true;
@@ -134,6 +168,12 @@ impl LocalApiSupervisor {
             state.port = None;
             state.instance_token = None;
             state.monitor_generation += 1;
+            // Drop the job handle first: kill-on-close terminates the whole
+            // process tree before we kill the direct child below.
+            #[cfg(windows)]
+            {
+                state.job = None;
+            }
             state.child.take()
         };
 
@@ -155,6 +195,10 @@ impl LocalApiSupervisor {
             state.override_url = None;
             state.instance_token = None;
             state.monitor_generation += 1;
+            #[cfg(windows)]
+            {
+                state.job = None;
+            }
             state.child.take()
         };
         if let Some(mut child) = child_to_kill {
@@ -282,6 +326,10 @@ impl LocalApiSupervisor {
                     state.port = None;
                     state.instance_token = None;
                     state.monitor_generation += 1;
+                    #[cfg(windows)]
+                    {
+                        state.job = None;
+                    }
                     state.child.take()
                 };
 
@@ -362,6 +410,10 @@ mod tests {
 impl Drop for LocalApiSupervisor {
     fn drop(&mut self) {
         let child_to_kill = if let Ok(mut state) = self.state.lock() {
+            #[cfg(windows)]
+            {
+                state.job = None;
+            }
             state.child.take()
         } else {
             None

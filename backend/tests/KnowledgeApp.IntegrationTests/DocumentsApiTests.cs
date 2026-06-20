@@ -6,17 +6,21 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Buckets;
+using KnowledgeApp.Application.Common.Errors;
+using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Contracts.Ingestion;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Persistence;
+using KnowledgeApp.Infrastructure.Services.DocumentPreview;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using A = DocumentFormat.OpenXml.Drawing;
 using P = DocumentFormat.OpenXml.Presentation;
 using W = DocumentFormat.OpenXml.Wordprocessing;
@@ -198,6 +202,261 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
             await client.GetAsync($"/api/v1/documents/{Guid.NewGuid()}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetDocumentPreview_Should_Return_Inline_Text_For_Text_Document()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                $"preview-{Guid.NewGuid():N}.txt",
+                content: "hello preview");
+
+        DocumentPreviewResponse? preview =
+            await client.GetApiDataAsync<DocumentPreviewResponse>(
+                $"/api/v1/documents/{upload.DocumentId}/preview");
+
+        Assert.NotNull(preview);
+        Assert.Equal(upload.DocumentId, preview.DocumentId);
+        Assert.Equal(DocumentPreviewKind.Text, preview.PreviewKind);
+        Assert.Equal("hello preview", preview.TextContent);
+        Assert.Null(preview.PreviewUrl);
+        Assert.Null(preview.ErrorCode);
+    }
+
+    [Fact]
+    public async Task GetDocumentPreview_Should_Return_Pdf_Preview_Url_And_Stream_File()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        byte[] pdfBytes = CreatePdfBytes("Preview PDF text.");
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                $"preview-{Guid.NewGuid():N}.pdf",
+                pdfBytes,
+                "application/pdf");
+
+        DocumentPreviewResponse? preview =
+            await client.GetApiDataAsync<DocumentPreviewResponse>(
+                $"/api/v1/documents/{upload.DocumentId}/preview");
+
+        Assert.NotNull(preview);
+        Assert.Equal(DocumentPreviewKind.Pdf, preview.PreviewKind);
+        Assert.Equal($"/api/v1/documents/{upload.DocumentId}/preview/file", preview.PreviewUrl);
+        Assert.Null(preview.TextContent);
+
+        using HttpResponseMessage response = await client.GetAsync(preview.PreviewUrl);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(pdfBytes, await response.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task GetDocumentPreview_Should_Return_Pdf_For_Converted_Docx_And_Use_Cache()
+    {
+        FakePreviewConverterProcess converter = new();
+        using WebApplicationFactory<Program> conversionFactory =
+            CreatePreviewConversionFactory(converter);
+
+        using HttpClient client = conversionFactory.CreateClient();
+
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                $"preview-{Guid.NewGuid():N}.docx",
+                CreateDocxBytes("Unsupported preview text."),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+        DocumentPreviewResponse? preview =
+            await client.GetApiDataAsync<DocumentPreviewResponse>(
+                $"/api/v1/documents/{upload.DocumentId}/preview");
+
+        Assert.NotNull(preview);
+        Assert.Equal(DocumentPreviewKind.Pdf, preview.PreviewKind);
+        Assert.Equal("application/pdf", preview.ContentType);
+        Assert.Equal($"/api/v1/documents/{upload.DocumentId}/preview/file", preview.PreviewUrl);
+        Assert.Null(preview.ErrorCode);
+        Assert.Null(preview.TextContent);
+
+        using HttpResponseMessage response = await client.GetAsync(preview.PreviewUrl);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(FakePreviewConverterProcess.PdfBytes, await response.Content.ReadAsByteArrayAsync());
+
+        DocumentPreviewResponse? cachedPreview =
+            await client.GetApiDataAsync<DocumentPreviewResponse>(
+                $"/api/v1/documents/{upload.DocumentId}/preview");
+
+        Assert.NotNull(cachedPreview);
+        Assert.Equal(DocumentPreviewKind.Pdf, cachedPreview.PreviewKind);
+        Assert.Equal(1, converter.CallCount);
+    }
+
+    [Fact]
+    public async Task GetDocumentPreview_Should_Return_Pdf_For_Converted_Pptx()
+    {
+        FakePreviewConverterProcess converter = new();
+        using WebApplicationFactory<Program> conversionFactory =
+            CreatePreviewConversionFactory(converter);
+
+        using HttpClient client = conversionFactory.CreateClient();
+
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                $"preview-{Guid.NewGuid():N}.pptx",
+                CreatePptxBytes("Converted PPTX preview text."),
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+
+        DocumentPreviewResponse? preview =
+            await client.GetApiDataAsync<DocumentPreviewResponse>(
+                $"/api/v1/documents/{upload.DocumentId}/preview");
+
+        Assert.NotNull(preview);
+        Assert.Equal(DocumentPreviewKind.Pdf, preview.PreviewKind);
+        Assert.Equal("application/pdf", preview.ContentType);
+        Assert.Equal($"/api/v1/documents/{upload.DocumentId}/preview/file", preview.PreviewUrl);
+        Assert.Equal(1, converter.CallCount);
+    }
+
+    [Fact]
+    public async Task GetDocumentPreview_Should_Return_Html_Fallback_When_Converter_Is_Unavailable()
+    {
+        // When LibreOffice is unavailable the handler falls back to the in-process
+        // OOXML-to-HTML converter, so a valid .docx produces an Html response instead
+        // of an error.
+        FakePreviewConverterProcess converter = new(ApplicationErrors.ExternalDependency(
+            ErrorCodes.Documents.PreviewConverterUnavailable,
+            ErrorMessages.Documents.PreviewConverterUnavailable));
+        using WebApplicationFactory<Program> conversionFactory =
+            CreatePreviewConversionFactory(converter);
+
+        using HttpClient client = conversionFactory.CreateClient();
+
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                $"preview-{Guid.NewGuid():N}.docx",
+                CreateDocxBytes("Unavailable converter text."),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+        DocumentPreviewResponse? preview =
+            await client.GetApiDataAsync<DocumentPreviewResponse>(
+                $"/api/v1/documents/{upload.DocumentId}/preview");
+
+        Assert.NotNull(preview);
+        Assert.Equal(DocumentPreviewKind.Html, preview.PreviewKind);
+        Assert.Null(preview.ErrorCode);
+        Assert.Null(preview.PreviewUrl);
+        Assert.NotNull(preview.TextContent);
+
+        CursorPage<DocumentDto>? documents =
+            await client.GetApiDataAsync<CursorPage<DocumentDto>>("/api/v1/documents");
+
+        Assert.Contains(documents?.Items ?? [], document => document.Id == upload.DocumentId);
+    }
+
+    [Fact]
+    public async Task GetDocumentPreview_Should_Return_NotFound_When_Document_Is_Missing()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        using HttpResponseMessage response =
+            await client.GetAsync($"/api/v1/documents/{Guid.NewGuid()}/preview");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        ApiResponse<object?> envelope =
+            await response.Content.ReadApiErrorAsync();
+
+        Assert.Equal("DOCUMENT_NOT_FOUND", envelope.Error!.Code);
+    }
+
+    [Fact]
+    public async Task GetDocumentPreviewFile_Should_Not_Stream_Unmanaged_File_Path()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                $"preview-{Guid.NewGuid():N}.pdf",
+                CreatePdfBytes("Managed file only."),
+                "application/pdf");
+
+        string externalPath = Path.Combine(
+            Path.GetTempPath(),
+            $"localmind-preview-{Guid.NewGuid():N}.pdf");
+
+        await File.WriteAllTextAsync(externalPath, "external content");
+
+        try
+        {
+            await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            DocumentFile file =
+                await db.DocumentFiles.SingleAsync(x => x.DocumentId == upload.DocumentId);
+
+            file.LocalPath = externalPath;
+            await db.SaveChangesAsync();
+
+            DocumentPreviewResponse? preview =
+                await client.GetApiDataAsync<DocumentPreviewResponse>(
+                    $"/api/v1/documents/{upload.DocumentId}/preview");
+
+            Assert.NotNull(preview);
+            Assert.Equal(DocumentPreviewKind.Error, preview.PreviewKind);
+            Assert.Equal("DOCUMENT_PREVIEW_FILE_MISSING", preview.ErrorCode);
+            Assert.Null(preview.PreviewUrl);
+            Assert.Null(preview.TextContent);
+
+            using HttpResponseMessage response =
+                await client.GetAsync($"/api/v1/documents/{upload.DocumentId}/preview/file");
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+        finally
+        {
+            if (File.Exists(externalPath))
+            {
+                File.Delete(externalPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task GetDocumentPreview_Should_Return_Controlled_Error_For_Corrupt_Text_File()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        UploadDocumentResponse upload =
+            await UploadDocumentAsync(
+                client,
+                $"preview-{Guid.NewGuid():N}.txt",
+                content: "valid before corruption");
+
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        DocumentFile file =
+            await db.DocumentFiles.SingleAsync(x => x.DocumentId == upload.DocumentId);
+
+        await File.WriteAllBytesAsync(file.LocalPath, [0xC3, 0x28]);
+
+        DocumentPreviewResponse? preview =
+            await client.GetApiDataAsync<DocumentPreviewResponse>(
+                $"/api/v1/documents/{upload.DocumentId}/preview");
+
+        Assert.NotNull(preview);
+        Assert.Equal(DocumentPreviewKind.Error, preview.PreviewKind);
+        Assert.Equal("DOCUMENT_PREVIEW_UNAVAILABLE", preview.ErrorCode);
+        Assert.Null(preview.PreviewUrl);
+        Assert.Null(preview.TextContent);
     }
 
     [Fact]
@@ -700,6 +959,17 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
         await db.SaveChangesAsync();
     }
 
+    private WebApplicationFactory<Program> CreatePreviewConversionFactory(
+        FakePreviewConverterProcess converter)
+    {
+        return factory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IDocumentPreviewConverterProcess>();
+                services.AddSingleton<IDocumentPreviewConverterProcess>(converter);
+            }));
+    }
+
     private async Task<UploadDocumentResponse> UploadDocumentAsync(
         HttpClient client,
         string fileName,
@@ -849,6 +1119,33 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
             $"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xrefOffset}\n%%EOF");
 
         return Encoding.ASCII.GetBytes(builder.ToString());
+    }
+
+    private sealed class FakePreviewConverterProcess(ApplicationError? error = null) : IDocumentPreviewConverterProcess
+    {
+        public static readonly byte[] PdfBytes = CreatePdfBytes("Converted preview.");
+
+        public int CallCount { get; private set; }
+
+        public async Task<Result<DocumentPreviewProcessResult>> ConvertToPdfAsync(
+            string sourcePath,
+            string outputDirectory,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+
+            if (error is not null)
+            {
+                return Result<DocumentPreviewProcessResult>.Failure(error);
+            }
+
+            Directory.CreateDirectory(outputDirectory);
+            string pdfPath = Path.Combine(outputDirectory, "converted.pdf");
+            await File.WriteAllBytesAsync(pdfPath, PdfBytes, cancellationToken);
+
+            return Result<DocumentPreviewProcessResult>.Success(new DocumentPreviewProcessResult(pdfPath));
+        }
     }
 
     private static byte[] CreateDocxBytes(string text)

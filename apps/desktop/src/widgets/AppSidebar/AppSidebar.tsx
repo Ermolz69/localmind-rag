@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { routes } from "@shared/constants/routes";
 import { cn } from "@shared/lib/cn";
+import type { AppSettings } from "@entities/settings";
 import { settingsApi } from "@shared/api";
 import { useApiQuery } from "@shared/lib/hooks";
 
@@ -32,22 +33,31 @@ const sidebarStorageKey = "localmind.sidebar.expanded";
 
 export function AppSidebar() {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { data: settings, reload } = useApiQuery(
-    () => settingsApi.getSettings().catch(() => null),
-    {},
-  );
+  const {
+    data: settings,
+    setData: setSettings,
+    reload,
+  } = useApiQuery(() => settingsApi.getSettings().catch(() => null), {});
 
   useEffect(() => {
     setIsExpanded(window.localStorage.getItem(sidebarStorageKey) === "true");
   }, []);
 
   useEffect(() => {
-    const handler = () => void reload();
+    const handler = (event: Event) => {
+      const nextSettings = (event as CustomEvent<AppSettings | undefined>)
+        .detail;
+      if (nextSettings) {
+        setSettings(nextSettings);
+      } else {
+        void reload();
+      }
+    };
     window.addEventListener("localmind:settings:changed", handler);
     return () => {
       window.removeEventListener("localmind:settings:changed", handler);
     };
-  }, [reload]);
+  }, [reload, setSettings]);
 
   function setExpanded(nextValue: boolean) {
     setIsExpanded(nextValue);

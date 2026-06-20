@@ -10,6 +10,7 @@ namespace KnowledgeApp.Contracts.Settings;
 /// <param name="EnableHttpLogs">Whether HTTP request logs are written.</param>
 /// <param name="EnableDiagnosticEventLogs">Whether diagnostic events are written to a structured log file.</param>
 /// <param name="EnableDebugTrace">Whether debug trace logs are written.</param>
+/// <param name="LogRetainedDays">How many days of log files to keep before automatic cleanup removes them.</param>
 public sealed record DiagnosticsSettingsDto(
     bool Enabled,
     bool DeveloperModeEnabled = false,
@@ -19,4 +20,5 @@ public sealed record DiagnosticsSettingsDto(
     bool EnableSqlLogs = false,
     bool EnableHttpLogs = true,
     bool EnableDiagnosticEventLogs = false,
-    bool EnableDebugTrace = false);
+    bool EnableDebugTrace = false,
+    int LogRetainedDays = 14);
