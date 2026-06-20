@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LocalMind — .NET API Graph</title>
+    <style>
+      :root {
+        --bg: #15161a;
+        --bg-2: #1b1d23;
+        --panel: #1e2127;
+        --panel-border: #2c3038;
+        --text: #d7dae0;
+        --text-dim: #8b909b;
+        --project: #8b9cf7;
+        --namespace: #5fc4a3;
+        --type: #d9a866;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        overflow: hidden;
+      }
+      #app {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+      #graph {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+        background:
+          radial-gradient(
+            circle at 50% 40%,
+            #1d2026 0%,
+            var(--bg) 70%
+          );
+      }
+      #graph.grabbing {
+        cursor: grabbing;
+      }
+      #graph.pointing {
+        cursor: pointer;
+      }
+      .overlay {
+        position: absolute;
+        z-index: 5;
+        user-select: none;
+      }
+      .titlebar {
+        top: 16px;
+        left: 18px;
+        pointer-events: none;
+      }
+      .titlebar h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+      .titlebar p {
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: var(--text-dim);
+        max-width: 320px;
+      }
+      .toolbar {
+        top: 16px;
+        right: 18px;
+        display: flex;
+        gap: 6px;
+      }
+      .toolbar button {
+        appearance: none;
+        border: 1px solid var(--panel-border);
+        background: var(--panel);
+        color: var(--text);
+        font-size: 12px;
+        height: 30px;
+        min-width: 30px;
+        padding: 0 10px;
+        border-radius: 7px;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+      }
+      .toolbar button:hover {
+        background: #262a32;
+        border-color: #3a3f49;
+      }
+      .legend {
+        left: 18px;
+        bottom: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        background: rgba(24, 26, 31, 0.7);
+        backdrop-filter: blur(4px);
+        border: 1px solid var(--panel-border);
+        border-radius: 9px;
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+      .legend .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-dim);
+      }
+      .legend .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex: none;
+      }
+      .hint {
+        right: 18px;
+        bottom: 16px;
+        font-size: 11px;
+        color: var(--text-dim);
+        text-align: right;
+        pointer-events: none;
+        max-width: 280px;
+        line-height: 1.6;
+      }
+      .info {
+        top: 60px;
+        right: 18px;
+        width: 264px;
+        max-height: calc(100vh - 150px);
+        overflow: auto;
+        background: rgba(24, 26, 31, 0.92);
+        backdrop-filter: blur(6px);
+        border: 1px solid var(--panel-border);
+        border-radius: 11px;
+        padding: 16px;
+        transform: translateX(12px);
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 0.18s ease,
+          transform 0.18s ease;
+      }
+      .info.open {
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
+      }
+      .info .kind {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        padding: 3px 8px;
+        border-radius: 999px;
+      }
+      .info h2 {
+        margin: 10px 0 2px;
+        font-size: 15px;
+        font-weight: 600;
+        word-break: break-word;
+      }
+      .info .sub {
+        margin: 0 0 12px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .info .section-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-dim);
+        margin: 12px 0 6px;
+      }
+      .info .conn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        padding: 5px 7px;
+        border-radius: 6px;
+        cursor: pointer;
+        color: var(--text);
+      }
+      .info .conn:hover {
+        background: #262a32;
+      }
+      .info .conn .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex: none;
+      }
+      .info .close {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        border: none;
+        background: transparent;
+        color: var(--text-dim);
+        font-size: 16px;
+        cursor: pointer;
+        line-height: 1;
+      }
+      .info .close:hover {
+        color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="graph"></canvas>
+
+      <div class="overlay titlebar">
+        <h1>.NET API Graph</h1>
+        <p>
+          Prototype graph view of the backend projects, namespaces, and types.
+          Showing illustrative mock data.
+        </p>
+      </div>
+
+      <div class="overlay toolbar">
+        <button data-action="zoom-in" title="Zoom in">+</button>
+        <button data-action="zoom-out" title="Zoom out">&minus;</button>
+        <button data-action="fit" title="Fit graph to screen">Fit</button>
+        <button data-action="reset" title="Reset view and layout">Reset</button>
+      </div>
+
+      <div class="overlay legend">
+        <div class="row">
+          <span class="dot" style="background: var(--project)"></span> Project
+        </div>
+        <div class="row">
+          <span class="dot" style="background: var(--namespace)"></span>
+          Namespace
+        </div>
+        <div class="row">
+          <span class="dot" style="background: var(--type)"></span> Type
+        </div>
+      </div>
+
+      <div class="overlay hint">
+        Drag a node to move it · Scroll to zoom · Drag the canvas to pan · Click
+        a node for details
+      </div>
+
+      <aside class="overlay info" id="info">
+        <button class="close" id="info-close" title="Close">&times;</button>
+        <span class="kind" id="info-kind"></span>
+        <h2 id="info-name"></h2>
+        <p class="sub" id="info-sub"></p>
+        <div id="info-connections"></div>
+      </aside>
+    </div>
+
+    <script>
+      "use strict";
+
+      // ---- Mock graph data ------------------------------------------------
+      // Illustrative only: not generated from DocFX metadata.
+      const KINDS = {
+        project: { color: "#8b9cf7", radius: 17, label: "Project" },
+        namespace: { color: "#5fc4a3", radius: 11, label: "Namespace" },
+        type: { color: "#d9a866", radius: 7, label: "Type" },
+      };
+
+      const RAW_NODES = [
+        // Projects
+        { id: "p.domain", label: "KnowledgeApp.Domain", kind: "project" },
+        { id: "p.contracts", label: "KnowledgeApp.Contracts", kind: "project" },
+        { id: "p.app", label: "KnowledgeApp.Application", kind: "project" },
+        { id: "p.infra", label: "KnowledgeApp.Infrastructure", kind: "project" },
+        { id: "p.obs", label: "KnowledgeApp.Observability", kind: "project" },
+        { id: "p.localapi", label: "KnowledgeApp.LocalApi", kind: "project" },
+
+        // Namespaces
+        { id: "n.docs", label: "Documents", kind: "namespace" },
+        { id: "n.settings", label: "Settings", kind: "namespace" },
+        { id: "n.diag", label: "Diagnostics", kind: "namespace" },
+        { id: "n.search", label: "Search", kind: "namespace" },
+        { id: "n.cset", label: "Contracts.Settings", kind: "namespace" },
+        { id: "n.crun", label: "Contracts.Runtime", kind: "namespace" },
+        { id: "n.endpoints", label: "Endpoints", kind: "namespace" },
+        { id: "n.obs", label: "Observability", kind: "namespace" },
+
+        // Types
+        { id: "t.dsdto", label: "DiagnosticsSettingsDto", kind: "type" },
+        { id: "t.asdto", label: "AppSettingsDto", kind: "type" },
+        { id: "t.lcrdto", label: "LogCleanupResultDto", kind: "type" },
+        { id: "t.svc", label: "SettingsService", kind: "type" },
+        { id: "t.validator", label: "SettingsValidator", kind: "type" },
+        { id: "t.preview", label: "GetDocumentPreviewHandler", kind: "type" },
+        { id: "t.office", label: "OfficeDocumentHtmlConverter", kind: "type" },
+        { id: "t.logmaint", label: "LogMaintenanceService", kind: "type" },
+        { id: "t.logret", label: "LogRetentionService", kind: "type" },
+        { id: "t.diagep", label: "DiagnosticsEndpoints", kind: "type" },
+      ];
+
+      // edge kinds: "contains" (structural) and "depends" (reference)
+      const RAW_EDGES = [
+        // project dependencies
+        { s: "p.contracts", t: "p.domain", kind: "depends" },
+        { s: "p.app", t: "p.domain", kind: "depends" },
+        { s: "p.app", t: "p.contracts", kind: "depends" },
+        { s: "p.infra", t: "p.app", kind: "depends" },
+        { s: "p.obs", t: "p.app", kind: "depends" },
+        { s: "p.localapi", t: "p.app", kind: "depends" },
+        { s: "p.localapi", t: "p.infra", kind: "depends" },
+        { s: "p.localapi", t: "p.obs", kind: "depends" },
+        { s: "p.localapi", t: "p.contracts", kind: "depends" },
+
+        // project -> namespace (contains)
+        { s: "p.app", t: "n.docs", kind: "contains" },
+        { s: "p.app", t: "n.settings", kind: "contains" },
+        { s: "p.app", t: "n.diag", kind: "contains" },
+        { s: "p.app", t: "n.search", kind: "contains" },
+        { s: "p.contracts", t: "n.cset", kind: "contains" },
+        { s: "p.contracts", t: "n.crun", kind: "contains" },
+        { s: "p.localapi", t: "n.endpoints", kind: "contains" },
+        { s: "p.obs", t: "n.obs", kind: "contains" },
+
+        // namespace -> type (contains)
+        { s: "n.cset", t: "t.dsdto", kind: "contains" },
+        { s: "n.cset", t: "t.asdto", kind: "contains" },
+        { s: "n.crun", t: "t.lcrdto", kind: "contains" },
+        { s: "n.settings", t: "t.svc", kind: "contains" },
+        { s: "n.settings", t: "t.validator", kind: "contains" },
+        { s: "n.docs", t: "t.preview", kind: "contains" },
+        { s: "n.docs", t: "t.office", kind: "contains" },
+        { s: "n.obs", t: "t.logmaint", kind: "contains" },
+        { s: "n.obs", t: "t.logret", kind: "contains" },
+        { s: "n.endpoints", t: "t.diagep", kind: "contains" },
+
+        // type references (depends)
+        { s: "t.svc", t: "t.dsdto", kind: "depends" },
+        { s: "t.svc", t: "t.asdto", kind: "depends" },
+        { s: "t.diagep", t: "t.lcrdto", kind: "depends" },
+        { s: "t.logmaint", t: "t.lcrdto", kind: "depends" },
+        { s: "t.logret", t: "t.logmaint", kind: "depends" },
+        { s: "t.preview", t: "t.office", kind: "depends" },
+      ];
+
+      // ---- Setup ----------------------------------------------------------
+      const canvas = document.getElementById("graph");
+      const ctx = canvas.getContext("2d");
+      const infoEl = document.getElementById("info");
+
+      const nodes = RAW_NODES.map((n, i) => {
+        const angle = (i / RAW_NODES.length) * Math.PI * 2;
+        const ring = 120 + (i % 5) * 26;
+        return {
+          ...n,
+          r: KINDS[n.kind].radius,
+          color: KINDS[n.kind].color,
+          x: Math.cos(angle) * ring + (Math.random() - 0.5) * 40,
+          y: Math.sin(angle) * ring + (Math.random() - 0.5) * 40,
+          vx: 0,
+          vy: 0,
+        };
+      });
+      const nodeById = new Map(nodes.map((n) => [n.id, n]));
+      const edges = RAW_EDGES.map((e) => ({
+        source: nodeById.get(e.s),
+        target: nodeById.get(e.t),
+        kind: e.kind,
+      })).filter((e) => e.source && e.target);
+
+      // adjacency for highlighting + info panel
+      const neighbors = new Map(nodes.map((n) => [n.id, new Set()]));
+      edges.forEach((e) => {
+        neighbors.get(e.source.id).add(e.target.id);
+        neighbors.get(e.target.id).add(e.source.id);
+      });
+
+      // weight nodes by degree so hubs settle larger
+      nodes.forEach((n) => {
+        const degree = neighbors.get(n.id).size;
+        n.r = KINDS[n.kind].radius + Math.min(degree, 6) * 0.7;
+      });
+
+      // ---- Camera ---------------------------------------------------------
+      const camera = { scale: 1, tx: 0, ty: 0 };
+      let width = 0;
+      let height = 0;
+      let dpr = 1;
+
+      function resize() {
+        dpr = window.devicePixelRatio || 1;
+        width = canvas.clientWidth;
+        height = canvas.clientHeight;
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+      }
+
+      function toScreen(x, y) {
+        return { x: x * camera.scale + camera.tx, y: y * camera.scale + camera.ty };
+      }
+      function toWorld(sx, sy) {
+        return {
+          x: (sx - camera.tx) / camera.scale,
+          y: (sy - camera.ty) / camera.scale,
+        };
+      }
+
+      function fitToScreen(padding = 80, animate = true) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        nodes.forEach((n) => {
+          minX = Math.min(minX, n.x - n.r);
+          minY = Math.min(minY, n.y - n.r);
+          maxX = Math.max(maxX, n.x + n.r);
+          maxY = Math.max(maxY, n.y + n.r);
+        });
+        const w = Math.max(maxX - minX, 1);
+        const h = Math.max(maxY - minY, 1);
+        const scale = Math.min(
+          (width - padding * 2) / w,
+          (height - padding * 2) / h,
+        );
+        const target = {
+          scale: Math.max(0.2, Math.min(scale, 2.2)),
+          cx: (minX + maxX) / 2,
+          cy: (minY + maxY) / 2,
+        };
+        const tx = width / 2 - target.cx * target.scale;
+        const ty = height / 2 - target.cy * target.scale;
+        if (animate) animateCamera(target.scale, tx, ty);
+        else {
+          camera.scale = target.scale;
+          camera.tx = tx;
+          camera.ty = ty;
+        }
+      }
+
+      let camAnim = null;
+      function animateCamera(scale, tx, ty) {
+        camAnim = {
+          from: { ...camera },
+          to: { scale, tx, ty },
+          start: performance.now(),
+          dur: 420,
+        };
+      }
+      function stepCameraAnim(now) {
+        if (!camAnim) return;
+        const t = Math.min(1, (now - camAnim.start) / camAnim.dur);
+        const e = 1 - Math.pow(1 - t, 3); // ease-out cubic
+        camera.scale = camAnim.from.scale + (camAnim.to.scale - camAnim.from.scale) * e;
+        camera.tx = camAnim.from.tx + (camAnim.to.tx - camAnim.from.tx) * e;
+        camera.ty = camAnim.from.ty + (camAnim.to.ty - camAnim.from.ty) * e;
+        if (t >= 1) camAnim = null;
+      }
+
+      function zoomAt(factor, sx, sy) {
+        camAnim = null;
+        const before = toWorld(sx, sy);
+        camera.scale = Math.max(0.15, Math.min(camera.scale * factor, 3.5));
+        const after = toWorld(sx, sy);
+        camera.tx += (after.x - before.x) * camera.scale;
+        camera.ty += (after.y - before.y) * camera.scale;
+      }
+
+      // ---- Force-directed layout -----------------------------------------
+      const REPULSION = 11500;
+      const SPRING = 0.04;
+      const CENTER_PULL = 0.011;
+      const DAMPING = 0.86;
+      let alpha = 1;
+
+      function springLength(e) {
+        const base = e.source.r + e.target.r;
+        return e.kind === "contains" ? base + 62 : base + 128;
+      }
+
+      function simulate() {
+        if (alpha < 0.004 && !dragNode) return;
+
+        nodes.forEach((n) => {
+          n.fx = 0;
+          n.fy = 0;
+        });
+
+        for (let i = 0; i < nodes.length; i++) {
+          const a = nodes[i];
+          for (let j = i + 1; j < nodes.length; j++) {
+            const b = nodes[j];
+            let dx = a.x - b.x;
+            let dy = a.y - b.y;
+            let d2 = dx * dx + dy * dy;
+            if (d2 < 0.01) {
+              dx = Math.random() - 0.5;
+              dy = Math.random() - 0.5;
+              d2 = 0.01;
+            }
+            const d = Math.sqrt(d2);
+            const f = REPULSION / d2;
+            const ux = dx / d;
+            const uy = dy / d;
+            a.fx += ux * f;
+            a.fy += uy * f;
+            b.fx -= ux * f;
+            b.fy -= uy * f;
+          }
+        }
+
+        edges.forEach((e) => {
+          const dx = e.target.x - e.source.x;
+          const dy = e.target.y - e.source.y;
+          const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+          const f = SPRING * (d - springLength(e));
+          const ux = (dx / d) * f;
+          const uy = (dy / d) * f;
+          e.source.fx += ux;
+          e.source.fy += uy;
+          e.target.fx -= ux;
+          e.target.fy -= uy;
+        });
+
+        nodes.forEach((n) => {
+          n.fx += -n.x * CENTER_PULL;
+          n.fy += -n.y * CENTER_PULL;
+          if (n === dragNode) {
+            n.vx = 0;
+            n.vy = 0;
+            return;
+          }
+          n.vx = (n.vx + n.fx * alpha) * DAMPING;
+          n.vy = (n.vy + n.fy * alpha) * DAMPING;
+          n.x += n.vx;
+          n.y += n.vy;
+        });
+
+        alpha *= 0.987;
+      }
+
+      function reheat(value = 0.6) {
+        alpha = Math.max(alpha, value);
+      }
+
+      // ---- Interaction state ---------------------------------------------
+      let hoverNode = null;
+      let selectedNode = null;
+      let dragNode = null;
+      let panning = false;
+      let pointerDownAt = null;
+      let movedDuringDrag = false;
+      const pointer = { x: 0, y: 0 };
+
+      function nodeAt(sx, sy) {
+        for (let i = nodes.length - 1; i >= 0; i--) {
+          const n = nodes[i];
+          const s = toScreen(n.x, n.y);
+          const rr = Math.max(n.r * camera.scale, 6) + 4;
+          if ((sx - s.x) ** 2 + (sy - s.y) ** 2 <= rr * rr) return n;
+        }
+        return null;
+      }
+
+      function activeSet() {
+        const focus = selectedNode || hoverNode;
+        if (!focus) return null;
+        const set = new Set([focus.id]);
+        neighbors.get(focus.id).forEach((id) => set.add(id));
+        return set;
+      }
+
+      // ---- Rendering ------------------------------------------------------
+      function render() {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+
+        const active = activeSet();
+        const focus = selectedNode || hoverNode;
+
+        // edges
+        ctx.lineWidth = 1;
+        edges.forEach((e) => {
+          const a = toScreen(e.source.x, e.source.y);
+          const b = toScreen(e.target.x, e.target.y);
+          const lit =
+            focus && (e.source.id === focus.id || e.target.id === focus.id);
+          ctx.strokeStyle = lit
+            ? "rgba(160, 180, 255, 0.55)"
+            : active
+              ? "rgba(255,255,255,0.045)"
+              : "rgba(255,255,255,0.10)";
+          ctx.lineWidth = lit ? 1.6 : 1;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        });
+
+        // nodes
+        nodes.forEach((n) => {
+          const s = toScreen(n.x, n.y);
+          const r = Math.max(n.r * camera.scale, 2.4);
+          const dimmed = active && !active.has(n.id);
+          const isFocus = focus && n.id === focus.id;
+          ctx.globalAlpha = dimmed ? 0.22 : 1;
+
+          if (isFocus || n === hoverNode) {
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, r + 7, 0, Math.PI * 2);
+            ctx.fillStyle = hexToRgba(n.color, 0.16);
+            ctx.fill();
+          }
+
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+          ctx.fillStyle = n.color;
+          ctx.fill();
+
+          if (selectedNode && n.id === selectedNode.id) {
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "rgba(255,255,255,0.9)";
+            ctx.stroke();
+          }
+
+          // label
+          const onScreenR = n.r * camera.scale;
+          const showLabel = isFocus || (!dimmed && onScreenR > 8.5);
+          if (showLabel) {
+            ctx.globalAlpha = dimmed ? 0.22 : isFocus ? 1 : 0.82;
+            ctx.fillStyle = isFocus ? "#f3f5f9" : "#c3c8d2";
+            ctx.font =
+              (n.kind === "project" ? "600 " : "") +
+              Math.max(11, Math.min(13, onScreenR)) +
+              "px -apple-system, 'Segoe UI', Roboto, sans-serif";
+            ctx.textBaseline = "middle";
+            ctx.fillText(n.label, s.x + r + 6, s.y);
+          }
+          ctx.globalAlpha = 1;
+        });
+      }
+
+      function hexToRgba(hex, a) {
+        const v = parseInt(hex.slice(1), 16);
+        return `rgba(${(v >> 16) & 255}, ${(v >> 8) & 255}, ${v & 255}, ${a})`;
+      }
+
+      // ---- Main loop ------------------------------------------------------
+      function frame(now) {
+        stepCameraAnim(now);
+        simulate();
+        render();
+        requestAnimationFrame(frame);
+      }
+
+      // ---- Info panel -----------------------------------------------------
+      function openInfo(node) {
+        selectedNode = node;
+        infoEl.classList.add("open");
+        document.getElementById("info-name").textContent = node.label;
+        const kindEl = document.getElementById("info-kind");
+        kindEl.textContent = KINDS[node.kind].label;
+        kindEl.style.color = "#16181d";
+        kindEl.style.background = node.color;
+        document.getElementById("info-sub").textContent =
+          neighbors.get(node.id).size + " connection(s)";
+
+        const list = document.getElementById("info-connections");
+        list.innerHTML = "";
+        const ids = [...neighbors.get(node.id)];
+        if (ids.length) {
+          const title = document.createElement("div");
+          title.className = "section-title";
+          title.textContent = "Connections";
+          list.appendChild(title);
+          ids
+            .map((id) => nodeById.get(id))
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .forEach((nb) => {
+              const row = document.createElement("div");
+              row.className = "conn";
+              row.innerHTML =
+                '<span class="dot" style="background:' +
+                nb.color +
+                '"></span>';
+              row.appendChild(document.createTextNode(nb.label));
+              row.addEventListener("click", () => {
+                openInfo(nb);
+                reheat(0.25);
+              });
+              list.appendChild(row);
+            });
+        }
+      }
+      function closeInfo() {
+        selectedNode = null;
+        infoEl.classList.remove("open");
+      }
+      document.getElementById("info-close").addEventListener("click", closeInfo);
+
+      // ---- Pointer events -------------------------------------------------
+      function localPoint(evt) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+      }
+
+      canvas.addEventListener("mousedown", (evt) => {
+        const p = localPoint(evt);
+        pointerDownAt = p;
+        movedDuringDrag = false;
+        const hit = nodeAt(p.x, p.y);
+        if (hit) {
+          dragNode = hit;
+          reheat(0.35);
+        } else {
+          panning = true;
+          canvas.classList.add("grabbing");
+        }
+      });
+
+      window.addEventListener("mousemove", (evt) => {
+        const p = localPoint(evt);
+        if (dragNode) {
+          const w = toWorld(p.x, p.y);
+          dragNode.x = w.x;
+          dragNode.y = w.y;
+          movedDuringDrag = true;
+          reheat(0.3);
+        } else if (panning && pointerDownAt) {
+          camera.tx += p.x - pointer.x;
+          camera.ty += p.y - pointer.y;
+          movedDuringDrag = true;
+        } else {
+          hoverNode = nodeAt(p.x, p.y);
+          canvas.classList.toggle("pointing", !!hoverNode);
+        }
+        pointer.x = p.x;
+        pointer.y = p.y;
+      });
+
+      window.addEventListener("mouseup", (evt) => {
+        const p = localPoint(evt);
+        const wasClick =
+          pointerDownAt &&
+          Math.abs(p.x - pointerDownAt.x) < 4 &&
+          Math.abs(p.y - pointerDownAt.y) < 4 &&
+          !movedDuringDrag;
+        if (wasClick) {
+          const hit = nodeAt(p.x, p.y);
+          if (hit) openInfo(hit);
+          else closeInfo();
+        }
+        dragNode = null;
+        panning = false;
+        pointerDownAt = null;
+        canvas.classList.remove("grabbing");
+      });
+
+      canvas.addEventListener(
+        "wheel",
+        (evt) => {
+          evt.preventDefault();
+          const p = localPoint(evt);
+          const factor = evt.deltaY < 0 ? 1.12 : 1 / 1.12;
+          zoomAt(factor, p.x, p.y);
+        },
+        { passive: false },
+      );
+
+      // ---- Toolbar --------------------------------------------------------
+      document.querySelector(".toolbar").addEventListener("click", (evt) => {
+        const action = evt.target.closest("button")?.dataset.action;
+        if (action === "zoom-in") zoomAt(1.25, width / 2, height / 2);
+        else if (action === "zoom-out") zoomAt(1 / 1.25, width / 2, height / 2);
+        else if (action === "fit") fitToScreen();
+        else if (action === "reset") {
+          closeInfo();
+          reheat(1);
+          setTimeout(() => fitToScreen(), 350);
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        resize();
+      });
+
+      // ---- Boot -----------------------------------------------------------
+      resize();
+      // settle the layout for a moment off-screen, then fit
+      for (let i = 0; i < 180; i++) simulate();
+      fitToScreen(80, false);
+      reheat(0.5);
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>
