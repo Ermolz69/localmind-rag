@@ -3,6 +3,9 @@ using System.Net.Http.Json;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Companion;
 using KnowledgeApp.Contracts.Settings;
+using KnowledgeApp.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace KnowledgeApp.IntegrationTests;
 
@@ -94,6 +97,35 @@ public sealed class CompanionEndpointsTests : IClassFixture<LocalApiTestFactory>
             await client.GetApiDataAsync<CompanionDevicesResponse>("/api/v1/companion/devices");
         Assert.NotNull(afterRevoke);
         Assert.DoesNotContain(afterRevoke.Devices, item => item.Id == device.Id);
+    }
+
+    [Fact]
+    public async Task Confirmed_Device_Is_Persisted_With_A_Hashed_Token()
+    {
+        using HttpClient client = factory.CreateClient();
+        await SetCompanionEnabledAsync(client, enabled: true);
+
+        using HttpResponseMessage startResponse = await client.PostAsync("/api/v1/companion/pairing", null);
+        CompanionPairingSessionDto? session =
+            await startResponse.Content.ReadApiDataAsync<CompanionPairingSessionDto>();
+        Assert.NotNull(session);
+
+        using HttpResponseMessage confirmResponse = await client.PostAsJsonAsync(
+            "/api/v1/companion/pairing/confirm",
+            new ConfirmCompanionPairingRequest(session.Token, "Redmi Note", "Chrome"));
+        ConfirmCompanionPairingResponse? confirmed =
+            await confirmResponse.Content.ReadApiDataAsync<ConfirmCompanionPairingResponse>();
+        Assert.NotNull(confirmed);
+
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var row = await db.CompanionDevices.FirstOrDefaultAsync(
+            device => device.Id == confirmed.Device.Id);
+
+        Assert.NotNull(row);
+        Assert.False(string.IsNullOrWhiteSpace(row.TokenHash));
+        Assert.NotEqual(confirmed.Token, row.TokenHash); // stored as a hash, not plaintext
+        Assert.True(row.CanChat);
     }
 
     [Fact]

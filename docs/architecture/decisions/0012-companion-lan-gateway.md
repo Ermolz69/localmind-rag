@@ -34,8 +34,9 @@ LAN (`0.0.0.0:49322`). It runs **only while Companion Mode is enabled** — an
 - A phone can connect over Wi-Fi without exposing LocalApi or asking users to
   open inbound ports/port-forwarding. The gateway is opt-in and closed by default.
 - Plaintext HTTP on the LAN is an accepted trade-off on a trusted home network.
-- Device tokens (and the trusted-device list) are in memory for now; persisting
-  them across restart is a later v2 stage.
+- The trusted-device list and per-device tokens are persisted (tokens stored as a
+  SHA-256 hash) so a paired phone reconnects across restart without re-pairing; the
+  pairing session itself stays in memory (ephemeral, single-use).
 - The gateway must serve the built SPA from disk, so packaging needs to place the
   built `dist` where the gateway can read it (`CompanionGateway:StaticPath`).
 - The internet relay direction ([ADR 0011](./0011-companion-remote-access-via-relay.md))

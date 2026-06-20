@@ -65,12 +65,13 @@ public static class CompanionEndpoints
         .WithDescription("Cancels any active pairing session.")
         .Produces<ApiResponse<object>>();
 
-        app.MapPost("/companion/pairing/confirm", (
+        app.MapPost("/companion/pairing/confirm", async (
             [FromBody] ConfirmCompanionPairingRequest request,
             [FromServices] ICompanionPairingService service,
-            HttpContext context) =>
+            HttpContext context,
+            CancellationToken cancellationToken) =>
         {
-            var result = service.Confirm(request);
+            var result = await service.ConfirmAsync(request, cancellationToken);
             return result.ToApiResult(context);
         })
         .WithName("ConfirmCompanionPairing")
@@ -137,11 +138,12 @@ public static class CompanionEndpoints
         .WithDescription("Adds a file from an allowed folder into LocalMind for indexing.")
         .Produces<ApiResponse<UploadDocumentResponse>>();
 
-        app.MapGet("/companion/devices", (
+        app.MapGet("/companion/devices", async (
             [FromServices] ICompanionPairingService service,
-            HttpContext context) =>
+            HttpContext context,
+            CancellationToken cancellationToken) =>
         {
-            CompanionDevicesResponse devices = service.GetDevices();
+            CompanionDevicesResponse devices = await service.GetDevicesAsync(cancellationToken);
             return ApiResults.Ok(devices, context);
         })
         .WithName("GetCompanionDevices")
@@ -150,12 +152,13 @@ public static class CompanionEndpoints
         .WithDescription("Returns the phones currently paired as trusted devices.")
         .Produces<ApiResponse<CompanionDevicesResponse>>();
 
-        app.MapDelete("/companion/devices/{deviceId:guid}", (
+        app.MapDelete("/companion/devices/{deviceId:guid}", async (
             Guid deviceId,
             [FromServices] ICompanionPairingService service,
-            HttpContext context) =>
+            HttpContext context,
+            CancellationToken cancellationToken) =>
         {
-            var result = service.RevokeDevice(deviceId);
+            var result = await service.RevokeDeviceAsync(deviceId, cancellationToken);
             return result.ToApiResult(context);
         })
         .WithName("RevokeCompanionDevice")
@@ -164,13 +167,14 @@ public static class CompanionEndpoints
         .WithDescription("Removes a phone from the trusted Companion Mode devices.")
         .Produces<ApiResponse<object>>();
 
-        app.MapPut("/companion/devices/{deviceId:guid}/permissions", (
+        app.MapPut("/companion/devices/{deviceId:guid}/permissions", async (
             Guid deviceId,
             [FromBody] CompanionDevicePermissionsDto permissions,
             [FromServices] ICompanionPairingService service,
-            HttpContext context) =>
+            HttpContext context,
+            CancellationToken cancellationToken) =>
         {
-            var result = service.UpdateDevicePermissions(deviceId, permissions);
+            var result = await service.UpdateDevicePermissionsAsync(deviceId, permissions, cancellationToken);
             return result.ToApiResult(context);
         })
         .WithName("UpdateCompanionDevicePermissions")

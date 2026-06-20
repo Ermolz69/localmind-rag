@@ -46,7 +46,9 @@ public static class CompanionGatewayPipeline
             if (decision.Access == CompanionRouteAccess.RequiresCapability)
             {
                 string? token = ExtractBearerToken(context.Request);
-                CompanionDeviceDto? device = token is null ? null : pairing.FindByToken(token);
+                CompanionDeviceDto? device = token is null
+                    ? null
+                    : await pairing.FindByTokenAsync(token, context.RequestAborted);
 
                 if (device is null)
                 {

@@ -90,10 +90,13 @@ without re-pairing. Pairing is designed to be temporary and controllable.
 - **Opt-in.** Starting a pairing session requires Companion Mode to be enabled;
   otherwise the request fails with `COMPANION_MODE_DISABLED`.
 
-The pairing session and the trusted-device list are held **in memory** on the
-backend for this stage. Sessions are inherently ephemeral, so in-memory is the
-correct model for them. Trusted devices will move to durable storage when the
-network transport that can actually create them lands.
+The pairing **session** is held in memory — sessions are inherently ephemeral
+(single-use, 5-minute TTL), so that is the correct model for them. **Trusted
+devices are persisted** in the database (`companion_devices` table), so a paired
+phone survives an app restart and reconnects without re-pairing. Only the hash of
+each device's token is stored (SHA-256), never the token itself: a leaked database
+cannot be used to impersonate a device. Disconnecting a device deletes its row, so
+its token stops authenticating immediately.
 
 ### Endpoints
 
@@ -128,8 +131,10 @@ are never available to a phone.
 
 `CompanionDeviceDto` carries a `Permissions` record; `PUT
 /companion/devices/{id}/permissions` updates it, and the desktop trusted-devices
-list exposes per-capability toggles. Permissions are held in memory with the
-device for now.
+list exposes per-capability toggles. Permissions are persisted with the device, so
+a trusted phone stays exactly as restricted (or as capable) as the user left it
+across restarts — a trusted device only ever gets the capabilities Companion Mode
+grants it, never full access.
 
 Enforcement binds at the local-network transport: once a request carries a
 device identity, the transport checks that device's permissions before allowing
@@ -216,8 +221,9 @@ Phone browser ──HTTP──> Companion Gateway (0.0.0.0:49322, in the LocalAp
   so the loopback LocalApi keeps its existing security. See
   [ADR 0012](decisions/0012-companion-lan-gateway.md).
 
-Transport is plain HTTP on the trusted local network for now; device tokens are
-held in memory (durable persistence and HTTPS are later steps).
+Transport is plain HTTP on the trusted local network for now. Device tokens are
+persisted (hashed) so a paired phone reconnects across restarts; HTTPS on the LAN
+remains a later step.
 
 ## Activity feed
 
@@ -260,14 +266,13 @@ the whole disk — only the folders the user explicitly allowed on the computer.
 
 The local-network transport — a phone actually connecting over Wi-Fi with
 device-token auth and enforced permissions — now exists via the
-[LAN gateway](#lan-gateway). Later stages build on it without weakening the
-local-only default:
+[LAN gateway](#lan-gateway), and trusted devices persist (with hashed tokens) so a
+paired phone reconnects across restarts without re-pairing. Later stages build on
+it without weakening the local-only default:
 
-1. Durable storage for trusted devices (and per-device tokens) so a paired phone
-   reconnects without re-pairing across restarts.
-2. Document actions from the phone (retry, cancel, reindex) on top of the
+1. Document actions from the phone (retry, cancel, reindex) on top of the
    read-only Documents view, and the remaining Indexing action.
-3. Pushing the activity feed (SSE/WebSocket) over the gateway instead of polling,
+2. Pushing the activity feed (SSE/WebSocket) over the gateway instead of polling,
    and HTTPS on the LAN.
 
 Each stage is intended to be useful on its own and to keep the principle that

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Common.Errors;
@@ -6,6 +7,7 @@ using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Companion;
 using KnowledgeApp.Contracts.Settings;
+using KnowledgeApp.Domain.Entities;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace KnowledgeApp.Application.Companion;
@@ -36,9 +38,10 @@ public sealed class CompanionPairingService(
         Rescan: true,
         AddFiles: true);
 
+    private static readonly TimeSpan LastSeenThrottle = TimeSpan.FromMinutes(5);
+
     private readonly object gate = new();
-    private readonly List<CompanionDeviceDto> devices = [];
-    private readonly Dictionary<string, Guid> deviceIdByToken = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<Guid, DateTimeOffset> lastSeenTouched = new();
     private PairingState? session;
 
     public CompanionInfoDto GetInfo()
@@ -103,7 +106,9 @@ public sealed class CompanionPairingService(
         return Result.Success();
     }
 
-    public Result<ConfirmCompanionPairingResponse> Confirm(ConfirmCompanionPairingRequest request)
+    public async Task<Result<ConfirmCompanionPairingResponse>> ConfirmAsync(
+        ConfirmCompanionPairingRequest request,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -137,6 +142,7 @@ public sealed class CompanionPairingService(
 
         DateTimeOffset now = dateTimeProvider.UtcNow;
 
+        // Validate and consume the single-use session atomically.
         lock (gate)
         {
             if (session is null
@@ -150,100 +156,149 @@ public sealed class CompanionPairingService(
                     "No active pairing session matches this code. Generate a new QR code and try again."));
             }
 
-            // Single-use: consume the session on success.
             session = null;
-
-            CompanionDeviceDto device = new(
-                Id: Guid.NewGuid(),
-                Name: Truncate(name),
-                Platform: Truncate(platform),
-                CreatedAt: now,
-                LastSeenAt: now,
-                Permissions: DefaultPermissions);
-
-            string deviceToken = GenerateToken();
-            devices.Add(device);
-            deviceIdByToken[deviceToken] = device.Id;
-            activityFeed?.Publish("device.connected", $"{device.Name} connected");
-
-            return Result<ConfirmCompanionPairingResponse>.Success(
-                new ConfirmCompanionPairingResponse(device, deviceToken));
         }
+
+        string deviceToken = GenerateToken();
+        CompanionDevice entity = new()
+        {
+            Name = Truncate(name),
+            Platform = Truncate(platform),
+            TokenHash = CompanionTokenHasher.Hash(deviceToken),
+            CreatedAt = now,
+            LastSeenAt = now,
+            CanChat = DefaultPermissions.Chat,
+            CanSearch = DefaultPermissions.Search,
+            CanViewDocuments = DefaultPermissions.ViewDocuments,
+            CanViewStatus = DefaultPermissions.ViewStatus,
+            CanRescan = DefaultPermissions.Rescan,
+            CanAddFiles = DefaultPermissions.AddFiles,
+        };
+
+        using IServiceScope scope = scopeFactory.CreateScope();
+        ICompanionDeviceRepository repository =
+            scope.ServiceProvider.GetRequiredService<ICompanionDeviceRepository>();
+        await repository.AddAsync(entity, cancellationToken);
+
+        activityFeed?.Publish("device.connected", $"{entity.Name} connected");
+
+        return Result<ConfirmCompanionPairingResponse>.Success(
+            new ConfirmCompanionPairingResponse(ToDto(entity), deviceToken));
     }
 
-    public CompanionDeviceDto? FindByToken(string token)
+    public async Task<CompanionDeviceDto?> FindByTokenAsync(string token, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(token))
         {
             return null;
         }
 
-        lock (gate)
+        using IServiceScope scope = scopeFactory.CreateScope();
+        ICompanionDeviceRepository repository =
+            scope.ServiceProvider.GetRequiredService<ICompanionDeviceRepository>();
+
+        CompanionDevice? entity = await repository.FindByTokenHashAsync(
+            CompanionTokenHasher.Hash(token),
+            cancellationToken);
+
+        if (entity is null)
         {
-            return deviceIdByToken.TryGetValue(token, out Guid deviceId)
-                ? devices.Find(device => device.Id == deviceId)
-                : null;
+            return null;
         }
+
+        DateTimeOffset now = dateTimeProvider.UtcNow;
+        if (ShouldTouchLastSeen(entity.Id, now))
+        {
+            entity.LastSeenAt = now;
+            await repository.SaveChangesAsync(cancellationToken);
+            lastSeenTouched[entity.Id] = now;
+        }
+
+        return ToDto(entity);
     }
 
-    public CompanionDevicesResponse GetDevices()
+    public async Task<CompanionDevicesResponse> GetDevicesAsync(CancellationToken cancellationToken = default)
     {
-        lock (gate)
-        {
-            return new CompanionDevicesResponse(devices.ToArray());
-        }
+        using IServiceScope scope = scopeFactory.CreateScope();
+        ICompanionDeviceRepository repository =
+            scope.ServiceProvider.GetRequiredService<ICompanionDeviceRepository>();
+
+        IReadOnlyList<CompanionDevice> entities = await repository.ListAsync(cancellationToken);
+        return new CompanionDevicesResponse(entities.Select(ToDto).ToArray());
     }
 
-    public Result RevokeDevice(Guid deviceId)
+    public async Task<Result> RevokeDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default)
     {
-        string removedName;
+        using IServiceScope scope = scopeFactory.CreateScope();
+        ICompanionDeviceRepository repository =
+            scope.ServiceProvider.GetRequiredService<ICompanionDeviceRepository>();
 
-        lock (gate)
+        CompanionDevice? entity = await repository.GetAsync(deviceId, cancellationToken);
+        if (entity is null)
         {
-            CompanionDeviceDto? existing = devices.Find(device => device.Id == deviceId);
-
-            if (existing is null)
-            {
-                return Result.Failure(ApplicationErrors.NotFound(
-                    ErrorCodes.Companion.DeviceNotFound,
-                    "Device not found."));
-            }
-
-            removedName = existing.Name;
-            devices.RemoveAll(device => device.Id == deviceId);
-
-            foreach (string token in deviceIdByToken
-                .Where(entry => entry.Value == deviceId)
-                .Select(entry => entry.Key)
-                .ToArray())
-            {
-                deviceIdByToken.Remove(token);
-            }
+            return Result.Failure(ApplicationErrors.NotFound(
+                ErrorCodes.Companion.DeviceNotFound,
+                "Device not found."));
         }
 
-        activityFeed?.Publish("device.disconnected", $"{removedName} disconnected");
+        await repository.RemoveAsync(deviceId, cancellationToken);
+        lastSeenTouched.TryRemove(deviceId, out _);
+        activityFeed?.Publish("device.disconnected", $"{entity.Name} disconnected");
+
         return Result.Success();
     }
 
-    public Result UpdateDevicePermissions(Guid deviceId, CompanionDevicePermissionsDto permissions)
+    public async Task<Result> UpdateDevicePermissionsAsync(
+        Guid deviceId,
+        CompanionDevicePermissionsDto permissions,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(permissions);
 
-        lock (gate)
+        using IServiceScope scope = scopeFactory.CreateScope();
+        ICompanionDeviceRepository repository =
+            scope.ServiceProvider.GetRequiredService<ICompanionDeviceRepository>();
+
+        CompanionDevice? entity = await repository.GetAsync(deviceId, cancellationToken);
+        if (entity is null)
         {
-            int index = devices.FindIndex(device => device.Id == deviceId);
-
-            if (index < 0)
-            {
-                return Result.Failure(ApplicationErrors.NotFound(
-                    ErrorCodes.Companion.DeviceNotFound,
-                    "Device not found."));
-            }
-
-            devices[index] = devices[index] with { Permissions = permissions };
+            return Result.Failure(ApplicationErrors.NotFound(
+                ErrorCodes.Companion.DeviceNotFound,
+                "Device not found."));
         }
 
+        entity.CanChat = permissions.Chat;
+        entity.CanSearch = permissions.Search;
+        entity.CanViewDocuments = permissions.ViewDocuments;
+        entity.CanViewStatus = permissions.ViewStatus;
+        entity.CanRescan = permissions.Rescan;
+        entity.CanAddFiles = permissions.AddFiles;
+        await repository.SaveChangesAsync(cancellationToken);
+
         return Result.Success();
+    }
+
+    private bool ShouldTouchLastSeen(Guid deviceId, DateTimeOffset now)
+    {
+        return !lastSeenTouched.TryGetValue(deviceId, out DateTimeOffset last)
+            || now - last > LastSeenThrottle;
+    }
+
+    private static CompanionDeviceDto ToDto(CompanionDevice entity)
+    {
+        return new CompanionDeviceDto(
+            Id: entity.Id,
+            Name: entity.Name,
+            Platform: entity.Platform,
+            CreatedAt: entity.CreatedAt,
+            LastSeenAt: entity.LastSeenAt,
+            Permissions: new CompanionDevicePermissionsDto(
+                Chat: entity.CanChat,
+                Search: entity.CanSearch,
+                ViewDocuments: entity.CanViewDocuments,
+                ViewStatus: entity.CanViewStatus,
+                Rescan: entity.CanRescan,
+                AddFiles: entity.CanAddFiles));
     }
 
     private string BuildPairingUrl(string token)

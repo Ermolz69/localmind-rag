@@ -23,6 +23,7 @@ public interface IAppDbContext
     DbSet<SyncState> SyncStates { get; }
     DbSet<SemanticCacheEntry> SemanticCacheEntries { get; }
     DbSet<WatchedFileLink> WatchedFileLinks { get; }
+    DbSet<CompanionDevice> CompanionDevices { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

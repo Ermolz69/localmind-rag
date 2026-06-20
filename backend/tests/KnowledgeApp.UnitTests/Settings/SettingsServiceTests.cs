@@ -319,6 +319,7 @@ public sealed class SettingsServiceTests
         public DbSet<SyncState> SyncStates => inner.SyncStates;
         public DbSet<SemanticCacheEntry> SemanticCacheEntries => inner.SemanticCacheEntries;
         public DbSet<WatchedFileLink> WatchedFileLinks => inner.WatchedFileLinks;
+        public DbSet<CompanionDevice> CompanionDevices => inner.CompanionDevices;
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

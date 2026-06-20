@@ -140,8 +140,10 @@ public sealed class CompanionGatewayPipelineTests : IAsyncLifetime
             LastSeenAt: DateTimeOffset.UnixEpoch,
             Permissions: permissions);
 
-        public CompanionDeviceDto? FindByToken(string candidate) =>
-            candidate == token ? device : null;
+        public Task<CompanionDeviceDto?> FindByTokenAsync(
+            string candidate,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(candidate == token ? device : null);
 
         public CompanionInfoDto GetInfo() => throw new NotSupportedException();
 
@@ -152,14 +154,21 @@ public sealed class CompanionGatewayPipelineTests : IAsyncLifetime
 
         public Result Cancel() => throw new NotSupportedException();
 
-        public Result<ConfirmCompanionPairingResponse> Confirm(ConfirmCompanionPairingRequest request) =>
+        public Task<Result<ConfirmCompanionPairingResponse>> ConfirmAsync(
+            ConfirmCompanionPairingRequest request,
+            CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public CompanionDevicesResponse GetDevices() => throw new NotSupportedException();
+        public Task<CompanionDevicesResponse> GetDevicesAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
 
-        public Result RevokeDevice(Guid deviceId) => throw new NotSupportedException();
+        public Task<Result> RevokeDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
 
-        public Result UpdateDevicePermissions(Guid deviceId, CompanionDevicePermissionsDto value) =>
+        public Task<Result> UpdateDevicePermissionsAsync(
+            Guid deviceId,
+            CompanionDevicePermissionsDto value,
+            CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
     }
 }

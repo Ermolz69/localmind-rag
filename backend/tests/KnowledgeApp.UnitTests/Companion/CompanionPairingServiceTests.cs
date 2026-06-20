@@ -5,6 +5,7 @@ using KnowledgeApp.Application.Companion;
 using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Companion;
 using KnowledgeApp.Contracts.Settings;
+using KnowledgeApp.Domain.Entities;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace KnowledgeApp.UnitTests.Companion;
@@ -81,7 +82,7 @@ public sealed class CompanionPairingServiceTests
         CompanionPairingService service = CreateService(companionEnabled: true);
         Result<CompanionPairingSessionDto> session = await service.StartAsync();
 
-        Result<ConfirmCompanionPairingResponse> result = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> result = await service.ConfirmAsync(
             new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
 
         Assert.True(result.IsSuccess);
@@ -89,7 +90,8 @@ public sealed class CompanionPairingServiceTests
         Assert.Equal("Chrome", result.Value.Device.Platform);
         Assert.False(string.IsNullOrWhiteSpace(result.Value.Token));
 
-        Assert.Contains(service.GetDevices().Devices, device => device.Id == result.Value.Device.Id);
+        CompanionDevicesResponse devices = await service.GetDevicesAsync();
+        Assert.Contains(devices.Devices, device => device.Id == result.Value.Device.Id);
 
         // Session is single-use and consumed on success.
         Assert.False(service.GetStatus().Active);
@@ -101,7 +103,7 @@ public sealed class CompanionPairingServiceTests
         CompanionPairingService service = CreateService(companionEnabled: true);
         Result<CompanionPairingSessionDto> session = await service.StartAsync();
 
-        Result<ConfirmCompanionPairingResponse> result = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> result = await service.ConfirmAsync(
             new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
 
         CompanionDevicePermissionsDto permissions = result.Value!.Device.Permissions;
@@ -118,10 +120,10 @@ public sealed class CompanionPairingServiceTests
     {
         CompanionPairingService service = CreateService(companionEnabled: true);
         Result<CompanionPairingSessionDto> session = await service.StartAsync();
-        Result<ConfirmCompanionPairingResponse> device = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> device = await service.ConfirmAsync(
             new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
 
-        Result update = service.UpdateDevicePermissions(
+        Result update = await service.UpdateDevicePermissionsAsync(
             device.Value!.Device.Id,
             new CompanionDevicePermissionsDto(
                 Chat: true,
@@ -133,18 +135,18 @@ public sealed class CompanionPairingServiceTests
 
         Assert.True(update.IsSuccess);
 
-        CompanionDeviceDto stored = Assert.Single(service.GetDevices().Devices);
+        CompanionDeviceDto stored = Assert.Single((await service.GetDevicesAsync()).Devices);
         Assert.False(stored.Permissions.Rescan);
         Assert.False(stored.Permissions.AddFiles);
         Assert.True(stored.Permissions.Chat);
     }
 
     [Fact]
-    public void UpdateDevicePermissions_Should_Fail_When_Device_Unknown()
+    public async Task UpdateDevicePermissions_Should_Fail_When_Device_Unknown()
     {
         CompanionPairingService service = CreateService(companionEnabled: true);
 
-        Result update = service.UpdateDevicePermissions(
+        Result update = await service.UpdateDevicePermissionsAsync(
             Guid.NewGuid(),
             new CompanionDevicePermissionsDto(true, true, true, true, true, true));
 
@@ -158,20 +160,20 @@ public sealed class CompanionPairingServiceTests
         CompanionPairingService service = CreateService(companionEnabled: true);
         await service.StartAsync();
 
-        Result<ConfirmCompanionPairingResponse> result = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> result = await service.ConfirmAsync(
             new ConfirmCompanionPairingRequest("not-the-token", "Phone", "Chrome"));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCodes.Companion.PairingNotActive, result.Error!.Code);
-        Assert.Empty(service.GetDevices().Devices);
+        Assert.Empty((await service.GetDevicesAsync()).Devices);
     }
 
     [Fact]
-    public void Confirm_Should_Fail_When_Fields_Missing()
+    public async Task Confirm_Should_Fail_When_Fields_Missing()
     {
         CompanionPairingService service = CreateService(companionEnabled: true);
 
-        Result<ConfirmCompanionPairingResponse> result = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> result = await service.ConfirmAsync(
             new ConfirmCompanionPairingRequest(string.Empty, string.Empty, string.Empty));
 
         Assert.False(result.IsSuccess);
@@ -183,13 +185,13 @@ public sealed class CompanionPairingServiceTests
     {
         CompanionPairingService service = CreateService(companionEnabled: true);
         Result<CompanionPairingSessionDto> session = await service.StartAsync();
-        Result<ConfirmCompanionPairingResponse> device = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> device = await service.ConfirmAsync(
             new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
 
-        Result revoke = service.RevokeDevice(device.Value!.Device.Id);
+        Result revoke = await service.RevokeDeviceAsync(device.Value!.Device.Id);
 
         Assert.True(revoke.IsSuccess);
-        Assert.Empty(service.GetDevices().Devices);
+        Assert.Empty((await service.GetDevicesAsync()).Devices);
     }
 
     [Fact]
@@ -197,21 +199,21 @@ public sealed class CompanionPairingServiceTests
     {
         CompanionPairingService service = CreateService(companionEnabled: true);
         Result<CompanionPairingSessionDto> session = await service.StartAsync();
-        Result<ConfirmCompanionPairingResponse> confirmed = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> confirmed = await service.ConfirmAsync(
             new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
 
-        CompanionDeviceDto? found = service.FindByToken(confirmed.Value!.Token);
+        CompanionDeviceDto? found = await service.FindByTokenAsync(confirmed.Value!.Token);
 
         Assert.NotNull(found);
         Assert.Equal(confirmed.Value.Device.Id, found.Id);
     }
 
     [Fact]
-    public void FindByToken_Should_Return_Null_For_Unknown_Token()
+    public async Task FindByToken_Should_Return_Null_For_Unknown_Token()
     {
         CompanionPairingService service = CreateService(companionEnabled: true);
 
-        Assert.Null(service.FindByToken("not-a-token"));
+        Assert.Null(await service.FindByTokenAsync("not-a-token"));
     }
 
     [Fact]
@@ -219,20 +221,20 @@ public sealed class CompanionPairingServiceTests
     {
         CompanionPairingService service = CreateService(companionEnabled: true);
         Result<CompanionPairingSessionDto> session = await service.StartAsync();
-        Result<ConfirmCompanionPairingResponse> confirmed = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> confirmed = await service.ConfirmAsync(
             new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
 
-        service.RevokeDevice(confirmed.Value!.Device.Id);
+        await service.RevokeDeviceAsync(confirmed.Value!.Device.Id);
 
-        Assert.Null(service.FindByToken(confirmed.Value.Token));
+        Assert.Null(await service.FindByTokenAsync(confirmed.Value.Token));
     }
 
     [Fact]
-    public void RevokeDevice_Should_Fail_When_Device_Unknown()
+    public async Task RevokeDevice_Should_Fail_When_Device_Unknown()
     {
         CompanionPairingService service = CreateService(companionEnabled: true);
 
-        Result revoke = service.RevokeDevice(Guid.NewGuid());
+        Result revoke = await service.RevokeDeviceAsync(Guid.NewGuid());
 
         Assert.False(revoke.IsSuccess);
         Assert.Equal(ErrorCodes.Companion.DeviceNotFound, revoke.Error!.Code);
@@ -249,6 +251,8 @@ public sealed class CompanionPairingServiceTests
 
         ServiceCollection services = new();
         services.AddScoped<ISettingsService>(_ => new FakeSettingsService(settings));
+        // Singleton so the in-memory device store is shared across the per-operation scopes.
+        services.AddSingleton<ICompanionDeviceRepository>(new FakeCompanionDeviceRepository());
         ServiceProvider provider = services.BuildServiceProvider();
 
         return new CompanionPairingService(
@@ -279,5 +283,42 @@ public sealed class CompanionPairingServiceTests
     private sealed class FakeDeviceIdentityProvider : ILocalDeviceIdentityProvider
     {
         public LocalDeviceIdentity GetIdentity() => new("device-key", "Vurain-PC");
+    }
+
+    private sealed class FakeCompanionDeviceRepository : ICompanionDeviceRepository
+    {
+        private readonly List<CompanionDevice> devices = [];
+
+        public Task AddAsync(CompanionDevice device, CancellationToken cancellationToken = default)
+        {
+            devices.Add(device);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<CompanionDevice>> ListAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<CompanionDevice>>(
+                devices.OrderBy(device => device.CreatedAt).ToList());
+        }
+
+        public Task<CompanionDevice?> FindByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(devices.FirstOrDefault(device => device.TokenHash == tokenHash));
+        }
+
+        public Task<CompanionDevice?> GetAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(devices.FirstOrDefault(device => device.Id == id));
+        }
+
+        public Task<bool> RemoveAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(devices.RemoveAll(device => device.Id == id) > 0);
+        }
+
+        public Task SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 }
