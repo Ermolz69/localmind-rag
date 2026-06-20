@@ -209,18 +209,15 @@ function docfxHref(uid) {
 
 // ---- Build the graph ------------------------------------------------------
 
-function generate() {
-  if (!fs.existsSync(metadataDir)) {
-    console.error(
-      `\x1b[31mError: DocFX metadata not found at ${path.relative(projectRoot, metadataDir)}.\x1b[0m`,
-    );
-    console.error("Run `task docs:build` (or `docfx metadata`) first.");
-    process.exit(1);
-  }
-
-  const files = fs
-    .readdirSync(metadataDir)
-    .filter((file) => file.endsWith(".yml") && file !== "toc.yml");
+/**
+ * Builds the graph data object from a directory of DocFX managed-reference
+ * YAML files. Pure (no file writes / no process.exit) so it can be unit tested.
+ * A missing or empty directory yields an empty graph.
+ */
+function buildGraphData(dir) {
+  const files = fs.existsSync(dir)
+    ? fs.readdirSync(dir).filter((file) => file.endsWith(".yml") && file !== "toc.yml")
+    : [];
 
   const projects = new Map(); // id -> node
   const namespaces = new Map(); // id -> node
@@ -260,7 +257,7 @@ function generate() {
   }
 
   for (const file of files) {
-    const item = readFirstItem(path.join(metadataDir, file));
+    const item = readFirstItem(path.join(dir, file));
     if (!item || !item.uid) continue;
 
     const project = item.assemblies[0];
@@ -355,7 +352,10 @@ function generate() {
       a.target.localeCompare(b.target),
   );
 
-  const graph = {
+  const missingHrefCount = [...types.values()].filter((t) => !t.href).length;
+
+  return {
+    $schema: "../tools/dotnet-api-graph.schema.json",
     generator: "docs/tools/generate-dotnet-api-graph.cjs",
     source: "docs/auto-generated/dotnet-api",
     generatedAt: new Date().toISOString(),
@@ -365,10 +365,25 @@ function generate() {
       projectCount: projects.size,
       namespaceCount: namespaces.size,
       typeCount: types.size,
+      missingHrefCount,
     },
     nodes,
     edges,
   };
+}
+
+// ---- CLI -------------------------------------------------------------------
+
+function main() {
+  if (!fs.existsSync(metadataDir)) {
+    console.error(
+      `\x1b[31mError: DocFX metadata not found at ${path.relative(projectRoot, metadataDir)}.\x1b[0m`,
+    );
+    console.error("Run `task docs:build` (or `docfx metadata`) first.");
+    process.exit(1);
+  }
+
+  const graph = buildGraphData(metadataDir);
 
   fs.mkdirSync(path.dirname(outputFile), { recursive: true });
   fs.writeFileSync(outputFile, `${JSON.stringify(graph, null, 2)}\n`, "utf8");
@@ -385,4 +400,6 @@ function generate() {
   );
 }
 
-generate();
+module.exports = { buildGraphData, docfxHref, resolveTypeKind, normalizeUid };
+
+if (require.main === module) main();

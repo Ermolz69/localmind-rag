@@ -300,9 +300,15 @@ tasks:
       - cmd: cd "{{.ROOT_DIR}}" && dotnet tool run docfx build docs/docfx.json
 
   docs:graph:
-    desc: Generates .NET API graph data (JSON) from DocFX metadata
+    desc: Generates and validates .NET API graph data (JSON) from DocFX metadata
     cmds:
       - cmd: cd "{{.ROOT_DIR}}" && node docs/tools/generate-dotnet-api-graph.cjs
+      - cmd: cd "{{.ROOT_DIR}}" && node docs/tools/validate-dotnet-api-graph.cjs
+
+  test:docs-graph:
+    desc: Runs the .NET API graph generator/validator unit tests
+    cmds:
+      - cmd: cd "{{.ROOT_DIR}}" && node --test docs/tools/generate-dotnet-api-graph.test.cjs
 
   openapi:generate:
     desc: Generates the OpenAPI specification JSON file
