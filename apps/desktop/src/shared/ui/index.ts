@@ -13,5 +13,6 @@ export { StatusBadge } from "./StatusBadge";
 export { Switch } from "./Switch";
 export { Textarea } from "./Textarea";
 export { Toast } from "./Toast";
+export type { ToastVariant } from "./Toast";
 export { Toolbar } from "./Toolbar";
 export { Tooltip } from "./Tooltip";

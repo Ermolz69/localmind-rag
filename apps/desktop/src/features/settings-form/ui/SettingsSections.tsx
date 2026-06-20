@@ -12,8 +12,10 @@ import {
   Badge,
   Button,
   ConfirmDialog,
+  Toast,
 } from "@shared/ui";
 import { diagnosticsApi, watchedFoldersApi } from "@shared/api";
+import { useToast } from "@shared/lib/hooks";
 import { cn } from "@shared/lib/cn";
 import {
   openPathInExplorer,
@@ -36,7 +38,9 @@ export function SettingsSections({
   const [isCleaning, setIsCleaning] = useState(false);
   const [isRescanningAll, setIsRescanningAll] = useState(false);
   const [rescanningPath, setRescanningPath] = useState<string | null>(null);
+  const [isClearLogsConfirmOpen, setClearLogsConfirmOpen] = useState(false);
   const [isClearingLogs, setIsClearingLogs] = useState(false);
+  const { toast, showToast, dismissToast } = useToast();
   const developerModeEnabled = draft.diagnostics?.developerModeEnabled ?? false;
   const useSeparateLogFiles = draft.diagnostics?.useSeparateLogFiles ?? false;
 
@@ -48,26 +52,20 @@ export function SettingsSections({
   }
 
   async function handleClearLogs() {
-    if (
-      !window.confirm(
-        "Delete log files from the logs folder? Files currently in use are skipped.",
-      )
-    ) {
-      return;
-    }
-
     setIsClearingLogs(true);
     try {
       const result = await diagnosticsApi.cleanupLogs();
       const freedKb = Math.round(result.freedBytes / 1024);
-      alert(
+      showToast(
         `Removed ${result.deletedFiles} log file(s), freed ${freedKb} KB. Skipped ${result.skippedFiles} in-use file(s).`,
+        "success",
       );
     } catch (error) {
       console.error(error);
-      alert("Failed to clear logs.");
+      showToast("Failed to clear logs.", "error");
     } finally {
       setIsClearingLogs(false);
+      setClearLogsConfirmOpen(false);
     }
   }
 
@@ -84,12 +82,13 @@ export function SettingsSections({
         response.queuedCreatedOrChanged +
         response.unchangedFiles +
         response.unsupportedFiles;
-      alert(
+      showToast(
         `Rescan completed: ${checked} files checked, ${response.queuedDeleted} missing files detected.`,
+        "success",
       );
     } catch (error) {
       console.error(error);
-      alert("Failed to rescan watched folders.");
+      showToast("Failed to rescan watched folders.", "error");
     } finally {
       if (path) {
         setRescanningPath(null);
@@ -103,12 +102,13 @@ export function SettingsSections({
     setIsCleaning(true);
     try {
       const response = await watchedFoldersApi.cleanup();
-      alert(
+      showToast(
         `Cleaned ${response.cleanedCount} deleted watched documents from LocalMind.`,
+        "success",
       );
     } catch (error) {
       console.error(error);
-      alert("Failed to clean up watched documents.");
+      showToast("Failed to clean up watched documents.", "error");
     } finally {
       setIsCleaning(false);
       setCleanupConfirmOpen(false);
@@ -524,7 +524,7 @@ export function SettingsSections({
                   <Button
                     variant="secondary"
                     disabled={isClearingLogs}
-                    onClick={handleClearLogs}
+                    onClick={() => setClearLogsConfirmOpen(true)}
                   >
                     {isClearingLogs ? "Clearing…" : "Clear logs"}
                   </Button>
@@ -794,6 +794,22 @@ export function SettingsSections({
         isPending={isCleaning}
         onConfirm={handleCleanup}
         onClose={() => setCleanupConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={isClearLogsConfirmOpen}
+        title="Clear log files?"
+        description="This deletes current log files from the logs folder. Files currently in use are skipped. This does not affect your documents or knowledge base."
+        confirmLabel="Clear logs"
+        isPending={isClearingLogs}
+        onConfirm={handleClearLogs}
+        onClose={() => setClearLogsConfirmOpen(false)}
+      />
+
+      <Toast
+        message={toast?.message ?? null}
+        variant={toast?.variant}
+        onDismiss={dismissToast}
       />
     </div>
   );
