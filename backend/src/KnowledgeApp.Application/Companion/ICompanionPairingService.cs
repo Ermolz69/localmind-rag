@@ -24,9 +24,17 @@ public interface ICompanionPairingService
 
     /// <summary>
     /// Completes a pairing session for the given token and registers the device as
-    /// trusted. Fails when no matching, unexpired session is active.
+    /// trusted, returning the device and its durable per-device token. Fails when
+    /// no matching, unexpired session is active.
     /// </summary>
-    Result<CompanionDeviceDto> Confirm(ConfirmCompanionPairingRequest request);
+    Result<ConfirmCompanionPairingResponse> Confirm(ConfirmCompanionPairingRequest request);
+
+    /// <summary>
+    /// Resolves a trusted device (with its current permissions) from its per-device
+    /// token, or <c>null</c> when the token is unknown. Used by the LAN gateway to
+    /// authenticate phone requests.
+    /// </summary>
+    CompanionDeviceDto? FindByToken(string token);
 
     /// <summary>Lists the currently trusted devices.</summary>
     CompanionDevicesResponse GetDevices();

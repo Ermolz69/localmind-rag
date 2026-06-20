@@ -1,5 +1,6 @@
 import type { ApiResponse } from "./common";
 import { ApiError } from "./problem-details";
+import { getCompanionToken } from "@shared/lib/companionAuth";
 
 let cachedBaseUrl: string | null = null;
 
@@ -45,10 +46,12 @@ async function readJson(response: Response) {
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormData = init?.body instanceof FormData;
   const baseUrl = getApiBaseUrl();
+  const companionToken = getCompanionToken();
 
   const response = await fetch(`${baseUrl}${publicApiPrefix}${path}`, {
     headers: {
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...(companionToken ? { Authorization: `Bearer ${companionToken}` } : {}),
       ...init?.headers,
     },
     ...init,

@@ -76,8 +76,8 @@ public static class CompanionEndpoints
         .WithName("ConfirmCompanionPairing")
         .WithTags("Companion")
         .WithSummary("Confirm Companion Mode pairing.")
-        .WithDescription("Completes a pairing session and registers the calling device as trusted.")
-        .Produces<ApiResponse<CompanionDeviceDto>>();
+        .WithDescription("Completes a pairing session, registers the calling device as trusted, and returns its device token.")
+        .Produces<ApiResponse<ConfirmCompanionPairingResponse>>();
 
         app.MapGet("/companion/activity", (
             [FromQuery] int? limit,

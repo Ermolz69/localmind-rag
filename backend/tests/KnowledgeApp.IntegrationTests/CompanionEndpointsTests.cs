@@ -55,7 +55,7 @@ public sealed class CompanionEndpointsTests : IClassFixture<LocalApiTestFactory>
         Assert.NotNull(session);
         Assert.False(string.IsNullOrWhiteSpace(session.Token));
         Assert.Equal(300, session.ExpiresInSeconds);
-        Assert.Contains("/companion/pair", session.PairingUrl);
+        Assert.Contains("/companion?token=", session.PairingUrl);
     }
 
     [Fact]
@@ -74,10 +74,12 @@ public sealed class CompanionEndpointsTests : IClassFixture<LocalApiTestFactory>
             new ConfirmCompanionPairingRequest(session.Token, "Redmi Note", "Chrome"));
 
         Assert.Equal(HttpStatusCode.OK, confirmResponse.StatusCode);
-        CompanionDeviceDto? device =
-            await confirmResponse.Content.ReadApiDataAsync<CompanionDeviceDto>();
-        Assert.NotNull(device);
-        Assert.Equal("Redmi Note", device.Name);
+        ConfirmCompanionPairingResponse? confirmed =
+            await confirmResponse.Content.ReadApiDataAsync<ConfirmCompanionPairingResponse>();
+        Assert.NotNull(confirmed);
+        Assert.Equal("Redmi Note", confirmed.Device.Name);
+        Assert.False(string.IsNullOrWhiteSpace(confirmed.Token));
+        CompanionDeviceDto device = confirmed.Device;
 
         CompanionDevicesResponse? listed =
             await client.GetApiDataAsync<CompanionDevicesResponse>("/api/v1/companion/devices");

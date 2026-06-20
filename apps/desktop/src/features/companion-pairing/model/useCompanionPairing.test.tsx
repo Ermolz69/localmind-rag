@@ -49,7 +49,7 @@ const device = {
 
 const session = {
   token: "abc123",
-  pairingUrl: "http://192.168.1.50:49322/companion/pair?token=abc123",
+  pairingUrl: "http://192.168.1.50:49322/companion?token=abc123",
   expiresAt: "2026-06-20T10:05:00Z",
   expiresInSeconds: 300,
 };

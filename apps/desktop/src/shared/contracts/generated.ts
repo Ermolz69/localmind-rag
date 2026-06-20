@@ -873,7 +873,7 @@ export interface paths {
     put?: never;
     /**
      * Confirm Companion Mode pairing.
-     * @description Completes a pairing session and registers the calling device as trusted.
+     * @description Completes a pairing session, registers the calling device as trusted, and returns its device token.
      */
     post: operations["ConfirmCompanionPairing"];
     delete?: never;
@@ -1355,15 +1355,6 @@ export interface components {
       metadata: components["schemas"]["ApiMetadata"];
     };
     /** @description Standard LocalApi response envelope. */
-    ApiResponseOfCompanionDeviceDto: {
-      /** @description True when the operation completed successfully. */
-      success: boolean;
-      data: null | components["schemas"]["CompanionDeviceDto"];
-      error: null | components["schemas"]["ApiError"];
-      /** @description Response metadata shared by success and error responses. */
-      metadata: components["schemas"]["ApiMetadata"];
-    };
-    /** @description Standard LocalApi response envelope. */
     ApiResponseOfCompanionDevicesResponse: {
       /** @description True when the operation completed successfully. */
       success: boolean;
@@ -1404,6 +1395,15 @@ export interface components {
       /** @description True when the operation completed successfully. */
       success: boolean;
       data: null | components["schemas"]["CompanionRootsResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfConfirmCompanionPairingResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["ConfirmCompanionPairingResponse"];
       error: null | components["schemas"]["ApiError"];
       /** @description Response metadata shared by success and error responses. */
       metadata: components["schemas"]["ApiMetadata"];
@@ -2015,6 +2015,17 @@ export interface components {
       deviceName: string;
       /** @description Client platform, e.g. "Chrome". */
       platform: string;
+    };
+    /**
+     * @description Result of completing a pairing session: the registered device and a durable
+     *     per-device token the phone stores and sends on later requests. The token is
+     *     returned only here and is never included in device listings.
+     */
+    ConfirmCompanionPairingResponse: {
+      /** @description The newly trusted device. */
+      device: components["schemas"]["CompanionDeviceDto"];
+      /** @description The device's authentication token. */
+      token: string;
     };
     ContentSearchHitDto: {
       sourceType: string;
@@ -4723,7 +4734,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ApiResponseOfCompanionDeviceDto"];
+          "application/json": components["schemas"]["ApiResponseOfConfirmCompanionPairingResponse"];
         };
       };
     };

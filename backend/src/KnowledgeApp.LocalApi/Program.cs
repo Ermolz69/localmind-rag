@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using KnowledgeApp.Bootstrap;
 using KnowledgeApp.LocalApi;
+using KnowledgeApp.LocalApi.CompanionGateway;
 using KnowledgeApp.LocalApi.Endpoints;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -23,6 +24,10 @@ builder.Services.AddOpenApi(ApiVersions.V1DocumentName, options =>
 });
 
 builder.Services.AddHostedService<KnowledgeApp.LocalApi.Services.SidecarPortWriter>();
+
+builder.Services.Configure<CompanionGatewayOptions>(
+    builder.Configuration.GetSection(CompanionGatewayOptions.SectionName));
+builder.Services.AddHostedService<CompanionGatewayHostedService>();
 
 WebApplication app = builder.Build();
 

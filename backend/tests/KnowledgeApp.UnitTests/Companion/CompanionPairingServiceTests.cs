@@ -81,14 +81,15 @@ public sealed class CompanionPairingServiceTests
         CompanionPairingService service = CreateService(companionEnabled: true);
         Result<CompanionPairingSessionDto> session = await service.StartAsync();
 
-        Result<CompanionDeviceDto> result = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> result = service.Confirm(
             new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("Redmi Note", result.Value!.Name);
-        Assert.Equal("Chrome", result.Value.Platform);
+        Assert.Equal("Redmi Note", result.Value!.Device.Name);
+        Assert.Equal("Chrome", result.Value.Device.Platform);
+        Assert.False(string.IsNullOrWhiteSpace(result.Value.Token));
 
-        Assert.Contains(service.GetDevices().Devices, device => device.Id == result.Value.Id);
+        Assert.Contains(service.GetDevices().Devices, device => device.Id == result.Value.Device.Id);
 
         // Session is single-use and consumed on success.
         Assert.False(service.GetStatus().Active);
@@ -100,10 +101,10 @@ public sealed class CompanionPairingServiceTests
         CompanionPairingService service = CreateService(companionEnabled: true);
         Result<CompanionPairingSessionDto> session = await service.StartAsync();
 
-        Result<CompanionDeviceDto> result = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> result = service.Confirm(
             new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
 
-        CompanionDevicePermissionsDto permissions = result.Value!.Permissions;
+        CompanionDevicePermissionsDto permissions = result.Value!.Device.Permissions;
         Assert.True(permissions.Chat);
         Assert.True(permissions.Search);
         Assert.True(permissions.ViewDocuments);
@@ -117,11 +118,11 @@ public sealed class CompanionPairingServiceTests
     {
         CompanionPairingService service = CreateService(companionEnabled: true);
         Result<CompanionPairingSessionDto> session = await service.StartAsync();
-        Result<CompanionDeviceDto> device = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> device = service.Confirm(
             new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
 
         Result update = service.UpdateDevicePermissions(
-            device.Value!.Id,
+            device.Value!.Device.Id,
             new CompanionDevicePermissionsDto(
                 Chat: true,
                 Search: true,
@@ -157,7 +158,7 @@ public sealed class CompanionPairingServiceTests
         CompanionPairingService service = CreateService(companionEnabled: true);
         await service.StartAsync();
 
-        Result<CompanionDeviceDto> result = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> result = service.Confirm(
             new ConfirmCompanionPairingRequest("not-the-token", "Phone", "Chrome"));
 
         Assert.False(result.IsSuccess);
@@ -170,7 +171,7 @@ public sealed class CompanionPairingServiceTests
     {
         CompanionPairingService service = CreateService(companionEnabled: true);
 
-        Result<CompanionDeviceDto> result = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> result = service.Confirm(
             new ConfirmCompanionPairingRequest(string.Empty, string.Empty, string.Empty));
 
         Assert.False(result.IsSuccess);
@@ -182,13 +183,48 @@ public sealed class CompanionPairingServiceTests
     {
         CompanionPairingService service = CreateService(companionEnabled: true);
         Result<CompanionPairingSessionDto> session = await service.StartAsync();
-        Result<CompanionDeviceDto> device = service.Confirm(
+        Result<ConfirmCompanionPairingResponse> device = service.Confirm(
             new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
 
-        Result revoke = service.RevokeDevice(device.Value!.Id);
+        Result revoke = service.RevokeDevice(device.Value!.Device.Id);
 
         Assert.True(revoke.IsSuccess);
         Assert.Empty(service.GetDevices().Devices);
+    }
+
+    [Fact]
+    public async Task FindByToken_Should_Resolve_Trusted_Device()
+    {
+        CompanionPairingService service = CreateService(companionEnabled: true);
+        Result<CompanionPairingSessionDto> session = await service.StartAsync();
+        Result<ConfirmCompanionPairingResponse> confirmed = service.Confirm(
+            new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
+
+        CompanionDeviceDto? found = service.FindByToken(confirmed.Value!.Token);
+
+        Assert.NotNull(found);
+        Assert.Equal(confirmed.Value.Device.Id, found.Id);
+    }
+
+    [Fact]
+    public void FindByToken_Should_Return_Null_For_Unknown_Token()
+    {
+        CompanionPairingService service = CreateService(companionEnabled: true);
+
+        Assert.Null(service.FindByToken("not-a-token"));
+    }
+
+    [Fact]
+    public async Task FindByToken_Should_Return_Null_After_Revoke()
+    {
+        CompanionPairingService service = CreateService(companionEnabled: true);
+        Result<CompanionPairingSessionDto> session = await service.StartAsync();
+        Result<ConfirmCompanionPairingResponse> confirmed = service.Confirm(
+            new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
+
+        service.RevokeDevice(confirmed.Value!.Device.Id);
+
+        Assert.Null(service.FindByToken(confirmed.Value.Token));
     }
 
     [Fact]

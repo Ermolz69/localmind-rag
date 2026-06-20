@@ -25,9 +25,8 @@ default. It is a separate, explicitly user-enabled capability:
 
 ## Current scope
 
-Companion Mode is being built in stages. It deliberately does **not** yet open a
-network listener or move any data off the machine — the phone-facing transport is
-a later step.
+Companion Mode is built in stages and stays local-only: it opens a LAN listener
+only while the user enables it, and no data leaves the machine.
 
 What exists today:
 
@@ -36,8 +35,11 @@ What exists today:
   endpoints as part of `AppSettingsDto.CompanionMode`.
 - A **Companion Mode** section in desktop Settings with an enable toggle and a
   status display.
-- A **QR pairing flow**: the desktop can start a short-lived pairing session,
-  render its QR code, and manage a list of trusted devices. See
+- A **LAN gateway** that, while Companion Mode is enabled, lets a phone connect
+  over Wi-Fi, loads the mobile interface, and uses an authorized slice of the API.
+  `LocalApi` stays loopback. See [LAN gateway](#lan-gateway) below.
+- A **QR pairing flow**: the desktop shows a short-lived QR code; the phone scans
+  it, confirms, and becomes a trusted device with a per-device token. See
   [Pairing](#pairing-qr-code) below.
 - **Per-device permissions**: each trusted device has its own grantable set of
   safe capabilities, with dangerous actions never available. See
@@ -179,9 +181,43 @@ any native app is considered).
   preview what the phone sees; the preview adds an "Exit preview" link back to
   the app.
 
-The route exists today and is viewable in a mobile viewport. A phone can only
-load it once the local-network transport ships and supplies the LocalApi base
-URL (today that comes from the Tauri shell).
+A phone loads this interface from the **LAN gateway** over Wi-Fi (see
+[LAN gateway](#lan-gateway) below). When the SPA runs outside Tauri it points its
+API client at its own origin (the gateway) instead of the Tauri shell, completes
+pairing from the QR `?token=`, and stores a per-device token for later requests.
+
+## LAN gateway
+
+A phone reaches LocalMind over the local Wi-Fi through the **Companion Gateway** —
+a second HTTP listener hosted inside the LocalApi process but separate from the
+loopback LocalApi pipeline. `LocalApi` itself stays loopback
+([ADR 0009](decisions/0009-localapi-local-security.md)); the gateway is the only
+LAN surface, and it runs **only while Companion Mode is enabled** (an
+`IHostedService` starts/stops it on the settings-change signal).
+
+```
+Phone browser ──HTTP──> Companion Gateway (0.0.0.0:49322, in the LocalApi process)
+                          • serves the built SPA
+                          • device-token auth + per-device permission allowlist
+                          • reverse-proxies allowed /api/v1/* ──> 127.0.0.1 (LocalApi)
+```
+
+- **Connect flow:** enable Companion Mode → Connect phone → the QR encodes
+  `http://<lan-ip>:49322/companion?token=<pairing-token>`. The phone opens it,
+  loads the SPA from the gateway, calls `POST /companion/pairing/confirm` with the
+  pairing token, and receives a durable **per-device token** it stores and sends
+  as `Authorization: Bearer …` thereafter.
+- **Authorization:** every API request except the pairing bootstrap requires a
+  valid device token; each route maps to a capability and is rejected when the
+  device lacks it. Only an allowlist of safe routes is exposed (chat, search, read
+  documents, read ingestion status, watched-folder status/rescan/cleanup, file
+  picking, activity). Anything else returns 404 from the gateway.
+- The gateway strips the device token and forwards the configured loopback token,
+  so the loopback LocalApi keeps its existing security. See
+  [ADR 0012](decisions/0012-companion-lan-gateway.md).
+
+Transport is plain HTTP on the trusted local network for now; device tokens are
+held in memory (durable persistence and HTTPS are later steps).
 
 ## Activity feed
 
@@ -222,24 +258,17 @@ the whole disk — only the folders the user explicitly allowed on the computer.
 
 ## Forward plan
 
-Later stages build on this extension point without weakening the local-only
-default:
+The local-network transport — a phone actually connecting over Wi-Fi with
+device-token auth and enforced permissions — now exists via the
+[LAN gateway](#lan-gateway). Later stages build on it without weakening the
+local-only default:
 
-1. A local-network (Wi-Fi) transport that only listens while Companion Mode is
-   enabled, kept separate from the local-only `LocalApi` loopback boundary, so a
-   scanned QR code can actually complete the `confirm` handshake. This is also
-   where per-device permissions are enforced, since requests then carry a device
-   identity, and where the activity feed can be pushed (SSE/WebSocket) instead of
-   polled.
-2. Durable storage for trusted devices (and per-device tokens) so a paired phone
+1. Durable storage for trusted devices (and per-device tokens) so a paired phone
    reconnects without re-pairing across restarts.
-3. Document actions from the phone (retry, cancel, reindex) on top of the
-   read-only Documents view, the remaining Indexing action, and a companion
-   bootstrap that obtains the LocalApi base URL over the network instead of from
-   the Tauri shell. Chat, Search, the read-only Documents view, and Watched
-   folders management are already functional.
-4. Capability-scoped access (chat, search, document view, indexing of selected
-   files, managing allowed folders) rather than full disk access.
+2. Document actions from the phone (retry, cancel, reindex) on top of the
+   read-only Documents view, and the remaining Indexing action.
+3. Pushing the activity feed (SSE/WebSocket) over the gateway instead of polling,
+   and HTTPS on the LAN.
 
 Each stage is intended to be useful on its own and to keep the principle that
 security comes before convenience.

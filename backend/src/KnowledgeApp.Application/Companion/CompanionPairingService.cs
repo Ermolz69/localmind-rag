@@ -38,6 +38,7 @@ public sealed class CompanionPairingService(
 
     private readonly object gate = new();
     private readonly List<CompanionDeviceDto> devices = [];
+    private readonly Dictionary<string, Guid> deviceIdByToken = new(StringComparer.Ordinal);
     private PairingState? session;
 
     public CompanionInfoDto GetInfo()
@@ -102,7 +103,7 @@ public sealed class CompanionPairingService(
         return Result.Success();
     }
 
-    public Result<CompanionDeviceDto> Confirm(ConfirmCompanionPairingRequest request)
+    public Result<ConfirmCompanionPairingResponse> Confirm(ConfirmCompanionPairingRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -128,7 +129,7 @@ public sealed class CompanionPairingService(
 
         if (errors.Count > 0)
         {
-            return Result<CompanionDeviceDto>.Failure(ApplicationErrors.Validation(
+            return Result<ConfirmCompanionPairingResponse>.Failure(ApplicationErrors.Validation(
                 ErrorCodes.Companion.ValidationFailed,
                 "Pairing confirmation is invalid.",
                 errors));
@@ -144,7 +145,7 @@ public sealed class CompanionPairingService(
                     System.Text.Encoding.UTF8.GetBytes(session.Token),
                     System.Text.Encoding.UTF8.GetBytes(request.Token)))
             {
-                return Result<CompanionDeviceDto>.Failure(ApplicationErrors.Conflict(
+                return Result<ConfirmCompanionPairingResponse>.Failure(ApplicationErrors.Conflict(
                     ErrorCodes.Companion.PairingNotActive,
                     "No active pairing session matches this code. Generate a new QR code and try again."));
             }
@@ -160,10 +161,28 @@ public sealed class CompanionPairingService(
                 LastSeenAt: now,
                 Permissions: DefaultPermissions);
 
+            string deviceToken = GenerateToken();
             devices.Add(device);
+            deviceIdByToken[deviceToken] = device.Id;
             activityFeed?.Publish("device.connected", $"{device.Name} connected");
 
-            return Result<CompanionDeviceDto>.Success(device);
+            return Result<ConfirmCompanionPairingResponse>.Success(
+                new ConfirmCompanionPairingResponse(device, deviceToken));
+        }
+    }
+
+    public CompanionDeviceDto? FindByToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return null;
+        }
+
+        lock (gate)
+        {
+            return deviceIdByToken.TryGetValue(token, out Guid deviceId)
+                ? devices.Find(device => device.Id == deviceId)
+                : null;
         }
     }
 
@@ -192,6 +211,14 @@ public sealed class CompanionPairingService(
 
             removedName = existing.Name;
             devices.RemoveAll(device => device.Id == deviceId);
+
+            foreach (string token in deviceIdByToken
+                .Where(entry => entry.Value == deviceId)
+                .Select(entry => entry.Key)
+                .ToArray())
+            {
+                deviceIdByToken.Remove(token);
+            }
         }
 
         activityFeed?.Publish("device.disconnected", $"{removedName} disconnected");
@@ -222,7 +249,7 @@ public sealed class CompanionPairingService(
     private string BuildPairingUrl(string token)
     {
         string host = networkAddressProvider.GetLocalNetworkAddress() ?? "localhost";
-        return $"http://{host}:{CompanionPort}/companion/pair?token={token}";
+        return $"http://{host}:{CompanionPort}/companion?token={token}";
     }
 
     private static string GenerateToken()
