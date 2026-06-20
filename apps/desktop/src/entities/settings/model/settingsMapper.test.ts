@@ -37,6 +37,7 @@ describe("toAppSettings", () => {
       enableHttpLogs: true,
       enableDiagnosticEventLogs: false,
       enableDebugTrace: false,
+      logRetainedDays: 14,
     });
     expect(mappedSettings.watchedFolders).toEqual({
       enabled: false,

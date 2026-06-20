@@ -326,8 +326,11 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
     }
 
     [Fact]
-    public async Task GetDocumentPreview_Should_Return_Controlled_Error_When_Converter_Is_Unavailable()
+    public async Task GetDocumentPreview_Should_Return_Html_Fallback_When_Converter_Is_Unavailable()
     {
+        // When LibreOffice is unavailable the handler falls back to the in-process
+        // OOXML-to-HTML converter, so a valid .docx produces an Html response instead
+        // of an error.
         FakePreviewConverterProcess converter = new(ApplicationErrors.ExternalDependency(
             ErrorCodes.Documents.PreviewConverterUnavailable,
             ErrorMessages.Documents.PreviewConverterUnavailable));
@@ -348,10 +351,10 @@ public sealed class DocumentsApiTests : IClassFixture<LocalApiTestFactory>
                 $"/api/v1/documents/{upload.DocumentId}/preview");
 
         Assert.NotNull(preview);
-        Assert.Equal(DocumentPreviewKind.Error, preview.PreviewKind);
-        Assert.Equal(ErrorCodes.Documents.PreviewConverterUnavailable, preview.ErrorCode);
+        Assert.Equal(DocumentPreviewKind.Html, preview.PreviewKind);
+        Assert.Null(preview.ErrorCode);
         Assert.Null(preview.PreviewUrl);
-        Assert.Null(preview.TextContent);
+        Assert.NotNull(preview.TextContent);
 
         CursorPage<DocumentDto>? documents =
             await client.GetApiDataAsync<CursorPage<DocumentDto>>("/api/v1/documents");
