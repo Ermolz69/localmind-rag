@@ -34,7 +34,11 @@
     ],
     "resource": [
       {
-        "files": ["api/**/*.html", "auto-generated/openapi/openapi.json"]
+        "files": [
+          "api/**/*.html",
+          "auto-generated/openapi/openapi.json",
+          "auto-generated/dotnet-api-graph.json"
+        ]
       }
     ],
     "dest": "../artifacts/docs/site",

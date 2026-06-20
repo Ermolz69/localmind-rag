@@ -229,8 +229,8 @@
       <div class="overlay titlebar">
         <h1>.NET API Graph</h1>
         <p>
-          Prototype graph view of the backend projects, namespaces, and types.
-          Showing illustrative mock data.
+          Interactive graph of the backend projects, namespaces, and types,
+          generated from the .NET API documentation metadata.
         </p>
       </div>
 
@@ -271,15 +271,19 @@
     <script>
       "use strict";
 
-      // ---- Mock graph data ------------------------------------------------
-      // Illustrative only: not generated from DocFX metadata.
+      // ---- Graph data -----------------------------------------------------
+      // Real data is loaded at runtime from the generated
+      // ../auto-generated/dotnet-api-graph.json (produced by `task docs:graph`
+      // during the docs build). The arrays below are a small offline fallback
+      // used only when that file cannot be fetched (e.g. when opening this
+      // page directly from disk instead of from the built docs site).
       const KINDS = {
         project: { color: "#8b9cf7", radius: 17, label: "Project" },
         namespace: { color: "#5fc4a3", radius: 11, label: "Namespace" },
         type: { color: "#d9a866", radius: 7, label: "Type" },
       };
 
-      const RAW_NODES = [
+      const FALLBACK_NODES = [
         // Projects
         { id: "p.domain", label: "KnowledgeApp.Domain", kind: "project" },
         { id: "p.contracts", label: "KnowledgeApp.Contracts", kind: "project" },
@@ -312,7 +316,7 @@
       ];
 
       // edge kinds: "contains" (structural) and "depends" (reference)
-      const RAW_EDGES = [
+      const FALLBACK_EDGES = [
         // project dependencies
         { s: "p.contracts", t: "p.domain", kind: "depends" },
         { s: "p.app", t: "p.domain", kind: "depends" },
@@ -360,38 +364,48 @@
       const ctx = canvas.getContext("2d");
       const infoEl = document.getElementById("info");
 
-      const nodes = RAW_NODES.map((n, i) => {
-        const angle = (i / RAW_NODES.length) * Math.PI * 2;
-        const ring = 120 + (i % 5) * 26;
-        return {
-          ...n,
-          r: KINDS[n.kind].radius,
-          color: KINDS[n.kind].color,
-          x: Math.cos(angle) * ring + (Math.random() - 0.5) * 40,
-          y: Math.sin(angle) * ring + (Math.random() - 0.5) * 40,
-          vx: 0,
-          vy: 0,
-        };
-      });
-      const nodeById = new Map(nodes.map((n) => [n.id, n]));
-      const edges = RAW_EDGES.map((e) => ({
-        source: nodeById.get(e.s),
-        target: nodeById.get(e.t),
-        kind: e.kind,
-      })).filter((e) => e.source && e.target);
+      // Graph state, populated by buildGraph() once the data is available.
+      let nodes = [];
+      let nodeById = new Map();
+      let edges = [];
+      let neighbors = new Map();
 
-      // adjacency for highlighting + info panel
-      const neighbors = new Map(nodes.map((n) => [n.id, new Set()]));
-      edges.forEach((e) => {
-        neighbors.get(e.source.id).add(e.target.id);
-        neighbors.get(e.target.id).add(e.source.id);
-      });
+      function buildGraph(rawNodes, rawEdges) {
+        nodes = rawNodes.map((n, i) => {
+          const angle = (i / rawNodes.length) * Math.PI * 2;
+          const ring = 120 + (i % 5) * 26;
+          return {
+            ...n,
+            r: KINDS[n.kind].radius,
+            color: KINDS[n.kind].color,
+            x: Math.cos(angle) * ring + (Math.random() - 0.5) * 40,
+            y: Math.sin(angle) * ring + (Math.random() - 0.5) * 40,
+            vx: 0,
+            vy: 0,
+          };
+        });
+        nodeById = new Map(nodes.map((n) => [n.id, n]));
+        edges = rawEdges
+          .map((e) => ({
+            source: nodeById.get(e.s),
+            target: nodeById.get(e.t),
+            kind: e.kind,
+          }))
+          .filter((e) => e.source && e.target);
 
-      // weight nodes by degree so hubs settle larger
-      nodes.forEach((n) => {
-        const degree = neighbors.get(n.id).size;
-        n.r = KINDS[n.kind].radius + Math.min(degree, 6) * 0.7;
-      });
+        // adjacency for highlighting + info panel
+        neighbors = new Map(nodes.map((n) => [n.id, new Set()]));
+        edges.forEach((e) => {
+          neighbors.get(e.source.id).add(e.target.id);
+          neighbors.get(e.target.id).add(e.source.id);
+        });
+
+        // weight nodes by degree so hubs settle larger
+        nodes.forEach((n) => {
+          const degree = neighbors.get(n.id).size;
+          n.r = KINDS[n.kind].radius + Math.min(degree, 6) * 0.7;
+        });
+      }
 
       // ---- Camera ---------------------------------------------------------
       const camera = { scale: 1, tx: 0, ty: 0 };
@@ -793,12 +807,49 @@
       });
 
       // ---- Boot -----------------------------------------------------------
-      resize();
-      // settle the layout for a moment off-screen, then fit
-      for (let i = 0; i < 180; i++) simulate();
-      fitToScreen(80, false);
-      reheat(0.5);
-      requestAnimationFrame(frame);
+      function boot() {
+        resize();
+        // settle the layout for a moment off-screen, then fit
+        for (let i = 0; i < 180; i++) simulate();
+        fitToScreen(80, false);
+        reheat(0.5);
+        requestAnimationFrame(frame);
+      }
+
+      // Load the generated graph data from the built docs site; if it is not
+      // reachable (e.g. opening this file directly), use the offline fallback.
+      async function loadRawGraph() {
+        try {
+          const response = await fetch(
+            "../auto-generated/dotnet-api-graph.json",
+            { cache: "no-store" },
+          );
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
+            throw new Error("Unexpected graph data shape");
+          }
+          return {
+            rawNodes: data.nodes.map((n) => ({
+              id: n.id,
+              label: n.label,
+              kind: n.kind,
+            })),
+            rawEdges: data.edges.map((e) => ({
+              s: e.source,
+              t: e.target,
+              kind: e.kind,
+            })),
+          };
+        } catch {
+          return { rawNodes: FALLBACK_NODES, rawEdges: FALLBACK_EDGES };
+        }
+      }
+
+      loadRawGraph().then(({ rawNodes, rawEdges }) => {
+        buildGraph(rawNodes, rawEdges);
+        boot();
+      });
     </script>
   </body>
 </html>

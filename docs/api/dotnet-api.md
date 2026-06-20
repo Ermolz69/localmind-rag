@@ -8,4 +8,4 @@ Generated files live under `docs/auto-generated/dotnet-api` and must not be edit
 
 ## Graph view
 
-For an interactive, Obsidian-style overview of how the backend projects, namespaces, and types relate, open the [.NET API Graph](dotnet-api-graph.html). It is a visual prototype rendered from illustrative mock data — drag nodes, zoom, pan, and click a node to inspect its connections.
+For an interactive, Obsidian-style overview of how the backend projects, namespaces, and types relate, open the [.NET API Graph](dotnet-api-graph.html). In the built docs site it loads the generated `auto-generated/dotnet-api-graph.json` data (no manual copying required) — drag nodes, zoom, pan, and click a node to inspect its connections. When opened directly from disk it falls back to a small built-in sample.

@@ -284,7 +284,7 @@ tasks:
   docs:build:
     desc: Generates OpenAPI, .NET metadata, and builds DocFX site
     cmds:
-      - cmd: cd "{{.ROOT_DIR}}" && rm -rf artifacts/docs/site docs/auto-generated/openapi docs/auto-generated/dotnet-api
+      - cmd: cd "{{.ROOT_DIR}}" && rm -rf artifacts/docs/site docs/auto-generated/openapi docs/auto-generated/dotnet-api docs/auto-generated/dotnet-api-graph.json
       - cmd: cd "{{.ROOT_DIR}}" && mkdir -p docs/auto-generated/openapi docs/auto-generated/dotnet-api artifacts/docs/site
       - task: openapi:generate
         vars:
@@ -296,7 +296,13 @@ tasks:
           }
       - cmd: cd "{{.ROOT_DIR}}" && dotnet tool restore
       - cmd: cd "{{.ROOT_DIR}}" && dotnet tool run docfx metadata docs/docfx.json
+      - task: docs:graph
       - cmd: cd "{{.ROOT_DIR}}" && dotnet tool run docfx build docs/docfx.json
+
+  docs:graph:
+    desc: Generates .NET API graph data (JSON) from DocFX metadata
+    cmds:
+      - cmd: cd "{{.ROOT_DIR}}" && node docs/tools/generate-dotnet-api-graph.cjs
 
   openapi:generate:
     desc: Generates the OpenAPI specification JSON file

@@ -21,6 +21,7 @@ Do not edit these by hand:
 ```text
 docs/auto-generated/openapi/
 docs/auto-generated/dotnet-api/
+docs/auto-generated/dotnet-api-graph.json
 artifacts/docs/site/
 ```
 
@@ -34,13 +35,27 @@ Run:
 task -t .config/task/Taskfile.yml docs:build
 ```
 
-The script:
+The script runs these steps in order:
 
-- restores DocFX tooling;
-- builds backend projects needed for metadata;
-- generates OpenAPI JSON into `docs/auto-generated/openapi/openapi.json`;
-- generates .NET API metadata into `docs/auto-generated/dotnet-api/`;
-- builds the static site into `artifacts/docs/site`.
+1. restores DocFX tooling and builds backend projects needed for metadata;
+2. **OpenAPI generation** — generates `docs/auto-generated/openapi/openapi.json`;
+3. **DocFX metadata generation** — generates `docs/auto-generated/dotnet-api/`;
+4. **.NET API graph generation** — generates `docs/auto-generated/dotnet-api-graph.json` from the metadata produced in step 3;
+5. **DocFX site build** — builds the static site into `artifacts/docs/site`.
+
+Order matters: the graph generator reads the DocFX metadata, so it runs after step 3; the site build runs last so the generated graph JSON is copied into the site. Stale graph output is removed by the build's clean step before regeneration.
+
+The graph data step can also be run on its own (after the DocFX metadata exists) with:
+
+```bash
+task -t .config/task/Taskfile.yml docs:graph
+```
+
+It reads only the `.NET API` metadata and is independent of the frontend app, OpenAPI endpoints, Storybook, and hand-authored diagrams.
+
+### Generated graph output in the site
+
+`dotnet-api-graph.json` is declared as a DocFX resource, so the site build copies it to `artifacts/docs/site/auto-generated/dotnet-api-graph.json`. The `.NET API Graph` page (`api/dotnet-api-graph.html`) fetches it at `../auto-generated/dotnet-api-graph.json` — i.e. the graph page renders the generated data straight from the built site with no manual copying. The CI docs workflow (`.github/workflows/docs.yml`) calls `docs:build`, so graph generation already runs in CI without an extra step.
 
 ## Check OpenAPI
 
