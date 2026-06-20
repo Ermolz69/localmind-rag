@@ -39,6 +39,11 @@ pub struct AppRuntimeInfo {
 
 pub(super) struct SupervisorState {
     pub child: Option<Child>,
+    /// Windows Job Object that owns the LocalApi process tree.
+    /// Dropping it closes the handle, which triggers kill-on-job-close and
+    /// terminates every process assigned to the job (LocalApi + its children).
+    #[cfg(windows)]
+    pub job: Option<crate::os::JobObject>,
     pub status: LocalApiStatus,
     pub port: Option<u16>,
     pub override_url: Option<String>,
@@ -53,6 +58,8 @@ impl Default for SupervisorState {
     fn default() -> Self {
         Self {
             child: None,
+            #[cfg(windows)]
+            job: None,
             status: LocalApiStatus::NotStarted,
             port: None,
             override_url: None,
