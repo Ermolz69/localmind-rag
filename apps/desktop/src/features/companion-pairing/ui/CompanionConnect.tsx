@@ -17,9 +17,20 @@ const PERMISSION_ITEMS: {
   { key: "chat", label: "Chat" },
   { key: "search", label: "Search" },
   { key: "viewDocuments", label: "View documents" },
-  { key: "viewStatus", label: "View status" },
-  { key: "rescan", label: "Rescan" },
-  { key: "addFiles", label: "Add files" },
+  { key: "viewStatus", label: "View indexing status" },
+  { key: "rescan", label: "Rescan folders" },
+  { key: "addFiles", label: "Add files from allowed folders" },
+];
+
+// Capabilities a phone can never be granted: they are absent from the permission
+// model and their routes are off the gateway allowlist. Shown here so the user can
+// see the hard boundary, not just the toggles.
+const DENIED_ITEMS: string[] = [
+  "Delete documents",
+  "Change AI runtime",
+  "Change system paths",
+  "Manage app settings",
+  "Access the whole disk",
 ];
 
 export function CompanionConnect() {
@@ -86,29 +97,56 @@ export function CompanionConnect() {
                     Disconnect
                   </Button>
                 </div>
-                <div className="mt-3">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    This device can:
-                  </p>
-                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
-                    {PERMISSION_ITEMS.map((item) => (
-                      <label
-                        key={item.key}
-                        className="flex items-center justify-between gap-2 text-xs text-foreground"
-                      >
-                        <span>{item.label}</span>
-                        <Switch
-                          checked={device.permissions[item.key]}
-                          onChange={(value) =>
-                            void updateDevicePermissions(device.id, {
-                              ...device.permissions,
-                              [item.key]: value,
-                            })
-                          }
-                          aria-label={`${item.label} for ${device.name}`}
-                        />
-                      </label>
-                    ))}
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Allowed
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
+                      {PERMISSION_ITEMS.map((item) => (
+                        <label
+                          key={item.key}
+                          className="flex items-center justify-between gap-2 text-xs text-foreground"
+                        >
+                          <span>{item.label}</span>
+                          <Switch
+                            checked={device.permissions[item.key]}
+                            onChange={(value) =>
+                              void updateDevicePermissions(device.id, {
+                                ...device.permissions,
+                                [item.key]: value,
+                              })
+                            }
+                            aria-label={`${item.label} for ${device.name}`}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Never allowed
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      These actions can never be granted to a phone.
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
+                      {DENIED_ITEMS.map((label) => (
+                        <label
+                          key={label}
+                          className="flex items-center justify-between gap-2 text-xs text-muted-foreground"
+                        >
+                          <span>{label}</span>
+                          <Switch
+                            checked={false}
+                            disabled
+                            onChange={() => {}}
+                            aria-label={`${label} for ${device.name} (never allowed)`}
+                          />
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </li>

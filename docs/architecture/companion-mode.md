@@ -124,22 +124,38 @@ its own permission set. Only safe capabilities are grantable; dangerous actions
 are never available to a phone.
 
 - Grantable (and on by default for a newly paired device): **Chat**, **Search**,
-  **View documents**, **View status**, **Rescan**, **Add files** (from allowed
-  folders).
-- Never granted to a phone: deleting documents, changing system paths, changing
-  the AI runtime, or managing the whole application configuration.
+  **View documents**, **View indexing status**, **Rescan folders**, **Add files**
+  (from allowed folders).
+- **Never** grantable to a phone: deleting documents, changing the AI runtime,
+  changing system paths, managing app settings, or browsing the whole disk. These
+  are not fields in the permission model at all, and their loopback routes are off
+  the gateway allowlist — so they are denied two ways over, not merely toggled off.
+  The desktop trusted-devices view lists them under **Never allowed** so the hard
+  boundary is visible, not just implied.
 
 `CompanionDeviceDto` carries a `Permissions` record; `PUT
 /companion/devices/{id}/permissions` updates it, and the desktop trusted-devices
 list exposes per-capability toggles. Permissions are persisted with the device, so
 a trusted phone stays exactly as restricted (or as capable) as the user left it
-across restarts — a trusted device only ever gets the capabilities Companion Mode
-grants it, never full access.
+across restarts.
 
-Enforcement binds at the local-network transport: once a request carries a
-device identity, the transport checks that device's permissions before allowing
-the action. The recommended default keeps the phone useful without giving it
-control over destructive or configuration-level operations.
+### Enforcement is real
+
+Permissions are not a cosmetic setting — the [LAN gateway](#lan-gateway) enforces
+them on **every** phone request:
+
+- `CompanionRoutePolicy` maps each request (path + method) to either a required
+  capability, the pairing bootstrap, or *blocked*. No matching token → **401**; a
+  trusted device that lacks the route's capability → **403**; a route that is not
+  on the allowlist (e.g. document delete, settings, runtime) → **404**.
+- The check reads the device's permissions **fresh from the database per request**,
+  so toggling a capability off — or disconnecting the device — takes effect on the
+  phone's very next request, with no need to re-pair or restart.
+- The desktop talks to the loopback LocalApi directly, so these limits apply only
+  to phones, never to the computer itself.
+
+This is covered by `CompanionRoutePolicyTests` (every route → capability, and every
+dangerous route blocked) and the gateway pipeline tests (401/403/404 wiring).
 
 ## Mobile interface
 
