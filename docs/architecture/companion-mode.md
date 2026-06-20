@@ -40,7 +40,8 @@ What exists today:
   render its QR code, and manage a list of trusted devices. See
   [Pairing](#pairing-qr-code) below.
 - A **mobile companion interface**: a standalone, phone-first shell served from
-  the existing frontend at `/companion`. See
+  the existing frontend at `/companion`, including a working RAG **chat** and
+  semantic **search** over the already-indexed knowledge base. See
   [Mobile interface](#mobile-interface) below.
 
 ## Settings shape
@@ -113,8 +114,16 @@ any native app is considered).
 - **Home** (`/companion`) is a simple control center: a header, "Connected to
   &lt;computer name&gt;" (from `GET /companion/info`), and a grid of quick actions
   — Chat, Search, Documents, Indexing, Folders.
-- **Actions** (`/companion/{action}`) currently open lightweight placeholder
-  screens; the full phone experiences for each action arrive in later stages.
+- **Chat** (`/companion/chat`) is a working mobile RAG chat: it lazily creates a
+  conversation, streams the answer from the computer's local knowledge base, and
+  shows expandable sources. Multi-turn within the screen.
+- **Search** (`/companion/search`) runs semantic search over the indexed
+  knowledge base and lists matching snippets.
+- Chat and Search are **read-only over already-indexed documents** — the phone
+  does not manage files yet. They reuse the existing `chatsApi` / `searchApi`
+  LocalApi slices, so no new backend endpoints were added for them.
+- **Documents, Indexing, Folders** (`/companion/{action}`) are still lightweight
+  placeholder screens; their phone experiences arrive in later stages.
 - The shell renders without the desktop chrome (no sidebar). On the desktop, the
   Companion Mode settings section links to `/companion?preview=1` so the user can
   preview what the phone sees; the preview adds an "Exit preview" link back to
@@ -134,10 +143,10 @@ default:
    scanned QR code can actually complete the `confirm` handshake.
 2. Durable storage for trusted devices (and per-device tokens) so a paired phone
    reconnects without re-pairing across restarts.
-3. Filling in the mobile interface: real phone experiences behind each quick
-   action (chat, search, document view, indexing, folders) and a companion
-   bootstrap that obtains the LocalApi base URL over the network instead of from
-   the Tauri shell.
+3. Filling in the remaining mobile actions (documents, indexing, folders — these
+   involve file management) and a companion bootstrap that obtains the LocalApi
+   base URL over the network instead of from the Tauri shell. Chat and Search
+   are already functional.
 4. Capability-scoped access (chat, search, document view, indexing of selected
    files, managing allowed folders) rather than full disk access.
 

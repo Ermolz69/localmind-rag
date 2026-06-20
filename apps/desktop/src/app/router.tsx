@@ -4,7 +4,9 @@ import { BucketDetailsPage } from "@pages/BucketDetailsPage";
 import { BucketsPage } from "@pages/BucketsPage";
 import { ChatPage } from "@pages/ChatPage";
 import { CompanionActionPage } from "@pages/CompanionActionPage";
+import { CompanionChatPage } from "@pages/CompanionChatPage";
 import { CompanionPage } from "@pages/CompanionPage";
+import { CompanionSearchPage } from "@pages/CompanionSearchPage";
 import { DashboardPage } from "@pages/DashboardPage";
 import { DocumentsPage } from "@pages/DocumentsPage";
 import { NotesPage } from "@pages/NotesPage";
@@ -31,5 +33,7 @@ export const router = createBrowserRouter([
   // Standalone, mobile-first companion shell (no desktop chrome). A phone loads
   // these routes once the local-network transport ships.
   { path: "/companion", element: <CompanionPage /> },
+  { path: "/companion/chat", element: <CompanionChatPage /> },
+  { path: "/companion/search", element: <CompanionSearchPage /> },
   { path: "/companion/:action", element: <CompanionActionPage /> },
 ]);
