@@ -13,6 +13,7 @@ vi.mock("@shared/api", () => ({
     confirmPairing: vi.fn(),
     getDevices: vi.fn().mockResolvedValue({ devices: [] }),
     revokeDevice: vi.fn(),
+    getActivity: vi.fn().mockResolvedValue({ events: [] }),
   },
   getErrorMessage: (_error: unknown, fallback: string) => fallback,
 }));

@@ -5,6 +5,7 @@ import {
   companionActions,
   useCompanionInfo,
 } from "@features/companion-pairing";
+import { CompanionLivePanel } from "@features/companion-activity";
 
 export function CompanionPage() {
   const { computerName, isLoading } = useCompanionInfo();
@@ -46,6 +47,8 @@ export function CompanionPage() {
             </p>
           </div>
         </header>
+
+        <CompanionLivePanel />
 
         <section className="flex flex-col gap-3">
           <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

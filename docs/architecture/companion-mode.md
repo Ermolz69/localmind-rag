@@ -266,6 +266,13 @@ publishing never disrupts the main work. `GET /companion/activity` returns the
 recent events. Because it is in memory, the feed resets on restart; persisting it
 is not required for a live view.
 
+Each event carries a timestamp and a status kind, rendered as a time-stamped line
+with a colored dot (indexed = green, failed = red, new content = primary). The
+**Activity** screen shows the full feed; the companion **home screen** also shows
+a compact, always-on **"Right now"** panel (`CompanionLivePanel`) with the latest
+few events and a live indicator, so the home reads as a live control panel rather
+than a menu of pages. Both share `activityDotClass` / `formatActivityTime`.
+
 ## Allowed folders and file picking
 
 A core idea of Companion Mode is picking files on the computer from the phone

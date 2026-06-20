@@ -4,40 +4,24 @@ import {
   useCompanionActivity,
   type CompanionActivityEvent,
 } from "../model/useCompanionActivity";
-
-function dotClass(kind: string): string {
-  if (kind === "ingestion.indexed") {
-    return "bg-green-500";
-  }
-  if (kind === "ingestion.failed") {
-    return "bg-destructive";
-  }
-  if (kind === "document.added" || kind === "watched.found") {
-    return "bg-primary";
-  }
-  return "bg-muted-foreground";
-}
-
-function formatTime(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { activityDotClass, formatActivityTime } from "../model/activityFormat";
 
 function ActivityRow({ event }: { event: CompanionActivityEvent }) {
   return (
     <li className="flex gap-3">
       <span className="flex flex-col items-center pt-1.5">
         <span
-          className={cn("h-2 w-2 shrink-0 rounded-full", dotClass(event.kind))}
+          className={cn(
+            "h-2 w-2 shrink-0 rounded-full",
+            activityDotClass(event.kind),
+          )}
         />
       </span>
       <div className="min-w-0 flex-1 border-b border-border pb-3">
         <div className="flex items-baseline justify-between gap-2">
           <p className="min-w-0 text-sm text-foreground">{event.message}</p>
           <time className="shrink-0 text-xs text-muted-foreground">
-            {formatTime(event.timestamp)}
+            {formatActivityTime(event.timestamp)}
           </time>
         </div>
         {event.detail ? (
