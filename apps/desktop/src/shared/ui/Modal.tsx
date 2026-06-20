@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import type { PropsWithChildren } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../lib/cn";
 import { Button } from "./Button";
 
@@ -25,8 +26,8 @@ export function Modal({
     return null;
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm">
       <div
         className={cn(
           "w-full max-w-lg rounded-md border border-border bg-card p-5 text-card-foreground shadow-xl",
@@ -51,6 +52,7 @@ export function Modal({
         </div>
         <div className={cn("mt-5", bodyClassName)}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

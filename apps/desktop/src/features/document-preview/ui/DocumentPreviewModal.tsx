@@ -38,10 +38,9 @@ export function DocumentPreviewModal({
       open={open}
       onClose={onClose}
       panelClassName="max-h-[85vh] max-w-5xl overflow-hidden"
-      bodyClassName="flex min-h-[28rem] flex-col overflow-hidden"
     >
       <PreviewHeader preview={preview} isLoading={isLoading} error={error} />
-      <div className="mt-4 min-h-0 flex-1 overflow-hidden rounded-md border border-border bg-background">
+      <div className="mt-4 max-h-[70vh] min-h-[20rem] overflow-y-auto rounded-md border border-border bg-background">
         <PreviewContent preview={preview} isLoading={isLoading} error={error} />
       </div>
     </Modal>

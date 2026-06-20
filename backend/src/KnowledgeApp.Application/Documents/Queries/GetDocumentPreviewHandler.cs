@@ -136,6 +136,26 @@ public sealed class GetDocumentPreviewHandler(
 
         if (!conversionResult.IsSuccess)
         {
+            // When LibreOffice is not installed or the conversion failed for this specific file,
+            // fall back to extracting text directly from the OOXML ZIP archive.
+            bool canFallback = conversionResult.Error!.Code is
+                ErrorCodes.Documents.PreviewConverterUnavailable or
+                ErrorCodes.Documents.PreviewConversionFailed;
+
+            if (canFallback)
+            {
+                string? html = OfficeDocumentHtmlConverter.TryConvertToHtml(source.FilePath, source.FileType);
+                if (html is not null)
+                {
+                    return Result<DocumentPreviewResponse>.Success(new DocumentPreviewResponse(
+                        documentId,
+                        source.FileName,
+                        "text/html; charset=utf-8",
+                        DocumentPreviewKind.Html,
+                        TextContent: html));
+                }
+            }
+
             return Result<DocumentPreviewResponse>.Success(CreateErrorResponse(
                 documentId,
                 source.FileName,
