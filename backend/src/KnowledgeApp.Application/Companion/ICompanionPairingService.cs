@@ -33,4 +33,7 @@ public interface ICompanionPairingService
 
     /// <summary>Removes a trusted device. Fails when the device is unknown.</summary>
     Result RevokeDevice(Guid deviceId);
+
+    /// <summary>Updates a trusted device's permissions. Fails when the device is unknown.</summary>
+    Result UpdateDevicePermissions(Guid deviceId, CompanionDevicePermissionsDto permissions);
 }

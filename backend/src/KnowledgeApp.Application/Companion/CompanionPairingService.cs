@@ -25,6 +25,16 @@ public sealed class CompanionPairingService(
 
     private const int MaxDeviceFieldLength = 100;
 
+    // Recommended safe default for a newly paired phone: useful capabilities,
+    // none of the dangerous ones.
+    private static readonly CompanionDevicePermissionsDto DefaultPermissions = new(
+        Chat: true,
+        Search: true,
+        ViewDocuments: true,
+        ViewStatus: true,
+        Rescan: true,
+        AddFiles: true);
+
     private readonly object gate = new();
     private readonly List<CompanionDeviceDto> devices = [];
     private PairingState? session;
@@ -146,7 +156,8 @@ public sealed class CompanionPairingService(
                 Name: Truncate(name),
                 Platform: Truncate(platform),
                 CreatedAt: now,
-                LastSeenAt: now);
+                LastSeenAt: now,
+                Permissions: DefaultPermissions);
 
             devices.Add(device);
 
@@ -174,6 +185,27 @@ public sealed class CompanionPairingService(
                     ErrorCodes.Companion.DeviceNotFound,
                     "Device not found."));
             }
+        }
+
+        return Result.Success();
+    }
+
+    public Result UpdateDevicePermissions(Guid deviceId, CompanionDevicePermissionsDto permissions)
+    {
+        ArgumentNullException.ThrowIfNull(permissions);
+
+        lock (gate)
+        {
+            int index = devices.FindIndex(device => device.Id == deviceId);
+
+            if (index < 0)
+            {
+                return Result.Failure(ApplicationErrors.NotFound(
+                    ErrorCodes.Companion.DeviceNotFound,
+                    "Device not found."));
+            }
+
+            devices[index] = devices[index] with { Permissions = permissions };
         }
 
         return Result.Success();

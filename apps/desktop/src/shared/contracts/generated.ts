@@ -982,6 +982,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/companion/devices/{deviceId}/permissions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Update a trusted device's permissions.
+     * @description Sets what a trusted device is allowed to do.
+     */
+    put: operations["UpdateCompanionDevicePermissions"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/sync/status": {
     parameters: {
       query?: never;
@@ -1827,6 +1847,27 @@ export interface components {
        * @description When the device last connected.
        */
       lastSeenAt: string;
+      /** @description What this device is allowed to do. */
+      permissions: components["schemas"]["CompanionDevicePermissionsDto"];
+    };
+    /**
+     * @description What a trusted companion device is allowed to do. Only safe capabilities are
+     *     grantable; dangerous actions (deleting documents, changing system paths or AI
+     *     runtime, managing the whole configuration) are never available to a phone.
+     */
+    CompanionDevicePermissionsDto: {
+      /** @description Use the RAG chat. */
+      chat: boolean;
+      /** @description Search the knowledge base. */
+      search: boolean;
+      /** @description View documents and their statuses. */
+      viewDocuments: boolean;
+      /** @description View indexing and watched-folder status. */
+      viewStatus: boolean;
+      /** @description Trigger watched-folder rescans. */
+      rescan: boolean;
+      /** @description Add files from allowed folders. */
+      addFiles: boolean;
     };
     /** @description The list of trusted Companion Mode devices. */
     CompanionDevicesResponse: {
@@ -4730,6 +4771,32 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  UpdateCompanionDevicePermissions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        deviceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CompanionDevicePermissionsDto"];
+      };
+    };
     responses: {
       /** @description OK */
       200: {

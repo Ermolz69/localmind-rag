@@ -8,12 +8,14 @@ const {
   mockStartPairing,
   mockCancelPairing,
   mockRevokeDevice,
+  mockUpdateDevicePermissions,
   mockGetErrorMessage,
 } = vi.hoisted(() => ({
   mockGetDevices: vi.fn(),
   mockStartPairing: vi.fn(),
   mockCancelPairing: vi.fn(),
   mockRevokeDevice: vi.fn(),
+  mockUpdateDevicePermissions: vi.fn(),
   mockGetErrorMessage: vi.fn((_error: unknown, fallback: string) => fallback),
 }));
 
@@ -23,9 +25,19 @@ vi.mock("@shared/api", () => ({
     startPairing: mockStartPairing,
     cancelPairing: mockCancelPairing,
     revokeDevice: mockRevokeDevice,
+    updateDevicePermissions: mockUpdateDevicePermissions,
   },
   getErrorMessage: mockGetErrorMessage,
 }));
+
+const permissions = {
+  chat: true,
+  search: true,
+  viewDocuments: true,
+  viewStatus: true,
+  rescan: false,
+  addFiles: false,
+};
 
 const device = {
   id: "device-1",
@@ -49,6 +61,20 @@ describe("useCompanionPairing", () => {
     mockStartPairing.mockResolvedValue(session);
     mockCancelPairing.mockResolvedValue(undefined);
     mockRevokeDevice.mockResolvedValue(undefined);
+    mockUpdateDevicePermissions.mockResolvedValue(undefined);
+  });
+
+  it("updates device permissions and refreshes", async () => {
+    const { result } = renderHook(() => useCompanionPairing());
+
+    await act(async () => {
+      await result.current.updateDevicePermissions("device-1", permissions);
+    });
+
+    expect(mockUpdateDevicePermissions).toHaveBeenCalledWith(
+      "device-1",
+      permissions,
+    );
   });
 
   it("starts with no session and no devices", () => {

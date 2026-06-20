@@ -5,6 +5,7 @@ import { companionApi, getErrorMessage } from "@shared/api";
 
 export type CompanionDevice =
   OperationData<"GetCompanionDevices">["devices"][number];
+export type CompanionDevicePermissions = CompanionDevice["permissions"];
 export type CompanionPairingSession = OperationData<"StartCompanionPairing">;
 
 /**
@@ -74,6 +75,19 @@ export function useCompanionPairing() {
     [loadDevices],
   );
 
+  const updateDevicePermissions = useCallback(
+    async (deviceId: string, permissions: CompanionDevicePermissions) => {
+      setError(null);
+      try {
+        await companionApi.updateDevicePermissions(deviceId, permissions);
+        await loadDevices();
+      } catch (exception) {
+        setError(getErrorMessage(exception, "Unable to update permissions."));
+      }
+    },
+    [loadDevices],
+  );
+
   // Count down the active session and drop it once it expires.
   useEffect(() => {
     if (!session) {
@@ -106,5 +120,6 @@ export function useCompanionPairing() {
     startPairing,
     cancelPairing,
     revokeDevice,
+    updateDevicePermissions,
   };
 }

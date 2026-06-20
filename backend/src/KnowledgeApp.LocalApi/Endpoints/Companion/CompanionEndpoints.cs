@@ -149,6 +149,21 @@ public static class CompanionEndpoints
         .WithDescription("Removes a phone from the trusted Companion Mode devices.")
         .Produces<ApiResponse<object>>();
 
+        app.MapPut("/companion/devices/{deviceId:guid}/permissions", (
+            Guid deviceId,
+            [FromBody] CompanionDevicePermissionsDto permissions,
+            [FromServices] ICompanionPairingService service,
+            HttpContext context) =>
+        {
+            var result = service.UpdateDevicePermissions(deviceId, permissions);
+            return result.ToApiResult(context);
+        })
+        .WithName("UpdateCompanionDevicePermissions")
+        .WithTags("Companion")
+        .WithSummary("Update a trusted device's permissions.")
+        .WithDescription("Sets what a trusted device is allowed to do.")
+        .Produces<ApiResponse<object>>();
+
         return app;
     }
 }

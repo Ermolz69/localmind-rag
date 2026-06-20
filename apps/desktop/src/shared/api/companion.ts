@@ -30,6 +30,17 @@ export const companionApi = {
         method: "DELETE",
       },
     ),
+  updateDevicePermissions: (
+    deviceId: string,
+    permissions: OperationJsonBody<"UpdateCompanionDevicePermissions">,
+  ) =>
+    request<OperationData<"UpdateCompanionDevicePermissions">>(
+      `/companion/devices/${deviceId}/permissions`,
+      {
+        method: "PUT",
+        body: JSON.stringify(permissions),
+      },
+    ),
   getFileRoots: () =>
     request<OperationData<"GetCompanionFileRoots">>("/companion/files/roots"),
   browseFiles: (path: string) =>

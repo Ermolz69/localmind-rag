@@ -2,10 +2,25 @@ import { useEffect, useState } from "react";
 import { ExternalLink, Smartphone } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { Button } from "@shared/ui";
+import { Button, Switch } from "@shared/ui";
 
 import { ConnectPhoneDialog } from "./ConnectPhoneDialog";
-import { useCompanionPairing } from "../model/useCompanionPairing";
+import {
+  useCompanionPairing,
+  type CompanionDevicePermissions,
+} from "../model/useCompanionPairing";
+
+const PERMISSION_ITEMS: {
+  key: keyof CompanionDevicePermissions;
+  label: string;
+}[] = [
+  { key: "chat", label: "Chat" },
+  { key: "search", label: "Search" },
+  { key: "viewDocuments", label: "View documents" },
+  { key: "viewStatus", label: "View status" },
+  { key: "rescan", label: "Rescan" },
+  { key: "addFiles", label: "Add files" },
+];
 
 export function CompanionConnect() {
   const {
@@ -18,6 +33,7 @@ export function CompanionConnect() {
     startPairing,
     cancelPairing,
     revokeDevice,
+    updateDevicePermissions,
   } = useCompanionPairing();
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -53,24 +69,48 @@ export function CompanionConnect() {
         ) : (
           <ul className="mt-2 divide-y divide-border rounded-lg border border-border">
             {devices.map((device) => (
-              <li
-                key={device.id}
-                className="flex items-center justify-between gap-4 px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {device.name} / {device.platform}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Last seen: {new Date(device.lastSeenAt).toLocaleString()}
-                  </p>
+              <li key={device.id} className="px-4 py-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {device.name} / {device.platform}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Last seen: {new Date(device.lastSeenAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => void revokeDevice(device.id)}
+                  >
+                    Disconnect
+                  </Button>
                 </div>
-                <Button
-                  variant="secondary"
-                  onClick={() => void revokeDevice(device.id)}
-                >
-                  Disconnect
-                </Button>
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    This device can:
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
+                    {PERMISSION_ITEMS.map((item) => (
+                      <label
+                        key={item.key}
+                        className="flex items-center justify-between gap-2 text-xs text-foreground"
+                      >
+                        <span>{item.label}</span>
+                        <Switch
+                          checked={device.permissions[item.key]}
+                          onChange={(value) =>
+                            void updateDevicePermissions(device.id, {
+                              ...device.permissions,
+                              [item.key]: value,
+                            })
+                          }
+                          aria-label={`${item.label} for ${device.name}`}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </li>
             ))}
           </ul>

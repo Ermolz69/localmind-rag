@@ -95,6 +95,63 @@ public sealed class CompanionPairingServiceTests
     }
 
     [Fact]
+    public async Task Confirm_Should_Grant_Safe_Default_Permissions()
+    {
+        CompanionPairingService service = CreateService(companionEnabled: true);
+        Result<CompanionPairingSessionDto> session = await service.StartAsync();
+
+        Result<CompanionDeviceDto> result = service.Confirm(
+            new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
+
+        CompanionDevicePermissionsDto permissions = result.Value!.Permissions;
+        Assert.True(permissions.Chat);
+        Assert.True(permissions.Search);
+        Assert.True(permissions.ViewDocuments);
+        Assert.True(permissions.ViewStatus);
+        Assert.True(permissions.Rescan);
+        Assert.True(permissions.AddFiles);
+    }
+
+    [Fact]
+    public async Task UpdateDevicePermissions_Should_Change_Permissions()
+    {
+        CompanionPairingService service = CreateService(companionEnabled: true);
+        Result<CompanionPairingSessionDto> session = await service.StartAsync();
+        Result<CompanionDeviceDto> device = service.Confirm(
+            new ConfirmCompanionPairingRequest(session.Value!.Token, "Redmi Note", "Chrome"));
+
+        Result update = service.UpdateDevicePermissions(
+            device.Value!.Id,
+            new CompanionDevicePermissionsDto(
+                Chat: true,
+                Search: true,
+                ViewDocuments: true,
+                ViewStatus: true,
+                Rescan: false,
+                AddFiles: false));
+
+        Assert.True(update.IsSuccess);
+
+        CompanionDeviceDto stored = Assert.Single(service.GetDevices().Devices);
+        Assert.False(stored.Permissions.Rescan);
+        Assert.False(stored.Permissions.AddFiles);
+        Assert.True(stored.Permissions.Chat);
+    }
+
+    [Fact]
+    public void UpdateDevicePermissions_Should_Fail_When_Device_Unknown()
+    {
+        CompanionPairingService service = CreateService(companionEnabled: true);
+
+        Result update = service.UpdateDevicePermissions(
+            Guid.NewGuid(),
+            new CompanionDevicePermissionsDto(true, true, true, true, true, true));
+
+        Assert.False(update.IsSuccess);
+        Assert.Equal(ErrorCodes.Companion.DeviceNotFound, update.Error!.Code);
+    }
+
+    [Fact]
     public async Task Confirm_Should_Fail_With_Invalid_Token()
     {
         CompanionPairingService service = CreateService(companionEnabled: true);

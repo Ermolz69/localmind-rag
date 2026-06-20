@@ -39,6 +39,9 @@ What exists today:
 - A **QR pairing flow**: the desktop can start a short-lived pairing session,
   render its QR code, and manage a list of trusted devices. See
   [Pairing](#pairing-qr-code) below.
+- **Per-device permissions**: each trusted device has its own grantable set of
+  safe capabilities, with dangerous actions never available. See
+  [Device permissions](#device-permissions) below.
 - A **mobile companion interface**: a standalone, phone-first shell served from
   the existing frontend at `/companion`, including a working RAG **chat**,
   semantic **search**, a read-only **documents** indexing-status view,
@@ -107,6 +110,28 @@ The QR `pairingUrl` encodes the machine's detected LAN address and a reserved
 companion port, so it is forward-compatible with the transport stage. No service
 listens on that port yet; scanning the code cannot complete a connection until
 the transport ships.
+
+## Device permissions
+
+Not every connected device needs the same abilities, so each trusted device has
+its own permission set. Only safe capabilities are grantable; dangerous actions
+are never available to a phone.
+
+- Grantable (and on by default for a newly paired device): **Chat**, **Search**,
+  **View documents**, **View status**, **Rescan**, **Add files** (from allowed
+  folders).
+- Never granted to a phone: deleting documents, changing system paths, changing
+  the AI runtime, or managing the whole application configuration.
+
+`CompanionDeviceDto` carries a `Permissions` record; `PUT
+/companion/devices/{id}/permissions` updates it, and the desktop trusted-devices
+list exposes per-capability toggles. Permissions are held in memory with the
+device for now.
+
+Enforcement binds at the local-network transport: once a request carries a
+device identity, the transport checks that device's permissions before allowing
+the action. The recommended default keeps the phone useful without giving it
+control over destructive or configuration-level operations.
 
 ## Mobile interface
 
@@ -179,7 +204,9 @@ default:
 
 1. A local-network (Wi-Fi) transport that only listens while Companion Mode is
    enabled, kept separate from the local-only `LocalApi` loopback boundary, so a
-   scanned QR code can actually complete the `confirm` handshake.
+   scanned QR code can actually complete the `confirm` handshake. This is also
+   where per-device permissions are enforced, since requests then carry a device
+   identity.
 2. Durable storage for trusted devices (and per-device tokens) so a paired phone
    reconnects without re-pairing across restarts.
 3. Document actions from the phone (retry, cancel, reindex) on top of the

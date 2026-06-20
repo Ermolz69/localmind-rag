@@ -6,9 +6,11 @@ namespace KnowledgeApp.Contracts.Companion;
 /// <param name="Platform">Client platform, e.g. "Chrome".</param>
 /// <param name="CreatedAt">When the device was first paired.</param>
 /// <param name="LastSeenAt">When the device last connected.</param>
+/// <param name="Permissions">What this device is allowed to do.</param>
 public sealed record CompanionDeviceDto(
     Guid Id,
     string Name,
     string Platform,
     DateTimeOffset CreatedAt,
-    DateTimeOffset LastSeenAt);
+    DateTimeOffset LastSeenAt,
+    CompanionDevicePermissionsDto Permissions);
