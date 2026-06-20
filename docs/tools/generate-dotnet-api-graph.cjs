@@ -198,6 +198,15 @@ function normalizeUid(uid) {
   return (cut === -1 ? uid : uid.slice(0, cut)).trim();
 }
 
+/**
+ * Builds the DocFX HTML page name for a uid. DocFX encodes the generic-arity
+ * backtick (e.g. `ApiResponse`1`) as a dash (`ApiResponse-1.html`), so the href
+ * must use the same encoding to resolve inside the built site.
+ */
+function docfxHref(uid) {
+  return `${uid.replace(/`/g, "-")}.html`;
+}
+
 // ---- Build the graph ------------------------------------------------------
 
 function generate() {
@@ -242,7 +251,7 @@ function generate() {
         label: fullName,
         fullName,
         project: project ?? null,
-        href: `${fullName}.html`,
+        href: docfxHref(fullName),
       });
     } else if (project && !namespaces.get(id).project) {
       namespaces.get(id).project = project;
@@ -274,7 +283,7 @@ function generate() {
         project: project ?? null,
         typeKind: resolveTypeKind(item.type, item.syntaxContent),
         uid: item.uid,
-        href: `${item.uid}.html`,
+        href: docfxHref(item.uid),
       };
       types.set(id, node);
       typeNodeByUid.set(normalizeUid(item.uid), id);
