@@ -56,6 +56,32 @@ export function SettingsSections({
     });
   }
 
+  const allowedFolders = draft.companionMode?.allowedFolders ?? [];
+
+  async function addAllowedFolder() {
+    const path = await pickFolder();
+    if (!path || allowedFolders.includes(path)) {
+      return;
+    }
+    onChange({
+      ...draft,
+      companionMode: {
+        ...draft.companionMode,
+        allowedFolders: [...allowedFolders, path],
+      },
+    });
+  }
+
+  function removeAllowedFolder(path: string) {
+    onChange({
+      ...draft,
+      companionMode: {
+        ...draft.companionMode,
+        allowedFolders: allowedFolders.filter((item) => item !== path),
+      },
+    });
+  }
+
   async function handleClearLogs() {
     setIsClearingLogs(true);
     try {
@@ -411,7 +437,53 @@ export function SettingsSections({
         </div>
 
         {companionModeEnabled ? (
-          <CompanionConnect />
+          <>
+            <CompanionConnect />
+            <div className="mt-4">
+              <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Folders the phone can browse
+              </p>
+              <p className="mt-1 px-1 text-xs text-muted-foreground">
+                The phone can pick files only from these folders — never your
+                whole disk.
+              </p>
+              {allowedFolders.length > 0 ? (
+                <ul className="mt-2 divide-y divide-border rounded-lg border border-border">
+                  {allowedFolders.map((folder) => (
+                    <li
+                      key={folder}
+                      className="flex items-center justify-between gap-3 px-4 py-2"
+                    >
+                      <span
+                        className="min-w-0 truncate text-sm text-foreground"
+                        title={folder}
+                      >
+                        {folder}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-destructive shrink-0 text-sm font-medium hover:underline"
+                        onClick={() => removeAllowedFolder(folder)}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 px-1 text-sm text-muted-foreground">
+                  No folders shared yet.
+                </p>
+              )}
+              <button
+                type="button"
+                className="mt-2 rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted"
+                onClick={() => void addAllowedFolder()}
+              >
+                Add folder
+              </button>
+            </div>
+          </>
         ) : (
           <p className="mt-4 px-1 text-sm text-muted-foreground">
             Turn on the switch above to pair a phone and manage trusted devices.

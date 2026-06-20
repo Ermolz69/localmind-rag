@@ -95,5 +95,7 @@ public static class ErrorCodes
         public const string ModeDisabled = "COMPANION_MODE_DISABLED";
         public const string PairingNotActive = "COMPANION_PAIRING_NOT_ACTIVE";
         public const string DeviceNotFound = "COMPANION_DEVICE_NOT_FOUND";
+        public const string PathNotAllowed = "COMPANION_PATH_NOT_ALLOWED";
+        public const string PathNotFound = "COMPANION_PATH_NOT_FOUND";
     }
 }

@@ -140,7 +140,11 @@ public sealed class SettingsService(
                 Enabled: GetBool(
                     storedSettings,
                     SettingsKeys.CompanionModeEnabled,
-                    defaultCompanionMode.Enabled)));
+                    defaultCompanionMode.Enabled),
+                AllowedFolders: GetStringList(
+                    storedSettings,
+                    SettingsKeys.CompanionModeAllowedFoldersJson,
+                    defaultCompanionMode.AllowedFolders)));
 
         if (settings.Diagnostics is not null)
         {
@@ -240,6 +244,12 @@ public sealed class SettingsService(
             watchedFolders.StorageMode);
 
         Upsert(storedSettings, SettingsKeys.CompanionModeEnabled, companionMode.Enabled.ToString());
+        Upsert(
+            storedSettings,
+            SettingsKeys.CompanionModeAllowedFoldersJson,
+            JsonSerializer.Serialize(
+                companionMode.AllowedFolders ?? Array.Empty<string>(),
+                JsonOptions));
 
         await operationLogRepository.AddAsync(new OperationLog
         {

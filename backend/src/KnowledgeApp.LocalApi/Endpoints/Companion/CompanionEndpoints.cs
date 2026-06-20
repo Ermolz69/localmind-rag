@@ -1,6 +1,8 @@
 using KnowledgeApp.Application.Companion;
+using KnowledgeApp.Application.Companion.Files;
 using KnowledgeApp.Contracts.Common;
 using KnowledgeApp.Contracts.Companion;
+using KnowledgeApp.Contracts.Documents;
 using Microsoft.AspNetCore.Mvc;
 
 namespace KnowledgeApp.LocalApi.Endpoints;
@@ -75,6 +77,50 @@ public static class CompanionEndpoints
         .WithSummary("Confirm Companion Mode pairing.")
         .WithDescription("Completes a pairing session and registers the calling device as trusted.")
         .Produces<ApiResponse<CompanionDeviceDto>>();
+
+        app.MapGet("/companion/files/roots", async (
+            [FromServices] ICompanionFileService service,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+        {
+            CompanionRootsResponse roots = await service.GetRootsAsync(cancellationToken);
+            return ApiResults.Ok(roots, context);
+        })
+        .WithName("GetCompanionFileRoots")
+        .WithTags("Companion")
+        .WithSummary("List allowed folders.")
+        .WithDescription("Returns the folders the user allowed the phone to browse.")
+        .Produces<ApiResponse<CompanionRootsResponse>>();
+
+        app.MapGet("/companion/files/browse", async (
+            [FromQuery] string path,
+            [FromServices] ICompanionFileService service,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.BrowseAsync(path, cancellationToken);
+            return result.ToApiResult(context);
+        })
+        .WithName("BrowseCompanionFiles")
+        .WithTags("Companion")
+        .WithSummary("Browse an allowed folder.")
+        .WithDescription("Lists subfolders and supported files inside an allowed folder.")
+        .Produces<ApiResponse<CompanionBrowseResponse>>();
+
+        app.MapPost("/companion/files/add", async (
+            [FromBody] AddCompanionFileRequest request,
+            [FromServices] ICompanionFileService service,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.AddFileAsync(request.Path, cancellationToken);
+            return result.ToApiResult(context);
+        })
+        .WithName("AddCompanionFile")
+        .WithTags("Companion")
+        .WithSummary("Add a file from an allowed folder.")
+        .WithDescription("Adds a file from an allowed folder into LocalMind for indexing.")
+        .Produces<ApiResponse<UploadDocumentResponse>>();
 
         app.MapGet("/companion/devices", (
             [FromServices] ICompanionPairingService service,

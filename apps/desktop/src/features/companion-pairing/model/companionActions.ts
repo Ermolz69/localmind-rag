@@ -1,6 +1,7 @@
 import {
   FileText,
   Folder,
+  FolderInput,
   MessageSquare,
   RefreshCw,
   Search,
@@ -11,6 +12,7 @@ export type CompanionActionKey =
   | "chat"
   | "search"
   | "documents"
+  | "files"
   | "indexing"
   | "folders";
 
@@ -40,6 +42,12 @@ export const companionActions: CompanionAction[] = [
     label: "Documents",
     description: "Browse the documents on your computer.",
     icon: FileText,
+  },
+  {
+    key: "files",
+    label: "Files",
+    description: "Add files from allowed folders on your PC.",
+    icon: FolderInput,
   },
   {
     key: "indexing",

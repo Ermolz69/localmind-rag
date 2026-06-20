@@ -94,7 +94,78 @@ public sealed class CompanionEndpointsTests : IClassFixture<LocalApiTestFactory>
         Assert.DoesNotContain(afterRevoke.Devices, item => item.Id == device.Id);
     }
 
-    private static async Task SetCompanionEnabledAsync(HttpClient client, bool enabled)
+    [Fact]
+    public async Task FileBrowsing_Should_List_And_Add_Files_Within_Allowed_Roots()
+    {
+        string allowedRoot = Path.Combine(
+            Path.GetTempPath(),
+            "localmind-companion-files",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(allowedRoot);
+        string filePath = Path.Combine(allowedRoot, "notes.txt");
+        await File.WriteAllTextAsync(filePath, "Companion file contents.");
+
+        try
+        {
+            using HttpClient client = factory.CreateClient();
+            await SetCompanionEnabledAsync(client, enabled: true, allowedFolders: [allowedRoot]);
+
+            CompanionRootsResponse? roots =
+                await client.GetApiDataAsync<CompanionRootsResponse>("/api/v1/companion/files/roots");
+            Assert.NotNull(roots);
+            Assert.Contains(roots.Roots, root => root.Path == allowedRoot);
+
+            CompanionBrowseResponse? browse = await client.GetApiDataAsync<CompanionBrowseResponse>(
+                $"/api/v1/companion/files/browse?path={Uri.EscapeDataString(allowedRoot)}");
+            Assert.NotNull(browse);
+            Assert.Contains(browse.Entries, entry => entry.Name == "notes.txt" && !entry.IsDirectory);
+
+            using HttpResponseMessage addResponse = await client.PostAsJsonAsync(
+                "/api/v1/companion/files/add",
+                new AddCompanionFileRequest(filePath));
+            Assert.Equal(HttpStatusCode.OK, addResponse.StatusCode);
+        }
+        finally
+        {
+            Directory.Delete(allowedRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Browse_Should_Reject_Path_Outside_Allowed_Roots()
+    {
+        string allowedRoot = Path.Combine(
+            Path.GetTempPath(),
+            "localmind-companion-allowed",
+            Guid.NewGuid().ToString("N"));
+        string outsideRoot = Path.Combine(
+            Path.GetTempPath(),
+            "localmind-companion-outside",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(allowedRoot);
+        Directory.CreateDirectory(outsideRoot);
+
+        try
+        {
+            using HttpClient client = factory.CreateClient();
+            await SetCompanionEnabledAsync(client, enabled: true, allowedFolders: [allowedRoot]);
+
+            using HttpResponseMessage response = await client.GetAsync(
+                $"/api/v1/companion/files/browse?path={Uri.EscapeDataString(outsideRoot)}");
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+        finally
+        {
+            Directory.Delete(allowedRoot, recursive: true);
+            Directory.Delete(outsideRoot, recursive: true);
+        }
+    }
+
+    private static async Task SetCompanionEnabledAsync(
+        HttpClient client,
+        bool enabled,
+        string[]? allowedFolders = null)
     {
         AppSettingsDto? settings = await client.GetApiDataAsync<AppSettingsDto>("/api/v1/settings");
         Assert.NotNull(settings);
@@ -104,7 +175,7 @@ public sealed class CompanionEndpointsTests : IClassFixture<LocalApiTestFactory>
             // The seeded test provider may not be a recognized value; pin a valid
             // one so the only change under test is Companion Mode.
             Ai = settings.Ai with { Provider = "LlamaCpp" },
-            CompanionMode = new CompanionModeSettingsDto(enabled),
+            CompanionMode = new CompanionModeSettingsDto(enabled, allowedFolders ?? []),
         };
 
         using HttpResponseMessage response = await client.PutAsJsonAsync("/api/v1/settings", request);

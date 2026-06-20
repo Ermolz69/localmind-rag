@@ -6,6 +6,7 @@ import { ChatPage } from "@pages/ChatPage";
 import { CompanionActionPage } from "@pages/CompanionActionPage";
 import { CompanionChatPage } from "@pages/CompanionChatPage";
 import { CompanionDocumentsPage } from "@pages/CompanionDocumentsPage";
+import { CompanionFilesPage } from "@pages/CompanionFilesPage";
 import { CompanionFoldersPage } from "@pages/CompanionFoldersPage";
 import { CompanionPage } from "@pages/CompanionPage";
 import { CompanionSearchPage } from "@pages/CompanionSearchPage";
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
   { path: "/companion/chat", element: <CompanionChatPage /> },
   { path: "/companion/search", element: <CompanionSearchPage /> },
   { path: "/companion/documents", element: <CompanionDocumentsPage /> },
+  { path: "/companion/files", element: <CompanionFilesPage /> },
   { path: "/companion/folders", element: <CompanionFoldersPage /> },
   { path: "/companion/:action", element: <CompanionActionPage /> },
 ]);

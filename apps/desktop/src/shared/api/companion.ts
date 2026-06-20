@@ -30,4 +30,15 @@ export const companionApi = {
         method: "DELETE",
       },
     ),
+  getFileRoots: () =>
+    request<OperationData<"GetCompanionFileRoots">>("/companion/files/roots"),
+  browseFiles: (path: string) =>
+    request<OperationData<"BrowseCompanionFiles">>(
+      `/companion/files/browse?path=${encodeURIComponent(path)}`,
+    ),
+  addFile: (req: OperationJsonBody<"AddCompanionFile">) =>
+    request<OperationData<"AddCompanionFile">>("/companion/files/add", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
 };

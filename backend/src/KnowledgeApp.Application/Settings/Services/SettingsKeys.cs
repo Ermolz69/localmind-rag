@@ -41,6 +41,7 @@ public static class SettingsKeys
     public const string WatchedFoldersStorageMode = "WatchedFolders.StorageMode";
 
     public const string CompanionModeEnabled = "CompanionMode.Enabled";
+    public const string CompanionModeAllowedFoldersJson = "CompanionMode.AllowedFoldersJson";
 
     public static readonly string[] KnownKeys =
     [
@@ -77,5 +78,6 @@ public static class SettingsKeys
         WatchedFoldersAllowedExtensionsJson,
         WatchedFoldersStorageMode,
         CompanionModeEnabled,
+        CompanionModeAllowedFoldersJson,
     ];
 }

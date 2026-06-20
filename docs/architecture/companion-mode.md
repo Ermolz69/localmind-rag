@@ -41,16 +41,19 @@ What exists today:
   [Pairing](#pairing-qr-code) below.
 - A **mobile companion interface**: a standalone, phone-first shell served from
   the existing frontend at `/companion`, including a working RAG **chat**,
-  semantic **search**, a read-only **documents** indexing-status view, and
-  **watched folders** management (rescan, cleanup). See
-  [Mobile interface](#mobile-interface) below.
+  semantic **search**, a read-only **documents** indexing-status view,
+  **watched folders** management (rescan, cleanup), and **file picking** from
+  allowed folders. See [Mobile interface](#mobile-interface) below.
 
 ## Settings shape
 
 `CompanionMode` lives in `app_settings` and round-trips through the settings
-endpoints like every other settings group. The configurable field is:
+endpoints like every other settings group. The configurable fields are:
 
 - **Enabled** — whether Companion Mode is on. Defaults to `false`.
+- **AllowedFolders** — absolute folder paths the phone may browse and pick files
+  from (see [Allowed folders](#allowed-folders-and-file-picking)). Defaults to
+  empty.
 
 ## Status model
 
@@ -114,7 +117,7 @@ any native app is considered).
 
 - **Home** (`/companion`) is a simple control center: a header, "Connected to
   &lt;computer name&gt;" (from `GET /companion/info`), and a grid of quick actions
-  — Chat, Search, Documents, Indexing, Folders.
+  — Chat, Search, Documents, Files, Folders, Indexing.
 - **Chat** (`/companion/chat`) is a working mobile RAG chat: it lazily creates a
   conversation, streams the answer from the computer's local knowledge base, and
   shows expandable sources. Multi-turn within the screen.
@@ -125,15 +128,20 @@ any native app is considered).
   "Embedding 75%"), and failure reasons, plus a counts summary (ready /
   processing / waiting / failed). It polls while work is in flight. Actions
   (retry, cancel, reindex) are intentionally deferred to a later stage.
+- **Files** (`/companion/files`) lets the phone browse the **allowed folders**
+  the user shared on the computer and add a chosen file into LocalMind for
+  indexing. The file is added by path — it is **not** downloaded to the phone —
+  and browsing is strictly confined to allowed roots (see
+  [Allowed folders](#allowed-folders-and-file-picking)).
 - **Watched folders** (`/companion/folders`) lets the phone manage the folders
   already allowed on the computer: view each folder's health, document count,
   and access errors; **rescan** a folder (or all) to pick up new files; and
   **clean up** records of deleted files. By design the phone **cannot add new
   folders from disk** — it only acts on what the computer permits.
-- Chat, Search, and Documents are read-only; Watched folders adds the first
-  state-changing actions (rescan, cleanup). They reuse the existing `chatsApi` /
-  `searchApi` / `documentsApi` / `ingestionApi` / `watchedFoldersApi` LocalApi
-  slices, so no new backend endpoints were added for the mobile interface.
+- Chat, Search, and Documents are read-only; Files and Watched folders add
+  state-changing actions (add file, rescan, cleanup). They reuse the existing
+  `chatsApi` / `searchApi` / `documentsApi` / `ingestionApi` / `watchedFoldersApi`
+  / `companion` file slices over LocalApi.
 - **Indexing** (`/companion/{action}`) is still a lightweight placeholder
   screen; its phone experience arrives in a later stage.
 - The shell renders without the desktop chrome (no sidebar). On the desktop, the
@@ -144,6 +152,25 @@ any native app is considered).
 The route exists today and is viewable in a mobile viewport. A phone can only
 load it once the local-network transport ships and supplies the LocalApi base
 URL (today that comes from the Tauri shell).
+
+## Allowed folders and file picking
+
+A core idea of Companion Mode is picking files on the computer from the phone
+without downloading them. The security rule is strict: **the phone never sees
+the whole disk — only the folders the user explicitly allowed on the computer.**
+
+- The user maintains an **allowed folders** list in the desktop Companion Mode
+  settings (`CompanionMode.AllowedFolders`, persisted in `app_settings`). Folders
+  are added with the native folder picker; the phone can never add folders.
+- `GET /companion/files/roots` returns the allowed roots. `GET
+  /companion/files/browse?path=…` lists subfolders and supported files inside a
+  root. `POST /companion/files/add` adds a chosen file.
+- Every browse/add path is canonicalized and checked to be inside an allowed root
+  (rejecting `..` traversal). Paths outside the allowed roots return a generic
+  not-found so the phone cannot probe the disk. Adding reuses the normal upload
+  pipeline (`UploadDocumentHandler`), so file-type and size limits still apply.
+- Companion Mode is deliberately not a full remote file explorer; access is
+  bounded to allowed roots.
 
 ## Forward plan
 

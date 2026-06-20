@@ -61,7 +61,9 @@ public sealed class SettingsDefaultsProvider(
                 MaxFileSizeMb: 100,
                 AllowedExtensions: null,
                 StorageMode: WatchedFolderStorageModes.LinkOnly),
-            CompanionMode: new CompanionModeSettingsDto(Enabled: false));
+            CompanionMode: new CompanionModeSettingsDto(
+                Enabled: false,
+                AllowedFolders: []));
     }
 
     private static bool GetBool(IConfiguration section, string key, bool fallback)

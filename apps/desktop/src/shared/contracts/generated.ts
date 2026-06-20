@@ -882,6 +882,66 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/companion/files/roots": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List allowed folders.
+     * @description Returns the folders the user allowed the phone to browse.
+     */
+    get: operations["GetCompanionFileRoots"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/files/browse": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Browse an allowed folder.
+     * @description Lists subfolders and supported files inside an allowed folder.
+     */
+    get: operations["BrowseCompanionFiles"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/files/add": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Add a file from an allowed folder.
+     * @description Adds a file from an allowed folder into LocalMind for indexing.
+     */
+    post: operations["AddCompanionFile"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/companion/devices": {
     parameters: {
       query?: never;
@@ -1165,6 +1225,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Request to add a file from an allowed folder into LocalMind. */
+    AddCompanionFileRequest: {
+      /** @description Absolute path of the file to add. Must be inside an allowed root. */
+      path: string;
+    };
     /** @description Capabilities advertised by the configured AI runtime provider. */
     AiRuntimeProviderCapabilities: {
       supportsEmbeddings: boolean;
@@ -1232,6 +1297,15 @@ export interface components {
       metadata: components["schemas"]["ApiMetadata"];
     };
     /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionBrowseResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionBrowseResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
     ApiResponseOfCompanionDeviceDto: {
       /** @description True when the operation completed successfully. */
       success: boolean;
@@ -1272,6 +1346,15 @@ export interface components {
       /** @description True when the operation completed successfully. */
       success: boolean;
       data: null | components["schemas"]["CompanionPairingStatusDto"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionRootsResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionRootsResponse"];
       error: null | components["schemas"]["ApiError"];
       /** @description Response metadata shared by success and error responses. */
       metadata: components["schemas"]["ApiMetadata"];
@@ -1714,6 +1797,15 @@ export interface components {
       content: string;
       filters?: null | components["schemas"]["RetrievalFilters"];
     };
+    /** @description The contents of a browsed allowed folder. */
+    CompanionBrowseResponse: {
+      /** @description The folder being browsed. */
+      path: string;
+      /** @description Parent folder when still inside an allowed root, else null. */
+      parentPath: null | string;
+      /** @description Subfolders and supported files within the folder. */
+      entries: components["schemas"]["CompanionFileEntryDto"][];
+    };
     /** @description A phone that has been paired as a trusted Companion Mode device. */
     CompanionDeviceDto: {
       /**
@@ -1741,6 +1833,22 @@ export interface components {
       /** @description Currently trusted devices. */
       devices: components["schemas"]["CompanionDeviceDto"][];
     };
+    /** @description An entry inside an allowed folder: a subfolder or an addable file. */
+    CompanionFileEntryDto: {
+      /** @description File or folder name. */
+      name: string;
+      /** @description Absolute path of the entry. */
+      path: string;
+      /** @description True when the entry is a folder. */
+      isDirectory: boolean;
+    };
+    /** @description A folder the phone is allowed to browse (a configured allowed root). */
+    CompanionFileRootDto: {
+      /** @description Display name (the folder's leaf name). */
+      name: string;
+      /** @description Absolute path of the allowed root. */
+      path: string;
+    };
     /** @description Lightweight info shown by the phone companion interface. */
     CompanionInfoDto: {
       /** @description Name of the computer running LocalMind. */
@@ -1755,6 +1863,11 @@ export interface components {
     CompanionModeSettingsDto: {
       /** @description True when phone connection (Companion Mode) is enabled. */
       enabled: boolean;
+      /**
+       * @description Absolute folder paths the phone is allowed to browse and pick files from.
+       *     The phone can only see inside these folders, never the whole disk.
+       */
+      allowedFolders?: null | string[];
     };
     /**
      * @description An active, time-limited Companion Mode pairing session. The desktop renders
@@ -1790,6 +1903,11 @@ export interface components {
        * @description Seconds until the active session expires, or 0 when inactive.
        */
       expiresInSeconds: number | string;
+    };
+    /** @description The set of allowed roots the phone may browse. */
+    CompanionRootsResponse: {
+      /** @description Configured allowed roots. */
+      roots: components["schemas"]["CompanionFileRootDto"][];
     };
     /**
      * @description Completes a pairing session and registers the calling device as trusted. In a
@@ -4512,6 +4630,72 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponseOfCompanionDeviceDto"];
+        };
+      };
+    };
+  };
+  GetCompanionFileRoots: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionRootsResponse"];
+        };
+      };
+    };
+  };
+  BrowseCompanionFiles: {
+    parameters: {
+      query: {
+        path: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionBrowseResponse"];
+        };
+      };
+    };
+  };
+  AddCompanionFile: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AddCompanionFileRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfUploadDocumentResponse"];
         };
       };
     };

@@ -7,4 +7,10 @@ namespace KnowledgeApp.Contracts.Settings;
 /// explicitly enables it.
 /// </summary>
 /// <param name="Enabled">True when phone connection (Companion Mode) is enabled.</param>
-public sealed record CompanionModeSettingsDto(bool Enabled);
+/// <param name="AllowedFolders">
+/// Absolute folder paths the phone is allowed to browse and pick files from.
+/// The phone can only see inside these folders, never the whole disk.
+/// </param>
+public sealed record CompanionModeSettingsDto(
+    bool Enabled,
+    IReadOnlyList<string>? AllowedFolders = null);
