@@ -243,3 +243,29 @@ default:
 
 Each stage is intended to be useful on its own and to keep the principle that
 security comes before convenience.
+
+## Remote access (future direction)
+
+Everything above works only on the local Wi-Fi network. Reaching LocalMind from
+outside the home is a future direction, **not** part of the MVP — it should be
+pursued only after local companion mode is stable and useful.
+
+LocalMind must **not** be exposed directly to the internet (no port-forwarding,
+no public bind). The intended direction is an intermediate relay:
+
+```text
+Phone
+   ↓ (secure channel)
+Relay / Sync service
+   ↓ (outbound connection initiated by the computer)
+Computer running LocalMind
+   ↓
+Local database and files
+```
+
+The computer dials out to the relay (no inbound ports), the phone reaches the
+relay over a secure channel, and the relay only brokers an encrypted
+command/response stream — the documents and database stay on the computer. The
+relay is opt-in and never required for local-network use. This preserves the
+local-first architecture while opening a path to convenient remote use. See
+[ADR 0011](decisions/0011-companion-remote-access-via-relay.md).
