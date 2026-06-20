@@ -454,12 +454,21 @@ export function SettingsSections({
                       key={folder}
                       className="flex items-center justify-between gap-3 px-4 py-2"
                     >
-                      <span
-                        className="min-w-0 truncate text-sm text-foreground"
-                        title={folder}
-                      >
-                        {folder}
-                      </span>
+                      <div className="min-w-0">
+                        <p
+                          className="truncate text-sm font-medium text-foreground"
+                          title={folder}
+                        >
+                          {folder.split(/[\\/]/).filter(Boolean).pop() ??
+                            folder}
+                        </p>
+                        <p
+                          className="truncate text-xs text-muted-foreground"
+                          title={folder}
+                        >
+                          {folder}
+                        </p>
+                      </div>
                       <button
                         type="button"
                         className="text-destructive shrink-0 text-sm font-medium hover:underline"
@@ -491,9 +500,9 @@ export function SettingsSections({
         )}
 
         <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-          Codes are short-lived and can be revoked at any time. A phone can
-          complete the connection once the local-network transport ships in a
-          later step; generating codes and managing trusted devices works now.
+          Pairing codes are short-lived and can be revoked at any time. A paired
+          phone connects over your local Wi-Fi and can only do — and see — what
+          you allow here: its granted capabilities and the folders listed above.
         </p>
       </Section>
 

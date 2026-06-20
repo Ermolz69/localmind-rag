@@ -277,6 +277,11 @@ the whole disk — only the folders the user explicitly allowed on the computer.
   pipeline (`UploadDocumentHandler`), so file-type and size limits still apply.
 - Companion Mode is deliberately not a full remote file explorer; access is
   bounded to allowed roots.
+- The phone presents this as a simple "Files on this PC" screen: it lists the
+  allowed folders by name, navigates with a breadcrumb shown **relative to the
+  allowed root** (e.g. `Study / AI / Lectures`, never the full disk path), and each
+  supported file has an **Add to LocalMind** action. The desktop allowed-folders
+  list mirrors this, showing each folder's name with its full path beneath.
 
 ## Forward plan
 

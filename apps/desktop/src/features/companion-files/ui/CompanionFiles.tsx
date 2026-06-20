@@ -1,9 +1,10 @@
-import { ChevronUp, File, Folder, Home, Plus } from "lucide-react";
+import { File, Folder, Home, Plus } from "lucide-react";
 
 import { Button, Toast } from "@shared/ui";
 import { useToast } from "@shared/lib/hooks";
 
 import { useCompanionFiles } from "../model/useCompanionFiles";
+import { buildBreadcrumb } from "../model/breadcrumb";
 
 export function CompanionFiles() {
   const {
@@ -23,12 +24,12 @@ export function CompanionFiles() {
     showToast(result.message, result.success ? "success" : "error");
   }
 
-  const parentPath = current?.parentPath ?? null;
+  const breadcrumb = current ? buildBreadcrumb(roots, current.path) : [];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       {current ? (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <Button
             variant="secondary"
             onClick={goToRoots}
@@ -36,18 +37,37 @@ export function CompanionFiles() {
           >
             <Home className="h-4 w-4" />
           </Button>
-          {parentPath ? (
-            <Button variant="secondary" onClick={() => void browse(parentPath)}>
-              <ChevronUp className="h-4 w-4" />
-              Up
-            </Button>
-          ) : null}
-          <span
-            className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
-            title={current.path}
+          <nav
+            aria-label="Folder path"
+            className="flex min-w-0 flex-wrap items-center gap-x-1 text-xs"
           >
-            {current.path}
-          </span>
+            {breadcrumb.map((crumb, index) => {
+              const isCurrent = index === breadcrumb.length - 1;
+              return (
+                <span key={crumb.path} className="flex items-center gap-x-1">
+                  {index > 0 ? (
+                    <span className="text-muted-foreground">/</span>
+                  ) : null}
+                  {isCurrent ? (
+                    <span
+                      className="truncate font-medium text-foreground"
+                      title={crumb.path}
+                    >
+                      {crumb.label}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void browse(crumb.path)}
+                      className="truncate text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      {crumb.label}
+                    </button>
+                  )}
+                </span>
+              );
+            })}
+          </nav>
         </div>
       ) : null}
 
