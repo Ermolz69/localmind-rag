@@ -41,6 +41,10 @@ export const companionApi = {
         body: JSON.stringify(permissions),
       },
     ),
+  getActivity: (limit?: number) =>
+    request<OperationData<"GetCompanionActivity">>(
+      `/companion/activity${limit ? `?limit=${limit}` : ""}`,
+    ),
   getFileRoots: () =>
     request<OperationData<"GetCompanionFileRoots">>("/companion/files/roots"),
   browseFiles: (path: string) =>

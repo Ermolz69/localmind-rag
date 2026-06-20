@@ -1,4 +1,5 @@
 import {
+  Activity,
   FileText,
   Folder,
   FolderInput,
@@ -13,8 +14,9 @@ export type CompanionActionKey =
   | "search"
   | "documents"
   | "files"
-  | "indexing"
-  | "folders";
+  | "folders"
+  | "activity"
+  | "indexing";
 
 export type CompanionAction = {
   key: CompanionActionKey;
@@ -50,16 +52,22 @@ export const companionActions: CompanionAction[] = [
     icon: FolderInput,
   },
   {
-    key: "indexing",
-    label: "Indexing",
-    description: "Start and track indexing jobs.",
-    icon: RefreshCw,
-  },
-  {
     key: "folders",
     label: "Folders",
     description: "Manage the folders LocalMind watches.",
     icon: Folder,
+  },
+  {
+    key: "activity",
+    label: "Activity",
+    description: "See what LocalMind is doing right now.",
+    icon: Activity,
+  },
+  {
+    key: "indexing",
+    label: "Indexing",
+    description: "Start and track indexing jobs.",
+    icon: RefreshCw,
   },
 ];
 

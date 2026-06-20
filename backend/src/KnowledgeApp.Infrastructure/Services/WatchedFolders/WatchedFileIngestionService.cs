@@ -19,7 +19,8 @@ public sealed class WatchedFileIngestionService(
     ISettingsService settingsService,
     IWatchedFileFilterService filterService,
     IFileStorageService fileStorageService,
-    IIngestionJobSignal signal) : IWatchedFileIngestionService
+    IIngestionJobSignal signal,
+    ICompanionActivityFeed? activityFeed = null) : IWatchedFileIngestionService
 {
     private const int ReadRetryCount = 5;
     private static readonly TimeSpan ReadRetryDelay = TimeSpan.FromMilliseconds(200);
@@ -457,6 +458,7 @@ public sealed class WatchedFileIngestionService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await signal.PublishAsync(job.Id, cancellationToken);
+        activityFeed?.Publish("watched.found", $"Watched folder found {document.Name}");
     }
 
     private async Task UpdateDocumentForWatchedFileAsync(

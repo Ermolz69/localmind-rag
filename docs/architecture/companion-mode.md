@@ -45,8 +45,9 @@ What exists today:
 - A **mobile companion interface**: a standalone, phone-first shell served from
   the existing frontend at `/companion`, including a working RAG **chat**,
   semantic **search**, a read-only **documents** indexing-status view,
-  **watched folders** management (rescan, cleanup), and **file picking** from
-  allowed folders. See [Mobile interface](#mobile-interface) below.
+  **watched folders** management (rescan, cleanup), **file picking** from
+  allowed folders, and a near-real-time **activity feed**. See
+  [Mobile interface](#mobile-interface) below.
 
 ## Settings shape
 
@@ -142,7 +143,7 @@ any native app is considered).
 
 - **Home** (`/companion`) is a simple control center: a header, "Connected to
   &lt;computer name&gt;" (from `GET /companion/info`), and a grid of quick actions
-  — Chat, Search, Documents, Files, Folders, Indexing.
+  — Chat, Search, Documents, Files, Folders, Activity, Indexing.
 - **Chat** (`/companion/chat`) is a working mobile RAG chat: it lazily creates a
   conversation, streams the answer from the computer's local knowledge base, and
   shows expandable sources. Multi-turn within the screen.
@@ -158,6 +159,10 @@ any native app is considered).
   indexing. The file is added by path — it is **not** downloaded to the phone —
   and browsing is strictly confined to allowed roots (see
   [Allowed folders](#allowed-folders-and-file-picking)).
+- **Activity** (`/companion/activity`) is a near-real-time feed of what LocalMind
+  is doing — files added, text extraction, embeddings, indexed/failed, watched
+  folder finds, and device connect/disconnect (see
+  [Activity feed](#activity-feed)).
 - **Watched folders** (`/companion/folders`) lets the phone manage the folders
   already allowed on the computer: view each folder's health, document count,
   and access errors; **rescan** a folder (or all) to pick up new files; and
@@ -177,6 +182,24 @@ any native app is considered).
 The route exists today and is viewable in a mobile viewport. A phone can only
 load it once the local-network transport ships and supplies the LocalApi base
 URL (today that comes from the Tauri shell).
+
+## Activity feed
+
+So the phone feels live rather than a set of static pages, LocalMind keeps a
+small in-memory feed of recent activity that the phone polls (~4s):
+
+- Document lifecycle: **added**, **extracting text**, **creating embeddings**,
+  **indexed successfully**, **failed** (with the reason).
+- **Watched folder found** a new file.
+- **Device connected / disconnected.**
+
+The feed is an in-memory ring buffer (newest first, capped) behind
+`ICompanionActivityFeed`. It is populated best-effort from the points that
+already drive these flows — the upload handler, the ingestion processor's step
+transitions, the watched-file ingestion service, and the pairing service — so
+publishing never disrupts the main work. `GET /companion/activity` returns the
+recent events. Because it is in memory, the feed resets on restart; persisting it
+is not required for a live view.
 
 ## Allowed folders and file picking
 
@@ -206,7 +229,8 @@ default:
    enabled, kept separate from the local-only `LocalApi` loopback boundary, so a
    scanned QR code can actually complete the `confirm` handshake. This is also
    where per-device permissions are enforced, since requests then carry a device
-   identity.
+   identity, and where the activity feed can be pushed (SSE/WebSocket) instead of
+   polled.
 2. Durable storage for trusted devices (and per-device tokens) so a paired phone
    reconnects without re-pairing across restarts.
 3. Document actions from the phone (retry, cancel, reindex) on top of the

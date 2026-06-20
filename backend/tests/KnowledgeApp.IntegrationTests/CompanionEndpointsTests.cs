@@ -132,6 +132,41 @@ public sealed class CompanionEndpointsTests : IClassFixture<LocalApiTestFactory>
     }
 
     [Fact]
+    public async Task Adding_A_File_Should_Appear_In_The_Activity_Feed()
+    {
+        string allowedRoot = Path.Combine(
+            Path.GetTempPath(),
+            "localmind-companion-activity",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(allowedRoot);
+        string fileName = $"activity-{Guid.NewGuid():N}.txt";
+        string filePath = Path.Combine(allowedRoot, fileName);
+        await File.WriteAllTextAsync(filePath, "Activity feed contents.");
+
+        try
+        {
+            using HttpClient client = factory.CreateClient();
+            await SetCompanionEnabledAsync(client, enabled: true, allowedFolders: [allowedRoot]);
+
+            using HttpResponseMessage addResponse = await client.PostAsJsonAsync(
+                "/api/v1/companion/files/add",
+                new AddCompanionFileRequest(filePath));
+            Assert.Equal(HttpStatusCode.OK, addResponse.StatusCode);
+
+            CompanionActivityResponse? activity =
+                await client.GetApiDataAsync<CompanionActivityResponse>("/api/v1/companion/activity");
+            Assert.NotNull(activity);
+            Assert.Contains(
+                activity.Events,
+                item => item.Kind == "document.added" && item.Message.Contains(fileName));
+        }
+        finally
+        {
+            Directory.Delete(allowedRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Browse_Should_Reject_Path_Outside_Allowed_Roots()
     {
         string allowedRoot = Path.Combine(

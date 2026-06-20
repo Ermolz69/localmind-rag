@@ -18,7 +18,8 @@ public sealed class UploadDocumentHandler(
     IDomainEventPublisher eventPublisher,
     UploadDocumentCommandValidator validator,
     IOperationLogRepository operationLogRepository,
-    IAppDiagnosticLogger? diagnostics = null)
+    IAppDiagnosticLogger? diagnostics = null,
+    ICompanionActivityFeed? activityFeed = null)
 {
     public async Task<Result<UploadDocumentResponse>> HandleAsync(UploadDocumentCommand command, CancellationToken cancellationToken = default)
     {
@@ -91,6 +92,7 @@ public sealed class UploadDocumentHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
         await eventPublisher.PublishAsync(new DocumentUploadedEvent(document.Id, now), cancellationToken);
+        activityFeed?.Publish("document.added", $"{document.Name} added");
 
         diagnostics?.LogStep(
             operationId,

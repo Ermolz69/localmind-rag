@@ -882,6 +882,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/companion/activity": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Recent companion activity.
+     * @description Returns recent activity events (ingestion, watched folders, devices) newest first.
+     */
+    get: operations["GetCompanionActivity"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/companion/files/roots": {
     parameters: {
       query?: never;
@@ -1312,6 +1332,15 @@ export interface components {
       /** @description True when the operation completed successfully. */
       success: boolean;
       data: null | components["schemas"]["BucketDto"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionActivityResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionActivityResponse"];
       error: null | components["schemas"]["ApiError"];
       /** @description Response metadata shared by success and error responses. */
       metadata: components["schemas"]["ApiMetadata"];
@@ -1816,6 +1845,30 @@ export interface components {
       /** @description User message text. */
       content: string;
       filters?: null | components["schemas"]["RetrievalFilters"];
+    };
+    /** @description A single near-real-time activity event shown in the companion feed. */
+    CompanionActivityEventDto: {
+      /**
+       * Format: uuid
+       * @description Stable event identifier.
+       */
+      id: string;
+      /**
+       * Format: date-time
+       * @description When the event happened.
+       */
+      timestamp: string;
+      /** @description Machine-readable event kind, e.g. "ingestion.indexed". */
+      kind: string;
+      /** @description Human-friendly description. */
+      message: string;
+      /** @description Optional extra detail, e.g. a failure reason. */
+      detail: null | string;
+    };
+    /** @description Recent companion activity, newest first. */
+    CompanionActivityResponse: {
+      /** @description Recent activity events. */
+      events: components["schemas"]["CompanionActivityEventDto"][];
     };
     /** @description The contents of a browsed allowed folder. */
     CompanionBrowseResponse: {
@@ -4671,6 +4724,28 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponseOfCompanionDeviceDto"];
+        };
+      };
+    };
+  };
+  GetCompanionActivity: {
+    parameters: {
+      query?: {
+        limit?: number | string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionActivityResponse"];
         };
       };
     };

@@ -16,6 +16,7 @@ public static partial class DependencyInjection
         services.AddSingleton<ICurrentUserService, CurrentUserService>();
         services.AddSingleton<ILocalDeviceIdentityProvider, LocalDeviceIdentityProvider>();
         services.AddSingleton<ILocalNetworkAddressProvider, LocalNetworkAddressProvider>();
+        services.AddSingleton<ICompanionActivityFeed, CompanionActivityFeed>();
         services.AddSingleton<IAppLockService, AppLockService>();
         services.AddSingleton<ISettingsDefaultsProvider, SettingsDefaultsProvider>();
 

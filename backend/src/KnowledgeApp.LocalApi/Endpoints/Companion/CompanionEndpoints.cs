@@ -1,3 +1,4 @@
+using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Companion;
 using KnowledgeApp.Application.Companion.Files;
 using KnowledgeApp.Contracts.Common;
@@ -77,6 +78,20 @@ public static class CompanionEndpoints
         .WithSummary("Confirm Companion Mode pairing.")
         .WithDescription("Completes a pairing session and registers the calling device as trusted.")
         .Produces<ApiResponse<CompanionDeviceDto>>();
+
+        app.MapGet("/companion/activity", (
+            [FromQuery] int? limit,
+            [FromServices] ICompanionActivityFeed activityFeed,
+            HttpContext context) =>
+        {
+            var events = activityFeed.GetRecent(limit ?? 50);
+            return ApiResults.Ok(new CompanionActivityResponse(events), context);
+        })
+        .WithName("GetCompanionActivity")
+        .WithTags("Companion")
+        .WithSummary("Recent companion activity.")
+        .WithDescription("Returns recent activity events (ingestion, watched folders, devices) newest first.")
+        .Produces<ApiResponse<CompanionActivityResponse>>();
 
         app.MapGet("/companion/files/roots", async (
             [FromServices] ICompanionFileService service,

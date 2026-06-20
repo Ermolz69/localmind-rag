@@ -15,7 +15,8 @@ public sealed class CompanionPairingService(
     IServiceScopeFactory scopeFactory,
     IDateTimeProvider dateTimeProvider,
     ILocalNetworkAddressProvider networkAddressProvider,
-    ILocalDeviceIdentityProvider deviceIdentityProvider) : ICompanionPairingService
+    ILocalDeviceIdentityProvider deviceIdentityProvider,
+    ICompanionActivityFeed? activityFeed = null) : ICompanionPairingService
 {
     private const int PairingTtlSeconds = 300;
 
@@ -160,6 +161,7 @@ public sealed class CompanionPairingService(
                 Permissions: DefaultPermissions);
 
             devices.Add(device);
+            activityFeed?.Publish("device.connected", $"{device.Name} connected");
 
             return Result<CompanionDeviceDto>.Success(device);
         }
@@ -175,18 +177,24 @@ public sealed class CompanionPairingService(
 
     public Result RevokeDevice(Guid deviceId)
     {
+        string removedName;
+
         lock (gate)
         {
-            int removed = devices.RemoveAll(device => device.Id == deviceId);
+            CompanionDeviceDto? existing = devices.Find(device => device.Id == deviceId);
 
-            if (removed == 0)
+            if (existing is null)
             {
                 return Result.Failure(ApplicationErrors.NotFound(
                     ErrorCodes.Companion.DeviceNotFound,
                     "Device not found."));
             }
+
+            removedName = existing.Name;
+            devices.RemoveAll(device => device.Id == deviceId);
         }
 
+        activityFeed?.Publish("device.disconnected", $"{removedName} disconnected");
         return Result.Success();
     }
 
