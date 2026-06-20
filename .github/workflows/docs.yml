@@ -123,6 +123,9 @@ jobs:
       - name: Restore backend
         run: task -t .config/task/Taskfile.yml setup:backend
 
+      - name: Test graph tools
+        run: node --test docs/tools/generate-dotnet-api-graph.test.cjs
+
       - name: Build docs
         run: task -t .config/task/Taskfile.yml docs:build
 

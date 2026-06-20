@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://localmind/docs/dotnet-api-graph.schema.json",
+  "title": ".NET API Graph Data",
+  "description": "Generated graph data for the .NET API graph view. Produced by docs/tools/generate-dotnet-api-graph.cjs from DocFX metadata. Do not edit by hand.",
+  "type": "object",
+  "required": ["generator", "generatedAt", "stats", "nodes", "edges"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "generator": { "type": "string" },
+    "source": { "type": "string" },
+    "generatedAt": { "type": "string" },
+    "stats": {
+      "type": "object",
+      "required": [
+        "nodeCount",
+        "edgeCount",
+        "projectCount",
+        "namespaceCount",
+        "typeCount"
+      ],
+      "properties": {
+        "nodeCount": { "type": "integer" },
+        "edgeCount": { "type": "integer" },
+        "projectCount": { "type": "integer" },
+        "namespaceCount": { "type": "integer" },
+        "typeCount": { "type": "integer" },
+        "missingHrefCount": { "type": "integer" }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["id", "kind", "label"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string", "enum": ["project", "namespace", "type"] },
+        "label": { "type": "string" },
+        "fullName": { "type": "string" },
+        "namespace": { "type": ["string", "null"] },
+        "project": { "type": ["string", "null"] },
+        "typeKind": {
+          "type": "string",
+          "enum": ["class", "record", "interface", "enum", "struct", "unknown"]
+        },
+        "uid": { "type": "string" },
+        "href": { "type": "string" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["source", "target", "kind"],
+      "properties": {
+        "source": { "type": "string" },
+        "target": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": ["contains", "inherits", "implements"]
+        }
+      }
+    }
+  }
+}

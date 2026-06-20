@@ -16,6 +16,29 @@
         --namespace: #5fc4a3;
         --type: #d9a866;
         --accent: #6c86f5;
+        /* Canvas ink (read by the renderer; theme-aware). */
+        --canvas-1: #1d2026;
+        --ink-edge: 255,255,255;
+        --ink-label: #c3c8d2;
+        --ink-label-focus: #f3f5f9;
+        --ink-stroke: 255,255,255;
+      }
+      /* Light-theme fallback (e.g. when the OS / DocFX shell is light). */
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f4f5f7;
+          --bg-2: #eceef1;
+          --panel: #ffffff;
+          --panel-border: #d6d9df;
+          --text: #1f2228;
+          --text-dim: #5b616c;
+          --accent: #4f6ef0;
+          --canvas-1: #ffffff;
+          --ink-edge: 40,46,58;
+          --ink-label: #3a4049;
+          --ink-label-focus: #11141a;
+          --ink-stroke: 30,34,42;
+        }
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; height: 100%; }
@@ -28,7 +51,8 @@
       #app { position: relative; width: 100vw; height: 100vh; }
       #graph {
         display: block; width: 100%; height: 100%; cursor: grab;
-        background: radial-gradient(circle at 50% 40%, #1d2026 0%, var(--bg) 70%);
+        background: radial-gradient(circle at 50% 40%, var(--canvas-1) 0%, var(--bg) 70%);
+        touch-action: none;
       }
       #graph.grabbing { cursor: grabbing; }
       #graph.pointing { cursor: pointer; }
@@ -274,6 +298,15 @@
         border-radius: 7px; cursor: pointer; font-family: inherit;
       }
       .empty-card .empty-action:hover { background: #262a32; }
+
+      /* ---- Responsive (mobile / tablet fallback) ---- */
+      @media (max-width: 680px) {
+        .left-col { width: min(80vw, 242px); top: 10px; left: 10px; }
+        .toolbar  { top: 10px; right: 10px; max-width: 62vw; }
+        .info     { top: 54px; right: 10px; width: min(84vw, 264px); }
+        .legend   { left: 10px; bottom: 10px; padding: 8px 10px; }
+        .hint     { display: none; }
+      }
     </style>
   </head>
   <body>
@@ -371,6 +404,7 @@
         <button data-action="zoom-out" title="Zoom out">&minus;</button>
         <button data-action="fit" title="Fit visible graph to screen">Fit</button>
         <button data-action="reset" title="Reset view and layout">Reset</button>
+        <button data-action="fullscreen" id="btn-fs" title="Toggle fullscreen">⛶</button>
         <button data-action="clear-filters" id="btn-clear" hidden>Clear Filters</button>
         <button data-action="full-graph" id="btn-full" hidden>Full Graph</button>
       </div>
@@ -413,9 +447,9 @@
 
       // ---- Constants ---------------------------------------------------------
       const NODE_KINDS = {
-        project:   { color: "#8b9cf7", radius: 17, label: "Project" },
-        namespace: { color: "#5fc4a3", radius: 11, label: "Namespace" },
-        type:      { color: "#d9a866", radius: 7,  label: "Type" },
+        project:   { color: "#8b9cf7", radius: 18, label: "Project" },
+        namespace: { color: "#5fc4a3", radius: 12, label: "Namespace" },
+        type:      { color: "#d9a866", radius: 6,  label: "Type" },
       };
 
       const TYPE_KIND_COLORS = {
@@ -437,6 +471,12 @@
         return (NODE_KINDS[n.kind] || NODE_KINDS.type).color;
       }
       function nodeRadius(n) { return (NODE_KINDS[n.kind] || NODE_KINDS.type).radius; }
+      // Bigger structural nodes push harder so the graph spreads instead of clumping.
+      function nodeCharge(n) {
+        if (n.kind === "project")   return 1.7;
+        if (n.kind === "namespace") return 1.25;
+        return 0.85;
+      }
       function kindLabel(n) {
         if (n.kind === "type") return cap(n.typeKind || "unknown");
         return (NODE_KINDS[n.kind] || { label: cap(n.kind) }).label;
@@ -451,6 +491,23 @@
         const v = parseInt(hex.slice(1), 16);
         return `rgba(${(v >> 16) & 255},${(v >> 8) & 255},${v & 255},${a})`;
       }
+
+      // Canvas ink is themed via CSS custom properties so the renderer adapts
+      // to the light-theme fallback without hardcoding colours.
+      const ink = {
+        edge: "255,255,255", label: "#c3c8d2",
+        labelFocus: "#f3f5f9", stroke: "255,255,255",
+      };
+      function readInk() {
+        const cs = getComputedStyle(document.documentElement);
+        const g = (k, fb) => cs.getPropertyValue(k).trim() || fb;
+        ink.edge       = g("--ink-edge", "255,255,255");
+        ink.label      = g("--ink-label", "#c3c8d2");
+        ink.labelFocus = g("--ink-label-focus", "#f3f5f9");
+        ink.stroke     = g("--ink-stroke", "255,255,255");
+      }
+      const themeMq = window.matchMedia("(prefers-color-scheme: light)");
+      if (themeMq.addEventListener) themeMq.addEventListener("change", readInk);
 
       // ---- Graph model -------------------------------------------------------
       const canvas = document.getElementById("graph");
@@ -470,9 +527,11 @@
             ...n,
             r:  nodeRadius(n),
             color: nodeColor(n),
+            charge: nodeCharge(n),
             x:  Math.cos(angle) * ring + (Math.random() - 0.5) * 40,
             y:  Math.sin(angle) * ring + (Math.random() - 0.5) * 40,
             vx: 0, vy: 0,
+            _scale: 1, _alpha: 1,
           };
         });
         nodeById = new Map(nodes.map((n) => [n.id, n]));
@@ -777,15 +836,15 @@
       }
 
       // ---- Physics -----------------------------------------------------------
-      const REPULSION  = 11500;
-      const SPRING     = 0.04;
-      const CENTER_PULL = 0.011;
-      const DAMPING    = 0.86;
+      const REPULSION   = 12000;
+      const SPRING      = 0.038;
+      const CENTER_PULL = 0.009;
+      const DAMPING     = 0.86;
       let alpha = 1;
 
       function springLength(e) {
         const base = e.source.r + e.target.r;
-        return e.kind === "contains" ? base + 62 : base + 128;
+        return e.kind === "contains" ? base + 52 : base + 150;
       }
 
       function simulate() {
@@ -798,7 +857,7 @@
             let dx = a.x - b.x, dy = a.y - b.y;
             let d2 = dx * dx + dy * dy;
             if (d2 < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 0.01; }
-            const d = Math.sqrt(d2), f = REPULSION / d2;
+            const d = Math.sqrt(d2), f = (REPULSION * a.charge * b.charge) / d2;
             const ux = dx / d, uy = dy / d;
             a.fx += ux * f; a.fy += uy * f;
             b.fx -= ux * f; b.fy -= uy * f;
@@ -875,10 +934,11 @@
           const b   = toScreen(e.target.x, e.target.y);
           const lit = focus && (e.source.id === focus.id || e.target.id === focus.id);
           const st  = edgeStyle(e.kind);
+          const rgb = e.kind === "contains" ? ink.edge : st.rgb;
           const dim = !lit && (active || srchOn);
-          const al  = lit ? 0.6 : dim ? 0.05 : e.kind === "contains" ? 0.1 : 0.2;
-          ctx.strokeStyle = `rgba(${st.rgb},${al})`;
-          ctx.lineWidth   = lit ? 1.6 : 1;
+          const al  = lit ? 0.7 : dim ? 0.04 : e.kind === "contains" ? 0.09 : 0.22;
+          ctx.strokeStyle = `rgba(${rgb},${al})`;
+          ctx.lineWidth   = lit ? 1.7 : 1;
           ctx.setLineDash(st.dash);
           ctx.beginPath();
           ctx.moveTo(a.x, a.y);
@@ -890,13 +950,22 @@
         // nodes
         nodes.forEach((n) => {
           if (!visibleNodeIds.has(n.id)) return;
-          const s      = toScreen(n.x, n.y);
-          const r      = Math.max(n.r * camera.scale, 2.4);
-          const dimmed = isDimmed(n);
-          const isFocus      = focus && n.id === focus.id;
-          const isSearchHit  = srchOn && searchHighlight.has(n.id);
+          const s           = toScreen(n.x, n.y);
+          const dimmed      = isDimmed(n);
+          const isFocus     = focus && n.id === focus.id;
+          const isHover     = n === hoverNode;
+          const isSelected  = selectedNode && n.id === selectedNode.id;
+          const isSearchHit = srchOn && searchHighlight.has(n.id);
+          const isNeighbor  = active && active.has(n.id);
 
-          ctx.globalAlpha = dimmed ? 0.18 : 1;
+          // Smooth scale + opacity transitions (eased toward target each frame).
+          const targetScale = isSelected ? 1.5 : isFocus || isHover ? 1.22 : 1;
+          n._scale += (targetScale - n._scale) * 0.25;
+          const targetAlpha = dimmed ? 0.16 : 1;
+          n._alpha += (targetAlpha - n._alpha) * 0.2;
+
+          const r = Math.max(n.r * camera.scale * n._scale, 2.4);
+          ctx.globalAlpha = n._alpha;
 
           if (isSearchHit && !isFocus) {
             ctx.beginPath();
@@ -904,7 +973,7 @@
             ctx.fillStyle = "rgba(108,134,245,0.22)";
             ctx.fill();
           }
-          if (isFocus || n === hoverNode) {
+          if (isFocus || isHover) {
             ctx.beginPath();
             ctx.arc(s.x, s.y, r + 7, 0, Math.PI * 2);
             ctx.fillStyle = hexToRgba(n.color, 0.16);
@@ -915,9 +984,9 @@
           ctx.fillStyle = n.color;
           ctx.fill();
 
-          if (selectedNode && n.id === selectedNode.id) {
+          if (isSelected) {
             ctx.lineWidth   = 2;
-            ctx.strokeStyle = "rgba(255,255,255,0.9)";
+            ctx.strokeStyle = `rgba(${ink.stroke},0.9)`;
             ctx.stroke();
           } else if (isSearchHit) {
             ctx.lineWidth   = 1.5;
@@ -925,12 +994,17 @@
             ctx.stroke();
           }
 
-          const onScreenR  = n.r * camera.scale;
-          const showLabel  = isFocus || (!dimmed && onScreenR > 8.5);
+          // Label decluttering: always for focus/hover/selected/neighbours,
+          // otherwise only once a node is large enough on screen (per kind).
+          const onScreenR = n.r * camera.scale;
+          const threshold = n.kind === "project" ? 6 : n.kind === "namespace" ? 11 : 16;
+          const showLabel =
+            isFocus || isHover || isSelected || isNeighbor ||
+            (!dimmed && onScreenR > threshold);
           if (showLabel) {
-            ctx.globalAlpha = dimmed ? 0.18 : isFocus ? 1 : 0.82;
-            ctx.fillStyle   = isFocus ? "#f3f5f9" : "#c3c8d2";
-            ctx.font        =
+            ctx.globalAlpha = dimmed ? 0.16 : isFocus || isSelected ? 1 : 0.85;
+            ctx.fillStyle   = isFocus || isSelected ? ink.labelFocus : ink.label;
+            ctx.font =
               (n.kind === "project" ? "600 " : "") +
               Math.max(11, Math.min(13, onScreenR)) +
               "px -apple-system,'Segoe UI',Roboto,sans-serif";
@@ -1030,16 +1104,19 @@
         return { x: e.clientX - r.left, y: e.clientY - r.top };
       }
 
-      canvas.addEventListener("mousedown", (e) => {
-        const p   = localPoint(e);
+      // Pointer events cover mouse + touch (single-finger drag/pan on mobile).
+      canvas.addEventListener("pointerdown", (e) => {
+        canvas.setPointerCapture?.(e.pointerId);
+        const p = localPoint(e);
         pointerDownAt   = p;
         movedDuringDrag = false;
+        pointer.x = p.x; pointer.y = p.y;
         const hit = nodeAt(p.x, p.y);
         if (hit) { dragNode = hit; reheat(0.35); }
         else     { panning  = true; canvas.classList.add("grabbing"); }
       });
 
-      window.addEventListener("mousemove", (e) => {
+      canvas.addEventListener("pointermove", (e) => {
         const p = localPoint(e);
         if (dragNode) {
           const w = toWorld(p.x, p.y);
@@ -1056,7 +1133,7 @@
         pointer.x = p.x; pointer.y = p.y;
       });
 
-      window.addEventListener("mouseup", (e) => {
+      function endPointer(e) {
         const p = localPoint(e);
         const wasClick =
           pointerDownAt &&
@@ -1070,7 +1147,9 @@
         }
         dragNode = null; panning = false; pointerDownAt = null;
         canvas.classList.remove("grabbing");
-      });
+      }
+      canvas.addEventListener("pointerup", endPointer);
+      canvas.addEventListener("pointercancel", endPointer);
 
       canvas.addEventListener("wheel", (e) => {
         e.preventDefault();
@@ -1106,6 +1185,23 @@
           applyFilters();
           fitToScreen();
         }
+        else if (action === "fullscreen") toggleFullscreen();
+      });
+
+      function toggleFullscreen() {
+        const app = document.getElementById("app");
+        if (!document.fullscreenElement) {
+          if (app.requestFullscreen) app.requestFullscreen().catch(() => {});
+        } else if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+      document.addEventListener("fullscreenchange", () => {
+        document.getElementById("btn-fs").classList.toggle(
+          "btn-active",
+          !!document.fullscreenElement,
+        );
+        resize();
       });
 
       window.addEventListener("resize", resize);
@@ -1389,6 +1485,7 @@
 
       // ---- Boot --------------------------------------------------------------
       function boot() {
+        readInk();
         resize();
         for (let i = 0; i < 180; i++) simulate();
         applyFilters();
