@@ -25,9 +25,9 @@ default. It is a separate, explicitly user-enabled capability:
 
 ## Current scope
 
-This is the first stage of Companion Mode: a managed, persisted mode plus a safe
-extension point for a future phone client. It deliberately does **not** open a
-network listener, pair a device, or move any data off the machine yet.
+Companion Mode is being built in stages. It deliberately does **not** yet open a
+network listener or move any data off the machine — the phone-facing transport is
+a later step.
 
 What exists today:
 
@@ -36,6 +36,9 @@ What exists today:
   endpoints as part of `AppSettingsDto.CompanionMode`.
 - A **Companion Mode** section in desktop Settings with an enable toggle and a
   status display.
+- A **QR pairing flow**: the desktop can start a short-lived pairing session,
+  render its QR code, and manage a list of trusted devices. See
+  [Pairing](#pairing-qr-code) below.
 
 ## Settings shape
 
@@ -59,14 +62,54 @@ Today the status is derived from the persisted `Enabled` flag (`Off` when
 disabled, `Waiting for connection` when enabled). `Connected` is part of the
 model so later stages can populate it without changing the contract.
 
+## Pairing (QR code)
+
+Pairing makes connecting a phone simple and safe: the desktop shows a QR code, a
+phone scans it, and the phone becomes a trusted device that can reconnect later
+without re-pairing. Pairing is designed to be temporary and controllable.
+
+- **Time-limited.** A pairing session lasts 5 minutes and is single-use. The QR
+  code is never permanent; an expired or used code stops working and the user
+  generates a new one.
+- **Revocable.** The user can cancel an in-progress pairing, and can disconnect
+  any trusted device at any time.
+- **Opt-in.** Starting a pairing session requires Companion Mode to be enabled;
+  otherwise the request fails with `COMPANION_MODE_DISABLED`.
+
+The pairing session and the trusted-device list are held **in memory** on the
+backend for this stage. Sessions are inherently ephemeral, so in-memory is the
+correct model for them. Trusted devices will move to durable storage when the
+network transport that can actually create them lands.
+
+### Endpoints
+
+All endpoints are on the loopback LocalApi (`/api/v1`):
+
+- `POST /companion/pairing` — start a session; returns the token, QR `pairingUrl`,
+  and expiry. Fails when Companion Mode is disabled.
+- `GET /companion/pairing` — current session status (active + seconds remaining).
+- `DELETE /companion/pairing` — cancel the active session.
+- `POST /companion/pairing/confirm` — complete a session and register the calling
+  device as trusted. This is the seam the future phone-over-network transport
+  will expose; today it is reachable only on loopback.
+- `GET /companion/devices` — list trusted devices.
+- `DELETE /companion/devices/{deviceId}` — disconnect a trusted device.
+
+The QR `pairingUrl` encodes the machine's detected LAN address and a reserved
+companion port, so it is forward-compatible with the transport stage. No service
+listens on that port yet; scanning the code cannot complete a connection until
+the transport ships.
+
 ## Forward plan
 
 Later stages build on this extension point without weakening the local-only
 default:
 
 1. A local-network (Wi-Fi) transport that only listens while Companion Mode is
-   enabled, kept separate from the local-only `LocalApi` loopback boundary.
-2. Device pairing and authorization so only an approved phone can connect.
+   enabled, kept separate from the local-only `LocalApi` loopback boundary, so a
+   scanned QR code can actually complete the `confirm` handshake.
+2. Durable storage for trusted devices (and per-device tokens) so a paired phone
+   reconnects without re-pairing across restarts.
 3. A mobile web (PWA) client that reuses the existing frontend before any native
    app is considered.
 4. Capability-scoped access (chat, search, document view, indexing of selected

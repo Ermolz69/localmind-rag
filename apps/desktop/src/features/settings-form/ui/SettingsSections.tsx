@@ -15,6 +15,7 @@ import {
   Toast,
 } from "@shared/ui";
 import { diagnosticsApi, watchedFoldersApi } from "@shared/api";
+import { CompanionConnect } from "@features/companion-pairing";
 import { useToast } from "@shared/lib/hooks";
 import { cn } from "@shared/lib/cn";
 import {
@@ -407,20 +408,20 @@ export function SettingsSections({
               <span className="text-sm text-muted-foreground">Local Wi-Fi</span>
             }
           />
-          <SettingRow
-            title="Device"
-            description="The phone currently paired with this computer."
-            control={
-              <span className="text-sm text-muted-foreground">
-                No device connected
-              </span>
-            }
-          />
         </div>
 
+        {companionModeEnabled ? (
+          <CompanionConnect />
+        ) : (
+          <p className="mt-4 px-1 text-sm text-muted-foreground">
+            Turn on the switch above to pair a phone and manage trusted devices.
+          </p>
+        )}
+
         <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-          Pairing a phone and browsing from it arrive in a later step. For now
-          this is the safe, opt-in switch that turns the mode on or off.
+          Codes are short-lived and can be revoked at any time. A phone can
+          complete the connection once the local-network transport ships in a
+          later step; generating codes and managing trusted devices works now.
         </p>
       </Section>
 

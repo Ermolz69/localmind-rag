@@ -44,6 +44,7 @@ apiV1.MapChatEndpoints();
 apiV1.MapSearchEndpoints();
 apiV1.MapSettingsEndpoints();
 apiV1.MapWatchedFolderEndpoints();
+apiV1.MapCompanionEndpoints();
 apiV1.MapSyncEndpoints();
 apiV1.MapSystemEndpoints();
 

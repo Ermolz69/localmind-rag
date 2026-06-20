@@ -814,6 +814,94 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/companion/pairing": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Companion Mode pairing status.
+     * @description Returns whether a pairing session is active and how long it remains valid.
+     */
+    get: operations["GetCompanionPairingStatus"];
+    put?: never;
+    /**
+     * Start Companion Mode pairing.
+     * @description Starts a time-limited pairing session and returns the QR payload. Fails when Companion Mode is disabled.
+     */
+    post: operations["StartCompanionPairing"];
+    /**
+     * Cancel Companion Mode pairing.
+     * @description Cancels any active pairing session.
+     */
+    delete: operations["CancelCompanionPairing"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/pairing/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Confirm Companion Mode pairing.
+     * @description Completes a pairing session and registers the calling device as trusted.
+     */
+    post: operations["ConfirmCompanionPairing"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/devices": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List trusted Companion Mode devices.
+     * @description Returns the phones currently paired as trusted devices.
+     */
+    get: operations["GetCompanionDevices"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/devices/{deviceId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Disconnect a trusted device.
+     * @description Removes a phone from the trusted Companion Mode devices.
+     */
+    delete: operations["RevokeCompanionDevice"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/sync/status": {
     parameters: {
       query?: never;
@@ -1119,6 +1207,42 @@ export interface components {
       /** @description True when the operation completed successfully. */
       success: boolean;
       data: null | components["schemas"]["BucketDto"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionDeviceDto: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionDeviceDto"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionDevicesResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionDevicesResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionPairingSessionDto: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionPairingSessionDto"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionPairingStatusDto: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionPairingStatusDto"];
       error: null | components["schemas"]["ApiError"];
       /** @description Response metadata shared by success and error responses. */
       metadata: components["schemas"]["ApiMetadata"];
@@ -1561,6 +1685,33 @@ export interface components {
       content: string;
       filters?: null | components["schemas"]["RetrievalFilters"];
     };
+    /** @description A phone that has been paired as a trusted Companion Mode device. */
+    CompanionDeviceDto: {
+      /**
+       * Format: uuid
+       * @description Stable device identifier.
+       */
+      id: string;
+      /** @description Human-friendly device name, e.g. "Redmi Note". */
+      name: string;
+      /** @description Client platform, e.g. "Chrome". */
+      platform: string;
+      /**
+       * Format: date-time
+       * @description When the device was first paired.
+       */
+      createdAt: string;
+      /**
+       * Format: date-time
+       * @description When the device last connected.
+       */
+      lastSeenAt: string;
+    };
+    /** @description The list of trusted Companion Mode devices. */
+    CompanionDevicesResponse: {
+      /** @description Currently trusted devices. */
+      devices: components["schemas"]["CompanionDeviceDto"][];
+    };
     /**
      * @description Companion Mode settings. Companion Mode is an opt-in mode that lets a phone
      *     connect to LocalMind over the local network as a remote interface. It is
@@ -1570,6 +1721,54 @@ export interface components {
     CompanionModeSettingsDto: {
       /** @description True when phone connection (Companion Mode) is enabled. */
       enabled: boolean;
+    };
+    /**
+     * @description An active, time-limited Companion Mode pairing session. The desktop renders
+     *     string CompanionPairingSessionDto.PairingUrl as a QR code for a phone to scan.
+     */
+    CompanionPairingSessionDto: {
+      /** @description Opaque single-use pairing token. */
+      token: string;
+      /** @description URL encoded into the QR code that the phone opens. */
+      pairingUrl: string;
+      /**
+       * Format: date-time
+       * @description When the pairing session expires.
+       */
+      expiresAt: string;
+      /**
+       * Format: int32
+       * @description Seconds until the session expires.
+       */
+      expiresInSeconds: number | string;
+    };
+    /** @description Current state of the Companion Mode pairing session. */
+    CompanionPairingStatusDto: {
+      /** @description True when a pairing session is active and not expired. */
+      active: boolean;
+      /**
+       * Format: date-time
+       * @description When the active session expires, if any.
+       */
+      expiresAt: null | string;
+      /**
+       * Format: int32
+       * @description Seconds until the active session expires, or 0 when inactive.
+       */
+      expiresInSeconds: number | string;
+    };
+    /**
+     * @description Completes a pairing session and registers the calling device as trusted. In a
+     *     later stage this is what a phone calls over the local-network transport; today
+     *     it is reachable only on the loopback API.
+     */
+    ConfirmCompanionPairingRequest: {
+      /** @description The pairing token from the scanned QR code. */
+      token: string;
+      /** @description Human-friendly device name, e.g. "Redmi Note". */
+      deviceName: string;
+      /** @description Client platform, e.g. "Chrome". */
+      platform: string;
     };
     ContentSearchHitDto: {
       sourceType: string;
@@ -4175,6 +4374,132 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponseOfWatchedFolderCleanupResponse"];
+        };
+      };
+    };
+  };
+  GetCompanionPairingStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionPairingStatusDto"];
+        };
+      };
+    };
+  };
+  StartCompanionPairing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionPairingSessionDto"];
+        };
+      };
+    };
+  };
+  CancelCompanionPairing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  ConfirmCompanionPairing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfirmCompanionPairingRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionDeviceDto"];
+        };
+      };
+    };
+  };
+  GetCompanionDevices: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionDevicesResponse"];
+        };
+      };
+    };
+  };
+  RevokeCompanionDevice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        deviceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
         };
       };
     };
