@@ -10,6 +10,9 @@ namespace KnowledgeApp.Application.Companion;
 /// </summary>
 public interface ICompanionPairingService
 {
+    /// <summary>Returns lightweight info shown by the phone companion interface.</summary>
+    CompanionInfoDto GetInfo();
+
     /// <summary>Starts a new pairing session. Fails when Companion Mode is disabled.</summary>
     Task<Result<CompanionPairingSessionDto>> StartAsync(CancellationToken cancellationToken = default);
 

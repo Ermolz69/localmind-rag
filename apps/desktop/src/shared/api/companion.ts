@@ -2,6 +2,7 @@ import type { OperationData, OperationJsonBody } from "@shared/contracts";
 import { request } from "./http";
 
 export const companionApi = {
+  getInfo: () => request<OperationData<"GetCompanionInfo">>("/companion/info"),
   getPairingStatus: () =>
     request<OperationData<"GetCompanionPairingStatus">>("/companion/pairing"),
   startPairing: () =>

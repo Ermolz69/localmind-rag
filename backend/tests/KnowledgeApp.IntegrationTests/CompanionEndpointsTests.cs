@@ -16,6 +16,18 @@ public sealed class CompanionEndpointsTests : IClassFixture<LocalApiTestFactory>
     }
 
     [Fact]
+    public async Task GetInfo_Should_Return_Computer_Name()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        CompanionInfoDto? info =
+            await client.GetApiDataAsync<CompanionInfoDto>("/api/v1/companion/info");
+
+        Assert.NotNull(info);
+        Assert.False(string.IsNullOrWhiteSpace(info.ComputerName));
+    }
+
+    [Fact]
     public async Task StartPairing_Should_Fail_When_Companion_Mode_Disabled()
     {
         using HttpClient client = factory.CreateClient();

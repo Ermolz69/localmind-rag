@@ -9,6 +9,19 @@ public static class CompanionEndpoints
 {
     public static IEndpointRouteBuilder MapCompanionEndpoints(this IEndpointRouteBuilder app)
     {
+        app.MapGet("/companion/info", (
+            [FromServices] ICompanionPairingService service,
+            HttpContext context) =>
+        {
+            CompanionInfoDto info = service.GetInfo();
+            return ApiResults.Ok(info, context);
+        })
+        .WithName("GetCompanionInfo")
+        .WithTags("Companion")
+        .WithSummary("Get Companion Mode info.")
+        .WithDescription("Returns lightweight info for the phone companion interface, such as the computer name.")
+        .Produces<ApiResponse<CompanionInfoDto>>();
+
         app.MapPost("/companion/pairing", async (
             [FromServices] ICompanionPairingService service,
             HttpContext context,

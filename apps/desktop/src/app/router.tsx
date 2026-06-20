@@ -3,6 +3,8 @@ import { AppShell } from "@widgets/AppShell/AppShell";
 import { BucketDetailsPage } from "@pages/BucketDetailsPage";
 import { BucketsPage } from "@pages/BucketsPage";
 import { ChatPage } from "@pages/ChatPage";
+import { CompanionActionPage } from "@pages/CompanionActionPage";
+import { CompanionPage } from "@pages/CompanionPage";
 import { DashboardPage } from "@pages/DashboardPage";
 import { DocumentsPage } from "@pages/DocumentsPage";
 import { NotesPage } from "@pages/NotesPage";
@@ -26,4 +28,8 @@ export const router = createBrowserRouter([
       { path: "diagnostics", element: <DiagnosticsPage /> },
     ],
   },
+  // Standalone, mobile-first companion shell (no desktop chrome). A phone loads
+  // these routes once the local-network transport ships.
+  { path: "/companion", element: <CompanionPage /> },
+  { path: "/companion/:action", element: <CompanionActionPage /> },
 ]);

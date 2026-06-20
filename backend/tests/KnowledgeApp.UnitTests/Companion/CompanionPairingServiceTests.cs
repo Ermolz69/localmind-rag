@@ -42,6 +42,16 @@ public sealed class CompanionPairingServiceTests
     }
 
     [Fact]
+    public void GetInfo_Should_Return_Computer_Name()
+    {
+        CompanionPairingService service = CreateService(companionEnabled: true);
+
+        CompanionInfoDto info = service.GetInfo();
+
+        Assert.Equal("Vurain-PC", info.ComputerName);
+    }
+
+    [Fact]
     public void GetStatus_Should_Be_Inactive_Initially()
     {
         CompanionPairingService service = CreateService(companionEnabled: true);
@@ -151,7 +161,8 @@ public sealed class CompanionPairingServiceTests
         return new CompanionPairingService(
             provider.GetRequiredService<IServiceScopeFactory>(),
             new FixedDateTimeProvider(),
-            new FakeNetworkAddressProvider());
+            new FakeNetworkAddressProvider(),
+            new FakeDeviceIdentityProvider());
     }
 
     private sealed class FakeSettingsService(AppSettingsDto settings) : ISettingsService
@@ -170,5 +181,10 @@ public sealed class CompanionPairingServiceTests
     private sealed class FakeNetworkAddressProvider : ILocalNetworkAddressProvider
     {
         public string? GetLocalNetworkAddress() => "192.168.1.50";
+    }
+
+    private sealed class FakeDeviceIdentityProvider : ILocalDeviceIdentityProvider
+    {
+        public LocalDeviceIdentity GetIdentity() => new("device-key", "Vurain-PC");
     }
 }

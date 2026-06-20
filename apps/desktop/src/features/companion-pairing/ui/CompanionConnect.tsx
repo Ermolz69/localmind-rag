@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Smartphone } from "lucide-react";
+import { ExternalLink, Smartphone } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { Button } from "@shared/ui";
 
@@ -79,6 +80,14 @@ export function CompanionConnect() {
       {error && !dialogOpen ? (
         <p className="text-destructive px-1 text-sm">{error}</p>
       ) : null}
+
+      <Link
+        to="/companion?preview=1"
+        className="inline-flex items-center gap-1 px-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ExternalLink className="h-4 w-4" />
+        Preview the phone interface
+      </Link>
 
       <ConnectPhoneDialog
         open={dialogOpen}

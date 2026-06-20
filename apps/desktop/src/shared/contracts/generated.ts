@@ -814,6 +814,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/companion/info": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Companion Mode info.
+     * @description Returns lightweight info for the phone companion interface, such as the computer name.
+     */
+    get: operations["GetCompanionInfo"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/companion/pairing": {
     parameters: {
       query?: never;
@@ -1225,6 +1245,15 @@ export interface components {
       /** @description True when the operation completed successfully. */
       success: boolean;
       data: null | components["schemas"]["CompanionDevicesResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionInfoDto: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionInfoDto"];
       error: null | components["schemas"]["ApiError"];
       /** @description Response metadata shared by success and error responses. */
       metadata: components["schemas"]["ApiMetadata"];
@@ -1711,6 +1740,11 @@ export interface components {
     CompanionDevicesResponse: {
       /** @description Currently trusted devices. */
       devices: components["schemas"]["CompanionDeviceDto"][];
+    };
+    /** @description Lightweight info shown by the phone companion interface. */
+    CompanionInfoDto: {
+      /** @description Name of the computer running LocalMind. */
+      computerName: string;
     };
     /**
      * @description Companion Mode settings. Companion Mode is an opt-in mode that lets a phone
@@ -4374,6 +4408,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponseOfWatchedFolderCleanupResponse"];
+        };
+      };
+    };
+  };
+  GetCompanionInfo: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionInfoDto"];
         };
       };
     };

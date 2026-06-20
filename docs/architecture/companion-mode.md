@@ -39,6 +39,9 @@ What exists today:
 - A **QR pairing flow**: the desktop can start a short-lived pairing session,
   render its QR code, and manage a list of trusted devices. See
   [Pairing](#pairing-qr-code) below.
+- A **mobile companion interface**: a standalone, phone-first shell served from
+  the existing frontend at `/companion`. See
+  [Mobile interface](#mobile-interface) below.
 
 ## Settings shape
 
@@ -100,6 +103,27 @@ companion port, so it is forward-compatible with the transport stage. No service
 listens on that port yet; scanning the code cannot complete a connection until
 the transport ships.
 
+## Mobile interface
+
+The phone gets its own lightweight interface rather than a copy of the desktop
+UI. It is a standalone, mobile-first shell built into the existing frontend and
+served at `/companion`, reusing the current React app (a PWA-style client before
+any native app is considered).
+
+- **Home** (`/companion`) is a simple control center: a header, "Connected to
+  &lt;computer name&gt;" (from `GET /companion/info`), and a grid of quick actions
+  — Chat, Search, Documents, Indexing, Folders.
+- **Actions** (`/companion/{action}`) currently open lightweight placeholder
+  screens; the full phone experiences for each action arrive in later stages.
+- The shell renders without the desktop chrome (no sidebar). On the desktop, the
+  Companion Mode settings section links to `/companion?preview=1` so the user can
+  preview what the phone sees; the preview adds an "Exit preview" link back to
+  the app.
+
+The route exists today and is viewable in a mobile viewport. A phone can only
+load it once the local-network transport ships and supplies the LocalApi base
+URL (today that comes from the Tauri shell).
+
 ## Forward plan
 
 Later stages build on this extension point without weakening the local-only
@@ -110,8 +134,10 @@ default:
    scanned QR code can actually complete the `confirm` handshake.
 2. Durable storage for trusted devices (and per-device tokens) so a paired phone
    reconnects without re-pairing across restarts.
-3. A mobile web (PWA) client that reuses the existing frontend before any native
-   app is considered.
+3. Filling in the mobile interface: real phone experiences behind each quick
+   action (chat, search, document view, indexing, folders) and a companion
+   bootstrap that obtains the LocalApi base URL over the network instead of from
+   the Tauri shell.
 4. Capability-scoped access (chat, search, document view, indexing of selected
    files, managing allowed folders) rather than full disk access.
 

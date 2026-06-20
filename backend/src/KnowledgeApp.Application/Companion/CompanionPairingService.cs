@@ -14,7 +14,8 @@ namespace KnowledgeApp.Application.Companion;
 public sealed class CompanionPairingService(
     IServiceScopeFactory scopeFactory,
     IDateTimeProvider dateTimeProvider,
-    ILocalNetworkAddressProvider networkAddressProvider) : ICompanionPairingService
+    ILocalNetworkAddressProvider networkAddressProvider,
+    ILocalDeviceIdentityProvider deviceIdentityProvider) : ICompanionPairingService
 {
     private const int PairingTtlSeconds = 300;
 
@@ -27,6 +28,11 @@ public sealed class CompanionPairingService(
     private readonly object gate = new();
     private readonly List<CompanionDeviceDto> devices = [];
     private PairingState? session;
+
+    public CompanionInfoDto GetInfo()
+    {
+        return new CompanionInfoDto(deviceIdentityProvider.GetIdentity().Name);
+    }
 
     public async Task<Result<CompanionPairingSessionDto>> StartAsync(CancellationToken cancellationToken = default)
     {
