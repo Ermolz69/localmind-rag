@@ -30,6 +30,12 @@ public static class ErrorCodes
         public const string FileTooLarge = "VALIDATION_FAILED";
         public const string InvalidStatus = "VALIDATION_FAILED";
         public const string NotFound = "DOCUMENT_NOT_FOUND";
+        public const string PreviewFileMissing = "DOCUMENT_PREVIEW_FILE_MISSING";
+        public const string PreviewUnavailable = "DOCUMENT_PREVIEW_UNAVAILABLE";
+        public const string PreviewUnsupported = "DOCUMENT_PREVIEW_UNSUPPORTED";
+        public const string PreviewConverterUnavailable = "DOCUMENT_PREVIEW_CONVERTER_UNAVAILABLE";
+        public const string PreviewConversionFailed = "DOCUMENT_PREVIEW_CONVERSION_FAILED";
+        public const string PreviewConversionTimeout = "DOCUMENT_PREVIEW_CONVERSION_TIMEOUT";
         public const string UnsupportedFileType = "VALIDATION_FAILED";
     }
 

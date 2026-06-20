@@ -128,6 +128,11 @@ tasks:
     cmds:
       - cd "{{.ROOT_DIR}}/backend" && dotnet test KnowledgeApp.slnx
 
+  test:frontend:
+    desc: Runs frontend unit and component tests
+    cmds:
+      - cd "{{.ROOT_DIR}}" && pnpm --filter desktop test
+
   test:unit:
     desc: Runs backend unit tests
     cmds:
@@ -195,8 +200,8 @@ tasks:
       COVERAGE_REPORT_DIR: '{{.COVERAGE_REPORT_DIR | default "artifacts/coverage-report"}}'
 
   # === VALIDATION & QUALITY TASKS ===
-  check:
-    desc: Executes all lints, formatting, and validation tasks
+  check:quick:
+    desc: Fast static checks — format, lint, typecheck, API contracts, color guard (no tests, no Rust)
     deps:
       [
         check:backend:format,
@@ -204,9 +209,23 @@ tasks:
         check:frontend:lint,
         check:frontend:typecheck,
         check:api-contracts,
-        check:rust,
         check:colors,
+      ]
 
+  check:
+    desc: Developer validation — static checks plus frontend tests; run before pushing
+    deps: [check:quick, test:frontend]
+
+  check:full:
+    desc: Full local validation — all backend tests, frontend tests, and Rust checks
+    deps:
+      [
+        check,
+        test:unit,
+        test:integration,
+        test:rag,
+        test:architecture,
+        check:rust,
       ]
 
   check:format:
@@ -265,7 +284,7 @@ tasks:
   docs:build:
     desc: Generates OpenAPI, .NET metadata, and builds DocFX site
     cmds:
-      - cmd: cd "{{.ROOT_DIR}}" && rm -rf artifacts/docs/site docs/auto-generated/openapi docs/auto-generated/dotnet-api
+      - cmd: cd "{{.ROOT_DIR}}" && rm -rf artifacts/docs/site docs/auto-generated/openapi docs/auto-generated/dotnet-api docs/auto-generated/dotnet-api-graph.json
       - cmd: cd "{{.ROOT_DIR}}" && mkdir -p docs/auto-generated/openapi docs/auto-generated/dotnet-api artifacts/docs/site
       - task: openapi:generate
         vars:
@@ -277,7 +296,19 @@ tasks:
           }
       - cmd: cd "{{.ROOT_DIR}}" && dotnet tool restore
       - cmd: cd "{{.ROOT_DIR}}" && dotnet tool run docfx metadata docs/docfx.json
+      - task: docs:graph
       - cmd: cd "{{.ROOT_DIR}}" && dotnet tool run docfx build docs/docfx.json
+
+  docs:graph:
+    desc: Generates and validates .NET API graph data (JSON) from DocFX metadata
+    cmds:
+      - cmd: cd "{{.ROOT_DIR}}" && node docs/tools/generate-dotnet-api-graph.cjs
+      - cmd: cd "{{.ROOT_DIR}}" && node docs/tools/validate-dotnet-api-graph.cjs
+
+  test:docs-graph:
+    desc: Runs the .NET API graph generator/validator unit tests
+    cmds:
+      - cmd: cd "{{.ROOT_DIR}}" && node --test docs/tools/generate-dotnet-api-graph.test.cjs
 
   openapi:generate:
     desc: Generates the OpenAPI specification JSON file
@@ -324,20 +355,20 @@ tasks:
     vars:
       CONFIGURATION: '{{.CONFIGURATION | default "Release"}}'
       RUNTIME_IDENTIFIER: '{{.RUNTIME_IDENTIFIER | default "win-x64"}}'
-      OUTPUT_DIR: '{{.OUTPUT_DIR | default "artifacts/localmind-portable-win-x64"}}'
+      PORTABLE_OUTPUT_DIR: '{{.PORTABLE_OUTPUT_DIR | default "artifacts/localmind-portable-win-x64"}}'
     cmds:
-      - cmd: cd "{{.ROOT_DIR}}" && rm -rf "{{.OUTPUT_DIR}}"
-      - cmd: cd "{{.ROOT_DIR}}" && mkdir -p "{{.OUTPUT_DIR}}/bin" "{{.OUTPUT_DIR}}/config" "{{.OUTPUT_DIR}}/runtime/app/data" "{{.OUTPUT_DIR}}/runtime/app/files" "{{.OUTPUT_DIR}}/runtime/app/indexes" "{{.OUTPUT_DIR}}/runtime/app/logs" "{{.OUTPUT_DIR}}/runtime/ai/bin" "{{.OUTPUT_DIR}}/runtime/ai/models"
-      - cmd: cd "{{.ROOT_DIR}}" && dotnet publish backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj -c {{.CONFIGURATION}} -r {{.RUNTIME_IDENTIFIER}} --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o "{{.OUTPUT_DIR}}/bin"
+      - cmd: cd "{{.ROOT_DIR}}" && rm -rf "{{.PORTABLE_OUTPUT_DIR}}" "{{.PORTABLE_OUTPUT_DIR}}.zip"
+      - cmd: cd "{{.ROOT_DIR}}" && mkdir -p "{{.PORTABLE_OUTPUT_DIR}}/bin" "{{.PORTABLE_OUTPUT_DIR}}/config" "{{.PORTABLE_OUTPUT_DIR}}/runtime/app/data" "{{.PORTABLE_OUTPUT_DIR}}/runtime/app/files" "{{.PORTABLE_OUTPUT_DIR}}/runtime/app/indexes" "{{.PORTABLE_OUTPUT_DIR}}/runtime/app/logs" "{{.PORTABLE_OUTPUT_DIR}}/runtime/ai/bin" "{{.PORTABLE_OUTPUT_DIR}}/runtime/ai/models"
+      - cmd: cd "{{.ROOT_DIR}}" && dotnet publish backend/src/KnowledgeApp.LocalApi/KnowledgeApp.LocalApi.csproj -c {{.CONFIGURATION}} -r {{.RUNTIME_IDENTIFIER}} --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o "{{.PORTABLE_OUTPUT_DIR}}/bin"
       - cmd: cd "{{.ROOT_DIR}}" && pnpm --filter desktop run tauri build --no-bundle
-      - cmd: cd "{{.ROOT_DIR}}" && cp apps/desktop/src-tauri/target/release/localmind.exe "{{.OUTPUT_DIR}}/localmind.exe"
-      - cmd: cd "{{.ROOT_DIR}}" && cp backend/src/KnowledgeApp.LocalApi/appsettings.json "{{.OUTPUT_DIR}}/config/appsettings.json"
-      - cmd: cd "{{.ROOT_DIR}}" && cp backend/src/KnowledgeApp.LocalApi/appsettings.json "{{.OUTPUT_DIR}}/appsettings.json"
-      - cmd: cd "{{.ROOT_DIR}}" && cp -r runtime/ai/bin/* "{{.OUTPUT_DIR}}/runtime/ai/bin/" 2>/dev/null || true
-      - cmd: cd "{{.ROOT_DIR}}" && cp -r runtime/ai/models/* "{{.OUTPUT_DIR}}/runtime/ai/models/" 2>/dev/null || true
+      - cmd: cd "{{.ROOT_DIR}}" && cp apps/desktop/src-tauri/target/release/localmind.exe "{{.PORTABLE_OUTPUT_DIR}}/localmind.exe"
+      - cmd: cd "{{.ROOT_DIR}}" && cp backend/src/KnowledgeApp.LocalApi/appsettings.json "{{.PORTABLE_OUTPUT_DIR}}/config/appsettings.json"
+      - cmd: cd "{{.ROOT_DIR}}" && cp backend/src/KnowledgeApp.LocalApi/appsettings.json "{{.PORTABLE_OUTPUT_DIR}}/appsettings.json"
+      - cmd: cd "{{.ROOT_DIR}}" && cp -r runtime/ai/bin/. "{{.PORTABLE_OUTPUT_DIR}}/runtime/ai/bin/"
+      - cmd: cd "{{.ROOT_DIR}}" && cp -r runtime/ai/models/. "{{.PORTABLE_OUTPUT_DIR}}/runtime/ai/models/"
       - cmd: |
           cd "{{.ROOT_DIR}}"
-          cat << 'EOF' > "{{.OUTPUT_DIR}}/README.txt"
+          cat << 'EOF' > "{{.PORTABLE_OUTPUT_DIR}}/README.txt"
           localmind portable
 
           Contents:
@@ -352,29 +383,29 @@ tasks:
           EOF
       - cmd: |
           cd "{{.ROOT_DIR}}"
-          cat << 'EOF' > "{{.OUTPUT_DIR}}/.env.example"
+          cat << 'EOF' > "{{.PORTABLE_OUTPUT_DIR}}/.env.example"
           KNOWLEDGE_APP_PORTABLE=true
           LOCAL_API_URL=http://127.0.0.1:49321
           LOCAL_STORAGE_PATH=runtime/app/files
           LOCAL_DATABASE_PATH=runtime/app/data/knowledge-app.db
           LOCAL_INDEX_PATH=runtime/app/indexes
           EOF
-      - cmd: cd "{{.ROOT_DIR}}" && cd "{{dir .OUTPUT_DIR}}" && tar -a -c -f "{{base .OUTPUT_DIR}}.zip" "{{base .OUTPUT_DIR}}"
+      - cmd: cd "{{.ROOT_DIR}}" && powershell -NoProfile -Command "Compress-Archive -Path '{{.PORTABLE_OUTPUT_DIR}}' -DestinationPath '{{.PORTABLE_OUTPUT_DIR}}.zip' -Force"
 
   package:smoke-test:
     desc: Smoke tests the packaged portable folder and zip (Windows only)
     vars:
-      OUTPUT_DIR: '{{.OUTPUT_DIR | default "artifacts/localmind-portable-win-x64"}}'
+      PORTABLE_OUTPUT_DIR: '{{.PORTABLE_OUTPUT_DIR | default "artifacts/localmind-portable-win-x64"}}'
     cmds:
       - cmd: |
           cd "{{.ROOT_DIR}}"
           for path in \
-            "{{.OUTPUT_DIR}}/localmind.exe" \
-            "{{.OUTPUT_DIR}}/bin/KnowledgeApp.LocalApi.exe" \
-            "{{.OUTPUT_DIR}}/config/appsettings.json" \
-            "{{.OUTPUT_DIR}}/appsettings.json" \
-            "{{.OUTPUT_DIR}}/README.txt" \
-            "{{.OUTPUT_DIR}}.zip" \
+            "{{.PORTABLE_OUTPUT_DIR}}/localmind.exe" \
+            "{{.PORTABLE_OUTPUT_DIR}}/bin/KnowledgeApp.LocalApi.exe" \
+            "{{.PORTABLE_OUTPUT_DIR}}/config/appsettings.json" \
+            "{{.PORTABLE_OUTPUT_DIR}}/appsettings.json" \
+            "{{.PORTABLE_OUTPUT_DIR}}/README.txt" \
+            "{{.PORTABLE_OUTPUT_DIR}}.zip" \
           ; do
             if [ ! -s "$path" ]; then
               echo "Smoke test failed: $path is missing or empty"
@@ -382,12 +413,12 @@ tasks:
             fi
           done
           for dir in \
-            "{{.OUTPUT_DIR}}/runtime/app/data" \
-            "{{.OUTPUT_DIR}}/runtime/app/files" \
-            "{{.OUTPUT_DIR}}/runtime/app/indexes" \
-            "{{.OUTPUT_DIR}}/runtime/app/logs" \
-            "{{.OUTPUT_DIR}}/runtime/ai/bin" \
-            "{{.OUTPUT_DIR}}/runtime/ai/models" \
+            "{{.PORTABLE_OUTPUT_DIR}}/runtime/app/data" \
+            "{{.PORTABLE_OUTPUT_DIR}}/runtime/app/files" \
+            "{{.PORTABLE_OUTPUT_DIR}}/runtime/app/indexes" \
+            "{{.PORTABLE_OUTPUT_DIR}}/runtime/app/logs" \
+            "{{.PORTABLE_OUTPUT_DIR}}/runtime/ai/bin" \
+            "{{.PORTABLE_OUTPUT_DIR}}/runtime/ai/models" \
           ; do
             if [ ! -d "$dir" ]; then
               echo "Smoke test failed: directory $dir is missing"

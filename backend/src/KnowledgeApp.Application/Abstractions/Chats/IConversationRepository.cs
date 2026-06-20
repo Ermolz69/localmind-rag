@@ -12,6 +12,7 @@ public interface IConversationRepository
     Task DeleteAsync(Conversation conversation, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ChatMessage>> GetMessagesAsync(Guid conversationId, CancellationToken cancellationToken = default);
+    Task<ChatMessage?> GetFirstUserMessageAsync(Guid conversationId, CancellationToken cancellationToken = default);
     Task AddMessageAsync(ChatMessage message, CancellationToken cancellationToken = default);
     Task DeleteMessagesAsync(IEnumerable<ChatMessage> messages, CancellationToken cancellationToken = default);
 }

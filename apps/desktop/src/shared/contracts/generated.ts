@@ -276,6 +276,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/documents/{id}/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Gets document preview metadata.
+     * @description Returns read-only preview metadata, inline preview content, or a LocalApi file preview URL for a known document.
+     */
+    get: operations["GetDocumentPreview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/documents/{id}/preview/file": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Streams a document preview file.
+     * @description Streams a read-only preview file for formats that require file delivery. The file is resolved from managed storage by document id.
+     */
+    get: operations["GetDocumentPreviewFile"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/documents/{id}/reindex": {
     parameters: {
       query?: never;
@@ -604,6 +644,26 @@ export interface paths {
      * @description Adds a user message, builds RAG context, and returns an answer with sources.
      */
     post: operations["SendChatMessage"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/chats/{id}/generate-title": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Generates a conversation title.
+     * @description Generates a title from the first user message when the title has not been generated or manually edited.
+     */
+    post: operations["GenerateChatTitle"];
     delete?: never;
     options?: never;
     head?: never;
@@ -956,6 +1016,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/diagnostics/logs/cleanup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Deletes local log files.
+     * @description Removes LocalMind log files from the logs folder. Files currently in use are skipped.
+     */
+    post: operations["DiagnosticsLogsCleanup"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/system/shutdown": {
     parameters: {
       query?: never;
@@ -1171,6 +1251,15 @@ export interface components {
       metadata: components["schemas"]["ApiMetadata"];
     };
     /** @description Standard LocalApi response envelope. */
+    ApiResponseOfDocumentPreviewResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["DocumentPreviewResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
     ApiResponseOfIngestionJobActionResponse: {
       /** @description True when the operation completed successfully. */
       success: boolean;
@@ -1233,6 +1322,15 @@ export interface components {
       success: boolean;
       /** @description Response payload for successful operations. */
       data: null | components["schemas"]["ChatMessageDto"][];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfLogCleanupResultDto: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["LogCleanupResultDto"];
       error: null | components["schemas"]["ApiError"];
       /** @description Response metadata shared by success and error responses. */
       metadata: components["schemas"]["ApiMetadata"];
@@ -1712,6 +1810,52 @@ export interface components {
     DiagnosticsSettingsDto: {
       /** @description Whether diagnostics panel and page are enabled. */
       enabled: boolean;
+      /**
+       * @description Whether advanced local development settings are visible.
+       * @default false
+       */
+      developerModeEnabled: boolean;
+      /**
+       * @description Minimum application log level.
+       * @default Information
+       */
+      minimumLogLevel: string;
+      /**
+       * @description Whether diagnostics are written to category-specific files.
+       * @default false
+       */
+      useSeparateLogFiles: boolean;
+      /**
+       * @description Whether warnings and errors are written to the error log file.
+       * @default true
+       */
+      enableErrorLogs: boolean;
+      /**
+       * @description Whether database command logs are written.
+       * @default false
+       */
+      enableSqlLogs: boolean;
+      /**
+       * @description Whether HTTP request logs are written.
+       * @default true
+       */
+      enableHttpLogs: boolean;
+      /**
+       * @description Whether diagnostic events are written to a structured log file.
+       * @default false
+       */
+      enableDiagnosticEventLogs: boolean;
+      /**
+       * @description Whether debug trace logs are written.
+       * @default false
+       */
+      enableDebugTrace: boolean;
+      /**
+       * Format: int32
+       * @description How many days of log files to keep before automatic cleanup removes them.
+       * @default 14
+       */
+      logRetainedDays: number | string;
     };
     /** @description Storage size diagnostics in bytes. */
     DiagnosticsStorageDto: {
@@ -1760,6 +1904,40 @@ export interface components {
       tags?: null | {
         [key: string]: string;
       };
+    };
+    /**
+     * @description Supported document preview categories.
+     * @enum {unknown}
+     */
+    DocumentPreviewKind:
+      | "Pdf"
+      | "Text"
+      | "Markdown"
+      | "Html"
+      | "Image"
+      | "Unsupported"
+      | "Error";
+    /** @description Read-only preview metadata and inline content for a local document. */
+    DocumentPreviewResponse: {
+      /**
+       * Format: uuid
+       * @description Local document identifier.
+       */
+      documentId: string;
+      /** @description Stored document file name. */
+      fileName: string;
+      /** @description Preview content type. */
+      contentType: string;
+      /** @description Preview category that tells the frontend how to render the response. */
+      previewKind: components["schemas"]["DocumentPreviewKind"];
+      /** @description LocalApi URL for read-only file preview streams, when applicable. */
+      previewUrl?: null | string;
+      /** @description Inline text content for safe text-based previews. */
+      textContent?: null | string;
+      /** @description Stable error or unsupported-state code, when preview is unavailable. */
+      errorCode?: null | string;
+      /** @description Frontend-safe preview state message. */
+      message?: null | string;
     };
     /** @description Describes the LocalApi readiness state. */
     HealthDto: {
@@ -1813,6 +1991,24 @@ export interface components {
       limit: number | string;
       /** Format: int32 */
       offset: number | string;
+    };
+    /** @description Result of a log files cleanup operation. */
+    LogCleanupResultDto: {
+      /**
+       * Format: int32
+       * @description Number of log files that were removed.
+       */
+      deletedFiles: number | string;
+      /**
+       * Format: int64
+       * @description Total size of the removed files, in bytes.
+       */
+      freedBytes: number | string;
+      /**
+       * Format: int32
+       * @description Number of log files that could not be removed (e.g. currently in use).
+       */
+      skippedFiles: number | string;
     };
     /** @description Request used to move a note folder to a new bucket and/or parent folder. */
     MoveNoteFolderRequest: {
@@ -2792,6 +2988,75 @@ export interface operations {
       };
     };
   };
+  GetDocumentPreview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfDocumentPreviewResponse"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  GetDocumentPreviewFile: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+      /** @description Unsupported Media Type */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
   ReindexDocument: {
     parameters: {
       query?: never;
@@ -3665,6 +3930,37 @@ export interface operations {
       };
     };
   };
+  GenerateChatTitle: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfConversationDto"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
   StreamChatMessage: {
     parameters: {
       query?: never;
@@ -4102,6 +4398,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponseOfCursorPageOfOperationLogDto"];
+        };
+      };
+    };
+  };
+  DiagnosticsLogsCleanup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfLogCleanupResultDto"];
         };
       };
     };

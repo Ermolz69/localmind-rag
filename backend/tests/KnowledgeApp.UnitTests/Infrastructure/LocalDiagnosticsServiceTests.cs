@@ -117,6 +117,7 @@ public sealed class LocalDiagnosticsServiceTests
         public string DataDirectory => "data";
         public string DatabasePath => dbExists ? CreateTempFile() : "missing.db";
         public string FilesDirectory => "files";
+        public string PreviewDirectory => "previews";
         public string IndexDirectory => "indexes";
         public string LogsDirectory => "logs";
 

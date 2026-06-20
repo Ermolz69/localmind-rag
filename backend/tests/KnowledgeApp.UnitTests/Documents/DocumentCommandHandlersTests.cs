@@ -4,7 +4,7 @@ using KnowledgeApp.Contracts.Documents;
 using KnowledgeApp.Domain.Entities;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Services;
-using KnowledgeApp.UnitTests;
+using KnowledgeApp.UnitTests.TestSupport.Fakes;
 using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.UnitTests.Documents;
@@ -48,24 +48,8 @@ public sealed class DocumentCommandHandlersTests
         Assert.NotNull(storedDocument.DeletedAt);
         Assert.Equal(DocumentStatus.Deleted, storedDocument.Status);
         Assert.Equal(SyncStatus.DeletedLocal, storedDocument.SyncStatus);
-        Assert.Single(publisher.Events);
-        Assert.IsType<KnowledgeApp.Application.Documents.DocumentReindexRequestedEvent>(publisher.Events.Single());
+        Assert.Single(publisher.PublishedEvents);
+        Assert.IsType<KnowledgeApp.Application.Documents.DocumentReindexRequestedEvent>(publisher.PublishedEvents.Single());
     }
 
-    private sealed class FakeDomainEventPublisher : KnowledgeApp.Application.Abstractions.IDomainEventPublisher
-    {
-        public List<KnowledgeApp.Application.Abstractions.IDomainEvent> Events { get; } = new();
-
-        public Task PublishAsync<TEvent>(TEvent domainEvent, CancellationToken cancellationToken = default) where TEvent : KnowledgeApp.Application.Abstractions.IDomainEvent
-        {
-            Events.Add(domainEvent);
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class FakeOperationLogRepository : KnowledgeApp.Application.Common.Diagnostics.IOperationLogRepository
-    {
-        public Task AddAsync(KnowledgeApp.Domain.Entities.OperationLog log, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>> GetRecentLogsAsync(int limit, string? cursor, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>>([]);
-    }
 }

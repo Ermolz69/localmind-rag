@@ -29,6 +29,7 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
         Assert.NotNull(settings.Ai);
         Assert.NotNull(settings.RuntimePaths);
         Assert.NotNull(settings.Sync);
+        Assert.NotNull(settings.Diagnostics);
 
         WatchedFoldersSettingsDto watchedFolders = Assert.IsType<WatchedFoldersSettingsDto>(
             settings.WatchedFolders);
@@ -40,6 +41,7 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
         Assert.False(string.IsNullOrWhiteSpace(settings.Ai.ChatModel));
         Assert.False(string.IsNullOrWhiteSpace(settings.Ai.EmbeddingModel));
         Assert.False(string.IsNullOrWhiteSpace(settings.RuntimePaths.DatabasePath));
+        Assert.False(string.IsNullOrWhiteSpace(settings.Diagnostics.MinimumLogLevel));
 
         Assert.InRange(watchedFolders.DebounceMilliseconds, 250, 60000);
         Assert.Equal("MarkDeleted", watchedFolders.DeletePolicy);
@@ -80,7 +82,15 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
                     Enabled: true,
                     AutoSync: false),
                 Diagnostics: new DiagnosticsSettingsDto(
-                    Enabled: true),
+                    Enabled: true,
+                    DeveloperModeEnabled: true,
+                    MinimumLogLevel: "Debug",
+                    UseSeparateLogFiles: true,
+                    EnableErrorLogs: false,
+                    EnableSqlLogs: true,
+                    EnableHttpLogs: false,
+                    EnableDiagnosticEventLogs: true,
+                    EnableDebugTrace: true),
                 WatchedFolders: new WatchedFoldersSettingsDto(
                     Enabled: true,
                     DebounceMilliseconds: 1500,
@@ -105,6 +115,15 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
             Assert.Equal("llama3.2", saved.Ai.ChatModel);
             Assert.True(saved.Sync.Enabled);
             Assert.False(saved.Sync.AutoSync);
+            Assert.NotNull(saved.Diagnostics);
+            Assert.True(saved.Diagnostics.DeveloperModeEnabled);
+            Assert.Equal("Debug", saved.Diagnostics.MinimumLogLevel);
+            Assert.True(saved.Diagnostics.UseSeparateLogFiles);
+            Assert.False(saved.Diagnostics.EnableErrorLogs);
+            Assert.True(saved.Diagnostics.EnableSqlLogs);
+            Assert.False(saved.Diagnostics.EnableHttpLogs);
+            Assert.True(saved.Diagnostics.EnableDiagnosticEventLogs);
+            Assert.True(saved.Diagnostics.EnableDebugTrace);
 
             WatchedFoldersSettingsDto savedWatchedFolders = Assert.IsType<WatchedFoldersSettingsDto>(
                 saved.WatchedFolders);
@@ -124,6 +143,22 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
             Domain.Entities.AppSetting storedTheme = await db.AppSettings.SingleAsync(x => x.Key == "App.Theme");
             Domain.Entities.AppSetting storedProvider = await db.AppSettings.SingleAsync(x => x.Key == "Ai.Provider");
             Domain.Entities.AppSetting storedSyncEnabled = await db.AppSettings.SingleAsync(x => x.Key == "Sync.Enabled");
+            Domain.Entities.AppSetting storedDiagnosticsDeveloperMode =
+                await db.AppSettings.SingleAsync(x => x.Key == "Diagnostics.DeveloperModeEnabled");
+            Domain.Entities.AppSetting storedDiagnosticsLogLevel =
+                await db.AppSettings.SingleAsync(x => x.Key == "Diagnostics.MinimumLogLevel");
+            Domain.Entities.AppSetting storedDiagnosticsUseSeparateLogFiles =
+                await db.AppSettings.SingleAsync(x => x.Key == "Diagnostics.UseSeparateLogFiles");
+            Domain.Entities.AppSetting storedDiagnosticsErrorLogs =
+                await db.AppSettings.SingleAsync(x => x.Key == "Diagnostics.EnableErrorLogs");
+            Domain.Entities.AppSetting storedDiagnosticsSqlLogs =
+                await db.AppSettings.SingleAsync(x => x.Key == "Diagnostics.EnableSqlLogs");
+            Domain.Entities.AppSetting storedDiagnosticsHttpLogs =
+                await db.AppSettings.SingleAsync(x => x.Key == "Diagnostics.EnableHttpLogs");
+            Domain.Entities.AppSetting storedDiagnosticsDiagnosticEventLogs =
+                await db.AppSettings.SingleAsync(x => x.Key == "Diagnostics.EnableDiagnosticEventLogs");
+            Domain.Entities.AppSetting storedDiagnosticsDebugTrace =
+                await db.AppSettings.SingleAsync(x => x.Key == "Diagnostics.EnableDebugTrace");
             Domain.Entities.AppSetting storedWatchedFoldersEnabled =
                 await db.AppSettings.SingleAsync(x => x.Key == "WatchedFolders.Enabled");
             Domain.Entities.AppSetting storedWatchedFoldersDebounce =
@@ -136,6 +171,14 @@ public sealed class SettingsEndpointsTests : IClassFixture<LocalApiTestFactory>
             Assert.Equal("Dark", storedTheme.Value);
             Assert.Equal("Ollama", storedProvider.Value);
             Assert.Equal("True", storedSyncEnabled.Value);
+            Assert.Equal("True", storedDiagnosticsDeveloperMode.Value);
+            Assert.Equal("Debug", storedDiagnosticsLogLevel.Value);
+            Assert.Equal("True", storedDiagnosticsUseSeparateLogFiles.Value);
+            Assert.Equal("False", storedDiagnosticsErrorLogs.Value);
+            Assert.Equal("True", storedDiagnosticsSqlLogs.Value);
+            Assert.Equal("False", storedDiagnosticsHttpLogs.Value);
+            Assert.Equal("True", storedDiagnosticsDiagnosticEventLogs.Value);
+            Assert.Equal("True", storedDiagnosticsDebugTrace.Value);
 
             Assert.Equal("True", storedWatchedFoldersEnabled.Value);
             Assert.Equal("1500", storedWatchedFoldersDebounce.Value);

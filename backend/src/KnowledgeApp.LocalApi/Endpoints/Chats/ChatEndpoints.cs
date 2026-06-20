@@ -92,6 +92,21 @@ public static class ChatEndpoints
             .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse<object?>>(StatusCodes.Status400BadRequest);
 
+        app.MapPost("/chats/{id:guid}/generate-title", async (
+            Guid id,
+            GenerateConversationTitleHandler handler,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+        {
+            return (await handler.HandleAsync(id, cancellationToken)).ToApiResult(context);
+        })
+            .WithName("GenerateChatTitle")
+            .WithTags("Chats")
+            .WithSummary("Generates a conversation title.")
+            .WithDescription("Generates a title from the first user message when the title has not been generated or manually edited.")
+            .Produces<ApiResponse<ConversationDto>>()
+            .Produces<ApiResponse<object?>>(StatusCodes.Status404NotFound);
+
         app.MapDelete("/chats/{id:guid}", async (
             Guid id,
             DeleteConversationHandler handler,

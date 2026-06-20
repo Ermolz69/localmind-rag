@@ -7,5 +7,7 @@ public sealed class Conversation : Entity
 {
     public string Title { get; set; } = "New chat";
     public Guid? LocalDeviceId { get; set; }
+    public DateTimeOffset? TitleGeneratedAt { get; set; }
+    public DateTimeOffset? TitleEditedAt { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
 }

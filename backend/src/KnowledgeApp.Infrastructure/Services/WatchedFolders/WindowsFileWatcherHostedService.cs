@@ -21,8 +21,10 @@ public sealed class WindowsFileWatcherHostedService(
 {
     private static readonly TimeSpan LoopDelay = TimeSpan.FromMilliseconds(250);
 
+    private readonly object watcherGate = new();
     private readonly Dictionary<string, WatcherRegistration> watchers = new(PathComparer);
     private readonly HashSet<string> startupReconciledFolderKeys = new(PathComparer);
+    private bool isStopping;
 
     private WatchedFoldersSettingsDto currentSettings = new(
         Enabled: false,
@@ -70,15 +72,23 @@ public sealed class WindowsFileWatcherHostedService(
         }
     }
 
-    public override Task StopAsync(CancellationToken cancellationToken)
+    public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        DisposeWatchers();
+        MarkStopping();
 
-        return base.StopAsync(cancellationToken);
+        try
+        {
+            await base.StopAsync(cancellationToken);
+        }
+        finally
+        {
+            DisposeWatchers();
+        }
     }
 
     public override void Dispose()
     {
+        MarkStopping();
         DisposeWatchers();
 
         base.Dispose();
@@ -149,7 +159,6 @@ public sealed class WindowsFileWatcherHostedService(
         if (!settings.Enabled)
         {
             DisposeWatchers();
-            startupReconciledFolderKeys.Clear();
             statusStore.SetGlobalPendingEvents(debounceBuffer.PendingCount);
 
             return foldersToReconcile;
@@ -184,11 +193,11 @@ public sealed class WindowsFileWatcherHostedService(
 
             desiredFolderKeys.Add(folderKey);
 
-            if (watchers.ContainsKey(folderKey))
+            if (IsWatcherRegistered(folderKey))
             {
                 statusStore.SetFolderWatching(folder.Path, isWatching: true);
 
-                if (!startupReconciledFolderKeys.Contains(folderKey))
+                if (!IsStartupReconciled(folderKey))
                 {
                     foldersToReconcile.Add(new StartupReconciliationRequest(folder, folderKey));
                 }
@@ -202,9 +211,7 @@ public sealed class WindowsFileWatcherHostedService(
             }
         }
 
-        string[] staleWatcherKeys = watchers.Keys
-            .Where(existingKey => !desiredFolderKeys.Contains(existingKey))
-            .ToArray();
+        string[] staleWatcherKeys = GetWatcherKeysExcept(desiredFolderKeys);
 
         foreach (string staleWatcherKey in staleWatcherKeys)
         {
@@ -258,9 +265,23 @@ public sealed class WindowsFileWatcherHostedService(
                     dateTimeProvider.UtcNow);
             };
 
-            watcher.EnableRaisingEvents = true;
+            bool registered = TryRegisterWatcher(folderKey, new WatcherRegistration(folder.Path, watcher));
 
-            watchers[folderKey] = new WatcherRegistration(folder.Path, watcher);
+            if (!registered)
+            {
+                watcher.Dispose();
+                return false;
+            }
+
+            try
+            {
+                watcher.EnableRaisingEvents = true;
+            }
+            catch
+            {
+                StopWatcher(folderKey);
+                throw;
+            }
 
             statusStore.SetFolderWatching(folder.Path, isWatching: true);
 
@@ -310,7 +331,7 @@ public sealed class WindowsFileWatcherHostedService(
                 DateTimeOffset completedAt = dateTimeProvider.UtcNow;
                 statusStore.RecordScanCompleted(request.Folder.Path, completedAt, result);
 
-                startupReconciledFolderKeys.Add(request.FolderKey);
+                MarkStartupReconciled(request.FolderKey);
 
                 statusStore.SetGlobalPendingEvents(debounceBuffer.PendingCount);
             }
@@ -468,13 +489,82 @@ public sealed class WindowsFileWatcherHostedService(
 
     private void StopWatcher(string folderKey)
     {
-        startupReconciledFolderKeys.Remove(folderKey);
+        WatcherRegistration? registration;
 
-        if (!watchers.Remove(folderKey, out WatcherRegistration? registration))
+        lock (watcherGate)
         {
-            return;
+            startupReconciledFolderKeys.Remove(folderKey);
+
+            if (!watchers.Remove(folderKey, out registration))
+            {
+                return;
+            }
         }
 
+        StopWatcherRegistration(registration);
+    }
+
+    private bool IsWatcherRegistered(string folderKey)
+    {
+        lock (watcherGate)
+        {
+            return watchers.ContainsKey(folderKey);
+        }
+    }
+
+    private bool IsStartupReconciled(string folderKey)
+    {
+        lock (watcherGate)
+        {
+            return startupReconciledFolderKeys.Contains(folderKey);
+        }
+    }
+
+    private void MarkStartupReconciled(string folderKey)
+    {
+        lock (watcherGate)
+        {
+            if (watchers.ContainsKey(folderKey))
+            {
+                startupReconciledFolderKeys.Add(folderKey);
+            }
+        }
+    }
+
+    private string[] GetWatcherKeysExcept(HashSet<string> desiredFolderKeys)
+    {
+        lock (watcherGate)
+        {
+            return watchers.Keys
+                .Where(existingKey => !desiredFolderKeys.Contains(existingKey))
+                .ToArray();
+        }
+    }
+
+    private bool TryRegisterWatcher(string folderKey, WatcherRegistration registration)
+    {
+        lock (watcherGate)
+        {
+            if (isStopping || watchers.ContainsKey(folderKey))
+            {
+                return false;
+            }
+
+            watchers[folderKey] = registration;
+            return true;
+        }
+    }
+
+    private void MarkStopping()
+    {
+        lock (watcherGate)
+        {
+            isStopping = true;
+        }
+    }
+
+    private void StopWatcherRegistration(WatcherRegistration registration)
+    {
         statusStore.SetFolderWatching(registration.FolderPath, isWatching: false);
 
         try
@@ -488,12 +578,19 @@ public sealed class WindowsFileWatcherHostedService(
 
     private void DisposeWatchers()
     {
-        foreach (string watcherKey in watchers.Keys.ToArray())
+        WatcherRegistration[] registrations;
+
+        lock (watcherGate)
         {
-            StopWatcher(watcherKey);
+            registrations = watchers.Values.ToArray();
+            watchers.Clear();
+            startupReconciledFolderKeys.Clear();
         }
 
-        startupReconciledFolderKeys.Clear();
+        foreach (WatcherRegistration registration in registrations)
+        {
+            StopWatcherRegistration(registration);
+        }
     }
 
     private static string? TryNormalizePath(string path)

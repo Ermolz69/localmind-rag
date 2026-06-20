@@ -141,5 +141,7 @@
     - name: .NET API
       href: auto-generated/dotnet-api/toc.yml
       topicHref: api/dotnet-api.md
+    - name: .NET API Graph
+      href: api/dotnet-api-graph.html
     - name: UI Documentation
       href: api/storybook.md

@@ -1,6 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
-
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.RagEvaluationTests.TestSupport;
@@ -22,10 +19,10 @@ public sealed class ChatGroundingTests(
         foreach (RagEvaluationCase testCase in RagFixtureLoader.PositiveCases())
         {
             ConversationDto conversation =
-                await CreateConversationAsync(client, testCase.Id);
+                await ApiScenarioHelpers.CreateConversationAsync(client, $"RAG evaluation: {testCase.Id}");
 
             RagAnswerDto answer =
-                await SendQuestionAsync(
+                await ApiScenarioHelpers.SendChatMessageAsync(
                     client,
                     conversation.Id,
                     testCase.Question);
@@ -56,10 +53,10 @@ public sealed class ChatGroundingTests(
         foreach (RagEvaluationCase testCase in RagFixtureLoader.PositiveCases())
         {
             ConversationDto conversation =
-                await CreateConversationAsync(client, $"forbidden-{testCase.Id}");
+                await ApiScenarioHelpers.CreateConversationAsync(client, $"forbidden-{testCase.Id}");
 
             RagAnswerDto answer =
-                await SendQuestionAsync(
+                await ApiScenarioHelpers.SendChatMessageAsync(
                     client,
                     conversation.Id,
                     testCase.Question);
@@ -72,42 +69,5 @@ public sealed class ChatGroundingTests(
                     StringComparison.OrdinalIgnoreCase);
             }
         }
-    }
-
-    private static async Task<ConversationDto> CreateConversationAsync(
-        HttpClient client,
-        string caseId)
-    {
-        using HttpResponseMessage response = await client.PostAsJsonAsync(
-            "/api/v1/chats",
-            new CreateConversationRequest($"RAG evaluation: {caseId}"));
-
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        ConversationDto? conversation =
-            await response.Content.ReadApiDataAsync<ConversationDto>();
-
-        Assert.NotNull(conversation);
-
-        return conversation;
-    }
-
-    private static async Task<RagAnswerDto> SendQuestionAsync(
-        HttpClient client,
-        Guid conversationId,
-        string question)
-    {
-        using HttpResponseMessage response = await client.PostAsJsonAsync(
-            $"/api/v1/chats/{conversationId}/messages",
-            new ChatMessageRequest(question));
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        RagAnswerDto? answer =
-            await response.Content.ReadApiDataAsync<RagAnswerDto>();
-
-        Assert.NotNull(answer);
-
-        return answer;
     }
 }

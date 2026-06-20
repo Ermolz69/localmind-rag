@@ -20,7 +20,9 @@ type UseSendChatMessageOptions = {
   buckets: BucketDto[];
   createConversation: (title: string) => Promise<ChatConversation | null>;
   newConversationTitle: string;
+  replaceConversation: (conversation: ChatConversation) => void;
   selectedConversationId: string | null;
+  selectedMessagesCount: number;
   setActiveSourceMessageId: (messageId: string | null) => void;
   setSelectedConversationId: (conversationId: string | null) => void;
   updateMessage: (
@@ -50,7 +52,9 @@ export function useSendChatMessage({
   buckets,
   createConversation,
   newConversationTitle,
+  replaceConversation,
   selectedConversationId,
+  selectedMessagesCount,
   setActiveSourceMessageId,
   setSelectedConversationId,
   updateMessage,
@@ -116,10 +120,12 @@ export function useSendChatMessage({
 
     const filtersForRequest = parsed.filters;
     let conversationId = selectedConversationId;
+    const shouldGenerateTitle =
+      !selectedConversationId || selectedMessagesCount === 0;
 
     if (!conversationId) {
       const created = await createConversation(
-        newConversationTitle.trim() || content.slice(0, 48) || "New chat",
+        newConversationTitle.trim() || "New chat",
       );
 
       if (!created) {
@@ -196,6 +202,15 @@ export function useSendChatMessage({
       rememberMessageSources(conversationId, streamedText, latestSources);
 
       setActiveSourceMessageId(assistantMessageId);
+
+      if (shouldGenerateTitle) {
+        void chatsApi
+          .generateChatTitle(conversationId)
+          .then(replaceConversation)
+          .catch(() => {
+            // Title generation is best-effort and must not affect the completed answer.
+          });
+      }
     } catch (error) {
       if (isAbortError(error)) {
         updateMessage(conversationId, assistantMessageId, (message) => ({
@@ -234,7 +249,9 @@ export function useSendChatMessage({
     newConversationTitle,
     question,
     rememberMessageSources,
+    replaceConversation,
     selectedConversationId,
+    selectedMessagesCount,
     setActiveSourceMessageId,
     setSelectedConversationId,
     updateMessage,

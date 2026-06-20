@@ -16,6 +16,15 @@ const defaultWatchedFolders: AppSettings["watchedFolders"] = {
 
 const defaultDiagnostics: AppSettings["diagnostics"] = {
   enabled: true,
+  developerModeEnabled: false,
+  minimumLogLevel: "Information",
+  useSeparateLogFiles: false,
+  enableErrorLogs: true,
+  enableSqlLogs: false,
+  enableHttpLogs: true,
+  enableDiagnosticEventLogs: false,
+  enableDebugTrace: false,
+  logRetainedDays: 14,
 };
 
 export function toAppSettings(

@@ -15,6 +15,11 @@ public sealed class ObservabilityTests
         Assert.Equal(ObservabilityMode.Advanced, options.Mode);
         Assert.Equal("runtime/app/logs", options.LogsPath);
         Assert.Equal(LogLevel.Information, options.MinimumLevel);
+        Assert.False(options.UseSeparateLogFiles);
+        Assert.True(options.EnableErrorLogs);
+        Assert.False(options.EnableSqlLogs);
+        Assert.True(options.EnableHttpLogs);
+        Assert.False(options.EnableDiagnosticEventLogs);
         Assert.False(options.EnableRequestBodyLogging);
         Assert.False(options.EnableResponseBodyLogging);
         Assert.False(options.EnableDebugTrace);

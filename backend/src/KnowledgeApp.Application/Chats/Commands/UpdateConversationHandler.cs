@@ -3,7 +3,6 @@ using KnowledgeApp.Application.Common.Errors;
 using KnowledgeApp.Application.Common.Results;
 using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.Application.Chats;
 
@@ -30,8 +29,10 @@ public sealed class UpdateConversationHandler(
             return Result.Failure(ApplicationErrors.NotFound(ErrorCodes.Chats.NotFound, ErrorMessages.Chats.NotFound));
         }
 
+        DateTimeOffset now = dateTimeProvider.UtcNow;
         conversation.Title = request.Title.Trim();
-        conversation.UpdatedAt = dateTimeProvider.UtcNow;
+        conversation.TitleEditedAt = now;
+        conversation.UpdatedAt = now;
         await conversationRepository.UpdateAsync(conversation, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 

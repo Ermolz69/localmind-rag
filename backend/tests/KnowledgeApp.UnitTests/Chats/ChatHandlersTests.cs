@@ -5,13 +5,16 @@ using KnowledgeApp.Contracts.Chats;
 using KnowledgeApp.Contracts.Rag;
 using KnowledgeApp.Contracts.Search;
 using KnowledgeApp.Domain.Enums;
-using KnowledgeApp.UnitTests;
+using KnowledgeApp.UnitTests.TestSupport.Fakes;
 using Microsoft.EntityFrameworkCore;
 
 namespace KnowledgeApp.UnitTests.Chats;
 
 public sealed class ChatHandlersTests
 {
+    private static readonly DateTimeOffset EarlierMessageTime = new(2026, 5, 15, 10, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset LaterMessageTime = new(2026, 5, 15, 11, 0, 0, TimeSpan.Zero);
+
     [Fact]
     public async Task ChatHandlers_Should_Create_List_And_Save_User_And_Assistant_Messages()
     {
@@ -89,6 +92,187 @@ public sealed class ChatHandlersTests
         Assert.Equal("CHAT_NOT_FOUND", result.AssertFailure(ErrorType.NotFound).Code);
     }
 
+    [Fact]
+    public async Task GenerateConversationTitleHandler_Should_Generate_Title_From_First_User_Message()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        var conversationRepository = new KnowledgeApp.Infrastructure.Services.Persistence.ConversationRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        Domain.Entities.Conversation conversation = new() { Title = "New chat 1" };
+        database.Context.Conversations.Add(conversation);
+        database.Context.ChatMessages.AddRange(
+            new Domain.Entities.ChatMessage
+            {
+                ConversationId = conversation.Id,
+                CreatedAt = LaterMessageTime,
+                Role = ChatRole.User,
+                Content = "Second question",
+            },
+            new Domain.Entities.ChatMessage
+            {
+                ConversationId = conversation.Id,
+                CreatedAt = EarlierMessageTime,
+                Role = ChatRole.User,
+                Content = "How do I configure local RAG?",
+            });
+        await database.Context.SaveChangesAsync();
+        FakeChatTitleGenerator titleGenerator = new("Local RAG Setup");
+        GenerateConversationTitleHandler handler = new(
+            conversationRepository,
+            titleGenerator,
+            unitOfWork,
+            new FixedDateTimeProvider());
+
+        ConversationDto result = (await handler.HandleAsync(conversation.Id)).AssertSuccess();
+
+        Assert.Equal("Local RAG Setup", result.Title);
+        Assert.Equal("How do I configure local RAG?", titleGenerator.LastMessage);
+        Assert.Equal(new FixedDateTimeProvider().UtcNow, conversation.TitleGeneratedAt);
+        Assert.Null(conversation.TitleEditedAt);
+    }
+
+    [Fact]
+    public async Task GenerateConversationTitleHandler_Should_Not_Regenerate_Title_If_TitleGeneratedAt_Is_Set()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        var conversationRepository = new KnowledgeApp.Infrastructure.Services.Persistence.ConversationRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        Domain.Entities.Conversation conversation = new()
+        {
+            Title = "Existing title",
+            TitleGeneratedAt = EarlierMessageTime,
+        };
+        database.Context.Conversations.Add(conversation);
+        database.Context.ChatMessages.Add(new Domain.Entities.ChatMessage
+        {
+            ConversationId = conversation.Id,
+            CreatedAt = EarlierMessageTime,
+            Role = ChatRole.User,
+            Content = "First question",
+        });
+        await database.Context.SaveChangesAsync();
+        FakeChatTitleGenerator titleGenerator = new("Replacement title");
+        GenerateConversationTitleHandler handler = new(
+            conversationRepository,
+            titleGenerator,
+            unitOfWork,
+            new FixedDateTimeProvider());
+
+        ConversationDto result = (await handler.HandleAsync(conversation.Id)).AssertSuccess();
+
+        Assert.Equal("Existing title", result.Title);
+        Assert.Null(titleGenerator.LastMessage);
+    }
+
+    [Fact]
+    public async Task GenerateConversationTitleHandler_Should_Not_Overwrite_Manual_Title_If_TitleEditedAt_Is_Set()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        var conversationRepository = new KnowledgeApp.Infrastructure.Services.Persistence.ConversationRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        Domain.Entities.Conversation conversation = new()
+        {
+            Title = "Manual title",
+            TitleEditedAt = EarlierMessageTime,
+        };
+        database.Context.Conversations.Add(conversation);
+        database.Context.ChatMessages.Add(new Domain.Entities.ChatMessage
+        {
+            ConversationId = conversation.Id,
+            CreatedAt = EarlierMessageTime,
+            Role = ChatRole.User,
+            Content = "First question",
+        });
+        await database.Context.SaveChangesAsync();
+        FakeChatTitleGenerator titleGenerator = new("Replacement title");
+        GenerateConversationTitleHandler handler = new(
+            conversationRepository,
+            titleGenerator,
+            unitOfWork,
+            new FixedDateTimeProvider());
+
+        ConversationDto result = (await handler.HandleAsync(conversation.Id)).AssertSuccess();
+
+        Assert.Equal("Manual title", result.Title);
+        Assert.Null(titleGenerator.LastMessage);
+    }
+
+    [Fact]
+    public async Task GenerateConversationTitleHandler_Should_Return_Current_Conversation_When_No_User_Message()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        var conversationRepository = new KnowledgeApp.Infrastructure.Services.Persistence.ConversationRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        Domain.Entities.Conversation conversation = new() { Title = "New chat 1" };
+        database.Context.Conversations.Add(conversation);
+        await database.Context.SaveChangesAsync();
+        FakeChatTitleGenerator titleGenerator = new("Generated title");
+        GenerateConversationTitleHandler handler = new(
+            conversationRepository,
+            titleGenerator,
+            unitOfWork,
+            new FixedDateTimeProvider());
+
+        ConversationDto result = (await handler.HandleAsync(conversation.Id)).AssertSuccess();
+
+        Assert.Equal("New chat 1", result.Title);
+        Assert.Null(titleGenerator.LastMessage);
+        Assert.Null(conversation.TitleGeneratedAt);
+    }
+
+    [Fact]
+    public async Task GenerateConversationTitleHandler_Should_Use_Fallback_When_Generated_Title_Is_Invalid()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        var conversationRepository = new KnowledgeApp.Infrastructure.Services.Persistence.ConversationRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        Domain.Entities.Conversation conversation = new() { Title = "New chat 1" };
+        const string firstQuestion = "Explain local-first document indexing for desktop RAG applications";
+        database.Context.Conversations.Add(conversation);
+        database.Context.ChatMessages.Add(new Domain.Entities.ChatMessage
+        {
+            ConversationId = conversation.Id,
+            CreatedAt = EarlierMessageTime,
+            Role = ChatRole.User,
+            Content = firstQuestion,
+        });
+        await database.Context.SaveChangesAsync();
+        GenerateConversationTitleHandler handler = new(
+            conversationRepository,
+            new FakeChatTitleGenerator("This title is intentionally much longer than sixty characters so fallback is used"),
+            unitOfWork,
+            new FixedDateTimeProvider());
+
+        ConversationDto result = (await handler.HandleAsync(conversation.Id)).AssertSuccess();
+
+        Assert.Equal(firstQuestion[..60], result.Title);
+        Assert.Equal(new FixedDateTimeProvider().UtcNow, conversation.TitleGeneratedAt);
+    }
+
+    [Fact]
+    public async Task UpdateConversationHandler_Should_Set_TitleEditedAt()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        ChatRequestValidator validator = new();
+        var conversationRepository = new KnowledgeApp.Infrastructure.Services.Persistence.ConversationRepository(database.Context);
+        var unitOfWork = new KnowledgeApp.Infrastructure.Services.UnitOfWork(database.Context);
+        CreateChatHandler create = new(conversationRepository, unitOfWork, validator, new FakeLocalDeviceResolver());
+        ConversationDto conversation = (await create.HandleAsync(new CreateConversationRequest("Question"))).AssertSuccess();
+        UpdateConversationHandler update = new(
+            conversationRepository,
+            unitOfWork,
+            new FixedDateTimeProvider(),
+            validator);
+
+        (await update.HandleAsync(conversation.Id, new UpdateConversationRequest(" Renamed chat "))).AssertSuccess();
+
+        Domain.Entities.Conversation updatedConversation = await database.Context.Conversations.FindAsync(conversation.Id)
+            ?? throw new InvalidOperationException("Conversation was not found.");
+        Assert.Equal("Renamed chat", updatedConversation.Title);
+        Assert.Equal(new FixedDateTimeProvider().UtcNow, updatedConversation.TitleEditedAt);
+        Assert.Equal(new FixedDateTimeProvider().UtcNow, updatedConversation.UpdatedAt);
+    }
+
     private sealed class FakeRagAnswerGenerator : IRagAnswerGenerator
     {
         public RetrievalFilters? LastFilters { get; private set; }
@@ -122,9 +306,14 @@ public sealed class ChatHandlersTests
         }
     }
 
-    private sealed class FakeOperationLogRepository : KnowledgeApp.Application.Common.Diagnostics.IOperationLogRepository
+    private sealed class FakeChatTitleGenerator(string title) : IChatTitleGenerator
     {
-        public Task AddAsync(KnowledgeApp.Domain.Entities.OperationLog log, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>> GetRecentLogsAsync(int limit, string? cursor, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnowledgeApp.Domain.Entities.OperationLog>>([]);
+        public string? LastMessage { get; private set; }
+
+        public Task<string> GenerateAsync(string firstUserMessage, CancellationToken cancellationToken = default)
+        {
+            LastMessage = firstUserMessage;
+            return Task.FromResult(title);
+        }
     }
 }

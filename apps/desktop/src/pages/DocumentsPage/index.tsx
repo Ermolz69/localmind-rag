@@ -4,6 +4,10 @@ import {
   INGESTION_LIFECYCLE_STATUSES,
   QueuedIngestionNotice,
 } from "@features/document-ingestion";
+import {
+  DocumentPreviewModal,
+  useDocumentPreview,
+} from "@features/document-preview";
 import { DocumentDropzone } from "@features/document-upload";
 import { BucketPanel } from "@features/bucket-management";
 import {
@@ -18,6 +22,7 @@ import { useDocumentsPageViewModel } from "./model/useDocumentsPageViewModel";
 
 export function DocumentsPage() {
   const page = useDocumentsPageViewModel();
+  const preview = useDocumentPreview();
 
   return (
     <section className="space-y-5">
@@ -131,6 +136,7 @@ export function DocumentsPage() {
             isLoadingMore={page.isLoadingMore}
             jobsByDocumentId={page.jobsByDocumentId}
             onProcess={(document) => void page.processDocument(document)}
+            onPreview={(document) => void preview.openPreview(document)}
             onRetry={(jobId) => void page.retryJob(jobId)}
             onCancel={(jobId) => void page.cancelJob(jobId)}
             onLoadMore={() => void page.loadMore()}
@@ -152,6 +158,15 @@ export function DocumentsPage() {
           onSelectBucket={page.setSelectedBucketId}
         />
       </div>
+
+      <DocumentPreviewModal
+        document={preview.document}
+        error={preview.error}
+        isLoading={preview.isLoading}
+        open={preview.isOpen}
+        preview={preview.preview}
+        onClose={preview.closePreview}
+      />
     </section>
   );
 }

@@ -79,6 +79,19 @@ export function useConversationList() {
     [renameMutation, setConversations],
   );
 
+  const replaceConversation = useCallback(
+    (updatedConversation: ChatConversation) => {
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === updatedConversation.id
+            ? updatedConversation
+            : conversation,
+        ),
+      );
+    },
+    [setConversations],
+  );
+
   const deleteMutation = useApiMutation(
     (id: string) => chatsApi.deleteChat(id),
     { fallbackError: "Failed to delete conversation." },
@@ -136,6 +149,7 @@ export function useConversationList() {
     loadMoreChats,
     newConversationTitle,
     renameConversation,
+    replaceConversation,
     selectedConversation,
     selectedConversationId,
     selectConversation,

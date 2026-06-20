@@ -12,7 +12,17 @@ public sealed class ObservabilityOptions
 
     public LogLevel MinimumLevel { get; set; } = LogLevel.Information;
 
+    public bool UseSeparateLogFiles { get; set; }
+
+    public bool EnableErrorLogs { get; set; } = true;
+
     public bool EnableDebugTrace { get; set; }
+
+    public bool EnableSqlLogs { get; set; }
+
+    public bool EnableHttpLogs { get; set; } = true;
+
+    public bool EnableDiagnosticEventLogs { get; set; }
 
     public bool EnableRequestBodyLogging { get; set; }
 

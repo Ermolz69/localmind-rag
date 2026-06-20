@@ -10,7 +10,19 @@ public sealed class SettingsValidator(IWatchedFolderPathValidator watchedFolderP
 {
     private const int MinDebounceMilliseconds = 250;
     private const int MaxDebounceMilliseconds = 60000;
+    private const int MinLogRetainedDays = 1;
+    private const int MaxLogRetainedDays = 365;
     private const string MarkDeletedPolicy = "MarkDeleted";
+    private static readonly HashSet<string> SupportedLogLevels = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Trace",
+        "Debug",
+        "Information",
+        "Warning",
+        "Error",
+        "Critical",
+        "None",
+    };
 
     public Result Validate(AppSettingsDto request)
     {
@@ -37,6 +49,7 @@ public sealed class SettingsValidator(IWatchedFolderPathValidator watchedFolderP
         AddRequired(errors, "runtimePaths.indexPath", request.RuntimePaths.IndexPath);
         AddRequired(errors, "runtimePaths.logsPath", request.RuntimePaths.LogsPath);
 
+        ValidateDiagnostics(errors, request.Diagnostics);
         ValidateWatchedFolders(errors, request);
 
         if (errors.Count > 0)
@@ -48,6 +61,30 @@ public sealed class SettingsValidator(IWatchedFolderPathValidator watchedFolderP
         }
 
         return Result.Success();
+    }
+
+    private static void ValidateDiagnostics(
+        Dictionary<string, string[]> errors,
+        DiagnosticsSettingsDto? diagnostics)
+    {
+        if (diagnostics is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(diagnostics.MinimumLogLevel) ||
+            !SupportedLogLevels.Contains(diagnostics.MinimumLogLevel))
+        {
+            errors["diagnostics.minimumLogLevel"] = ["Unsupported diagnostics log level."];
+        }
+
+        if (diagnostics.LogRetainedDays is < MinLogRetainedDays or > MaxLogRetainedDays)
+        {
+            errors["diagnostics.logRetainedDays"] =
+            [
+                $"Log retention must be between {MinLogRetainedDays} and {MaxLogRetainedDays} days."
+            ];
+        }
     }
 
     private void ValidateWatchedFolders(

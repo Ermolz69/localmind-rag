@@ -15,7 +15,7 @@ sequenceDiagram
     participant DB as "SQLite"
 
     User->>UI: Upload document
-    UI->>API: POST /api/documents/upload
+    UI->>API: POST /api/v1/documents/upload
     API->>Handler: UploadDocumentCommand
     Handler->>Handler: Validate file size/name/extension
     Handler->>Buckets: Resolve bucket
@@ -101,6 +101,28 @@ sequenceDiagram
 ```
 
 Public ingestion statuses are `Pending`, `Processing`, `Chunking`, `Embedding`, `Indexed`, `Failed`, and `Cancelled`. Cancellation is supported for pending/active jobs, and retry is supported for failed/cancelled jobs.
+
+## Chat Title Lifecycle
+
+Chat conversations start with a default title of `New chat`. After the first user message is sent, the frontend can call `POST /api/v1/chats/{id}/generate-title` to request an AI-generated title derived from the opening message.
+
+Rules:
+
+- Title generation is a separate, optional call — it is not part of the SSE answer stream.
+- The backend sets `TitleGeneratedAt` on the `Conversation` entity when a title is generated.
+- If the user manually renames the chat, `TitleEditedAt` is set.
+- A conversation with `TitleEditedAt` set is never overwritten by a subsequent generate-title call.
+- Calling generate-title on a chat that already has `TitleGeneratedAt` set is a no-op unless `TitleEditedAt` is absent (i.e., the auto-title can be refreshed, but a manual rename cannot be undone by automation).
+
+```text
+New chat  ──► [first message sent]  ──► generate-title called  ──►  "My PDF summary"  (TitleGeneratedAt set)
+                                                                           │
+                                                              user renames chat
+                                                                           │
+                                                                    "Custom title"  (TitleEditedAt set)
+                                                                           │
+                                                            generate-title  →  no-op
+```
 
 Current MVP support:
 

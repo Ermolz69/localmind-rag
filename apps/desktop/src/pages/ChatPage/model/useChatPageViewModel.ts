@@ -32,7 +32,9 @@ export function useChatPageViewModel() {
       return created;
     },
     newConversationTitle: conversations.newConversationTitle,
+    replaceConversation: conversations.replaceConversation,
     selectedConversationId: conversations.selectedConversationId,
+    selectedMessagesCount: messages.selectedMessages.length,
     setActiveSourceMessageId: messages.setActiveSourceMessageId,
     setSelectedConversationId: conversations.setSelectedConversationId,
     updateMessage: messages.updateMessage,

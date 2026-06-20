@@ -1,6 +1,6 @@
 # API Contracts
 
-LocalApi uses a predictable JSON envelope for every normal API endpoint except health checks, static files, file downloads, and future streaming endpoints.
+LocalApi uses a predictable JSON envelope for every normal API endpoint except health checks, static files, file downloads, and documented streaming endpoints (see [Streaming Endpoints](#streaming-endpoints) below).
 
 ## Response envelope
 
@@ -67,6 +67,15 @@ The full stable code list, HTTP status mapping, usage guidance, and error envelo
 Services and handlers should not return HTTP primitives. The API boundary converts application results, known application exceptions, and unexpected exceptions into HTTP responses with `ApiResponse<T>`.
 
 Frontend feature code should call the shared `request<T>` client, which unwraps `ApiResponse<T>` and throws a single `ApiError` shape for failed responses.
+
+## Streaming Endpoints
+
+Two endpoints use `text/event-stream` (SSE) and are exempt from the `ApiResponse` envelope:
+
+- `POST /api/v1/chats/{id}/messages/stream` — streams RAG answer chunks as newline-delimited JSON (`data: {…}\n\n`). Sets `Cache-Control: no-cache` and `Connection: keep-alive`. Mid-stream errors are formatted as a final `ApiResponse`-shaped event so the client can distinguish transport errors from application failures.
+- `GET /api/v1/runtime/ai/setup/{setupId}/events` — streams runtime setup progress as named SSE events: `progress`, `completed`, `failed`.
+
+Clients must consume these with `EventSource` or a streaming `fetch`, not with the shared `request<T>()` helper.
 
 ## Migration notes
 

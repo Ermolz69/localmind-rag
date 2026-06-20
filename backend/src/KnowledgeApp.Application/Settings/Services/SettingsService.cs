@@ -15,7 +15,8 @@ public sealed class SettingsService(
     SettingsValidator validator,
     IOperationLogRepository operationLogRepository,
     IAppSettingsCache settingsCache,
-    ISettingsChangeSignal settingsChangeSignal) : ISettingsService
+    ISettingsChangeSignal settingsChangeSignal,
+    ILogSettingsApplier logSettingsApplier) : ISettingsService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -40,7 +41,7 @@ public sealed class SettingsService(
                 DeletePolicy: "MarkDeleted",
                 Folders: []);
 
-        return new AppSettingsDto(
+        AppSettingsDto settings = new(
             Appearance: new AppearanceSettingsDto(
                 Theme: GetString(storedSettings, SettingsKeys.Theme, defaults.Appearance.Theme)),
             Ai: new AiSettingsDto(
@@ -59,7 +60,43 @@ public sealed class SettingsService(
                 Enabled: GetBool(storedSettings, SettingsKeys.SyncEnabled, defaults.Sync.Enabled),
                 AutoSync: GetBool(storedSettings, SettingsKeys.SyncAutoSync, defaults.Sync.AutoSync)),
             Diagnostics: new DiagnosticsSettingsDto(
-                Enabled: GetBool(storedSettings, SettingsKeys.DiagnosticsEnabled, defaultDiagnostics.Enabled)),
+                Enabled: GetBool(storedSettings, SettingsKeys.DiagnosticsEnabled, defaultDiagnostics.Enabled),
+                DeveloperModeEnabled: GetBool(
+                    storedSettings,
+                    SettingsKeys.DiagnosticsDeveloperModeEnabled,
+                    defaultDiagnostics.DeveloperModeEnabled),
+                MinimumLogLevel: GetString(
+                    storedSettings,
+                    SettingsKeys.DiagnosticsMinimumLogLevel,
+                    defaultDiagnostics.MinimumLogLevel),
+                UseSeparateLogFiles: GetBool(
+                    storedSettings,
+                    SettingsKeys.DiagnosticsUseSeparateLogFiles,
+                    defaultDiagnostics.UseSeparateLogFiles),
+                EnableErrorLogs: GetBool(
+                    storedSettings,
+                    SettingsKeys.DiagnosticsEnableErrorLogs,
+                    defaultDiagnostics.EnableErrorLogs),
+                EnableSqlLogs: GetBool(
+                    storedSettings,
+                    SettingsKeys.DiagnosticsEnableSqlLogs,
+                    defaultDiagnostics.EnableSqlLogs),
+                EnableHttpLogs: GetBool(
+                    storedSettings,
+                    SettingsKeys.DiagnosticsEnableHttpLogs,
+                    defaultDiagnostics.EnableHttpLogs),
+                EnableDiagnosticEventLogs: GetBool(
+                    storedSettings,
+                    SettingsKeys.DiagnosticsEnableDiagnosticEventLogs,
+                    defaultDiagnostics.EnableDiagnosticEventLogs),
+                EnableDebugTrace: GetBool(
+                    storedSettings,
+                    SettingsKeys.DiagnosticsEnableDebugTrace,
+                    defaultDiagnostics.EnableDebugTrace),
+                LogRetainedDays: GetInt(
+                    storedSettings,
+                    SettingsKeys.DiagnosticsLogRetainedDays,
+                    defaultDiagnostics.LogRetainedDays)),
             WatchedFolders: new WatchedFoldersSettingsDto(
                 Enabled: GetBool(
                     storedSettings,
@@ -97,6 +134,13 @@ public sealed class SettingsService(
                     storedSettings,
                     SettingsKeys.WatchedFoldersStorageMode,
                     defaultWatchedFolders.StorageMode)));
+
+        if (settings.Diagnostics is not null)
+        {
+            logSettingsApplier.Apply(settings.Diagnostics);
+        }
+
+        return settings;
     }
 
     public async Task<Result> UpdateAsync(AppSettingsDto request, CancellationToken cancellationToken = default)
@@ -138,6 +182,21 @@ public sealed class SettingsService(
         Upsert(storedSettings, SettingsKeys.SyncAutoSync, normalizedRequest.Sync.AutoSync.ToString());
 
         Upsert(storedSettings, SettingsKeys.DiagnosticsEnabled, diagnostics.Enabled.ToString());
+        Upsert(storedSettings, SettingsKeys.DiagnosticsDeveloperModeEnabled, diagnostics.DeveloperModeEnabled.ToString());
+        Upsert(storedSettings, SettingsKeys.DiagnosticsMinimumLogLevel, diagnostics.MinimumLogLevel);
+        Upsert(storedSettings, SettingsKeys.DiagnosticsUseSeparateLogFiles, diagnostics.UseSeparateLogFiles.ToString());
+        Upsert(storedSettings, SettingsKeys.DiagnosticsEnableErrorLogs, diagnostics.EnableErrorLogs.ToString());
+        Upsert(storedSettings, SettingsKeys.DiagnosticsEnableSqlLogs, diagnostics.EnableSqlLogs.ToString());
+        Upsert(storedSettings, SettingsKeys.DiagnosticsEnableHttpLogs, diagnostics.EnableHttpLogs.ToString());
+        Upsert(
+            storedSettings,
+            SettingsKeys.DiagnosticsEnableDiagnosticEventLogs,
+            diagnostics.EnableDiagnosticEventLogs.ToString());
+        Upsert(storedSettings, SettingsKeys.DiagnosticsEnableDebugTrace, diagnostics.EnableDebugTrace.ToString());
+        Upsert(
+            storedSettings,
+            SettingsKeys.DiagnosticsLogRetainedDays,
+            diagnostics.LogRetainedDays.ToString());
 
         Upsert(storedSettings, SettingsKeys.WatchedFoldersEnabled, watchedFolders.Enabled.ToString());
         Upsert(
@@ -180,6 +239,7 @@ public sealed class SettingsService(
         }, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        logSettingsApplier.Apply(diagnostics);
         await settingsCache.InvalidateAsync(CancellationToken.None);
         await settingsChangeSignal.PublishAsync(CancellationToken.None);
 

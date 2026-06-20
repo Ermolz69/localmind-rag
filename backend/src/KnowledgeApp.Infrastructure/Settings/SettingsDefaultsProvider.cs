@@ -2,6 +2,7 @@ using KnowledgeApp.Application.Settings;
 using KnowledgeApp.Contracts.Settings;
 using KnowledgeApp.Domain.Enums;
 using KnowledgeApp.Infrastructure.Options;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace KnowledgeApp.Infrastructure.Settings;
@@ -11,7 +12,8 @@ public sealed class SettingsDefaultsProvider(
     IOptions<DatabaseOptions> databaseOptions,
     IOptions<VectorIndexOptions> vectorIndexOptions,
     IOptions<RuntimeOptions> runtimeOptions,
-    IOptions<EmbeddingOptions> embeddingOptions) : ISettingsDefaultsProvider
+    IOptions<EmbeddingOptions> embeddingOptions,
+    IConfiguration configuration) : ISettingsDefaultsProvider
 {
     public AppSettingsDto GetDefaults()
     {
@@ -20,6 +22,8 @@ public sealed class SettingsDefaultsProvider(
         VectorIndexOptions vectorIndex = vectorIndexOptions.Value;
         RuntimeOptions runtime = runtimeOptions.Value;
         EmbeddingOptions embedding = embeddingOptions.Value;
+
+        IConfigurationSection observability = configuration.GetSection("Observability");
 
         return new AppSettingsDto(
             Appearance: new AppearanceSettingsDto(AppTheme.System.ToString()),
@@ -36,7 +40,17 @@ public sealed class SettingsDefaultsProvider(
                 vectorIndex.IndexPath,
                 storage.LogsPath),
             Sync: new SyncSettingsDto(false, false),
-            Diagnostics: new DiagnosticsSettingsDto(Enabled: true),
+            Diagnostics: new DiagnosticsSettingsDto(
+                Enabled: GetBool(observability, "Enabled", true),
+                DeveloperModeEnabled: false,
+                MinimumLogLevel: GetString(observability, "MinimumLevel", "Information"),
+                UseSeparateLogFiles: GetBool(observability, "UseSeparateLogFiles", false),
+                EnableErrorLogs: GetBool(observability, "EnableErrorLogs", true),
+                EnableSqlLogs: GetBool(observability, "EnableSqlLogs", false),
+                EnableHttpLogs: GetBool(observability, "EnableHttpLogs", true),
+                EnableDiagnosticEventLogs: GetBool(observability, "EnableDiagnosticEventLogs", false),
+                EnableDebugTrace: GetBool(observability, "EnableDebugTrace", false),
+                LogRetainedDays: GetInt(observability, "RetainedFileCountLimit", 14)),
             WatchedFolders: new WatchedFoldersSettingsDto(
                 Enabled: false,
                 DebounceMilliseconds: 1000,
@@ -47,5 +61,21 @@ public sealed class SettingsDefaultsProvider(
                 MaxFileSizeMb: 100,
                 AllowedExtensions: null,
                 StorageMode: WatchedFolderStorageModes.LinkOnly));
+    }
+
+    private static bool GetBool(IConfiguration section, string key, bool fallback)
+    {
+        return bool.TryParse(section[key], out bool value) ? value : fallback;
+    }
+
+    private static int GetInt(IConfiguration section, string key, int fallback)
+    {
+        return int.TryParse(section[key], out int value) ? value : fallback;
+    }
+
+    private static string GetString(IConfiguration section, string key, string fallback)
+    {
+        string? value = section[key];
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 }

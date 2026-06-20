@@ -6,8 +6,10 @@ namespace KnowledgeApp.Observability;
 
 public sealed class RequestLoggingMiddleware(
     RequestDelegate next,
-    ILogger<RequestLoggingMiddleware> logger)
+    ILoggerFactory loggerFactory)
 {
+    private readonly ILogger logger = loggerFactory.CreateLogger("Microsoft.AspNetCore.LocalMind.HttpRequests");
+
     public async Task InvokeAsync(HttpContext context)
     {
         Stopwatch stopwatch = Stopwatch.StartNew();

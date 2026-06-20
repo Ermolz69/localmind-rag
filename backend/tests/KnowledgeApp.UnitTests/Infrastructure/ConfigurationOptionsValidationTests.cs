@@ -237,6 +237,7 @@ public sealed class ConfigurationOptionsValidationTests
     [Theory]
     [InlineData("DataPath", "LocalRuntime:DataPath must be a valid non-empty directory path.")]
     [InlineData("FilesPath", "LocalRuntime:FilesPath must be a valid non-empty directory path.")]
+    [InlineData("PreviewsPath", "LocalRuntime:PreviewsPath must be a valid non-empty directory path.")]
     [InlineData("LogsPath", "LocalRuntime:LogsPath must be a valid non-empty directory path.")]
     public void StorageOptionsValidator_Should_Reject_Missing_Path(
         string property,
@@ -252,6 +253,9 @@ public sealed class ConfigurationOptionsValidationTests
             case "FilesPath":
                 options.FilesPath = string.Empty;
                 break;
+            case "PreviewsPath":
+                options.PreviewsPath = string.Empty;
+                break;
             case "LogsPath":
                 options.LogsPath = string.Empty;
                 break;
@@ -261,6 +265,33 @@ public sealed class ConfigurationOptionsValidationTests
             new StorageOptionsValidator().Validate(null, options);
 
         AssertFailure(result, expectedFailure);
+    }
+
+    [Fact]
+    public void DocumentPreviewOptionsValidator_Should_Accept_Valid_Configuration()
+    {
+        DocumentPreviewOptions options = new();
+
+        ValidateOptionsResult result =
+            new DocumentPreviewOptionsValidator().Validate(null, options);
+
+        Assert.True(result.Succeeded);
+    }
+
+    [Fact]
+    public void DocumentPreviewOptionsValidator_Should_Reject_Invalid_Timeout()
+    {
+        DocumentPreviewOptions options = new()
+        {
+            ConversionTimeoutSeconds = 0,
+        };
+
+        ValidateOptionsResult result =
+            new DocumentPreviewOptionsValidator().Validate(null, options);
+
+        AssertFailure(
+            result,
+            "DocumentPreview:ConversionTimeoutSeconds must be greater than zero.");
     }
 
     [Fact]

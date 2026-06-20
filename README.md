@@ -22,7 +22,13 @@ dotnet build KnowledgeApp.slnx
 dotnet test KnowledgeApp.slnx
 ```
 
-Checks:
+Quick static checks (format, lint, typecheck, API contracts, color guard):
+
+```bash
+pnpm check:quick
+```
+
+Developer validation (static checks + frontend tests):
 
 ```bash
 pnpm check
@@ -67,7 +73,7 @@ Project releases are published through GitHub Releases. Release notes describe w
 
 ## GitHub Workflows
 
-- `Check`: full validation on push, pull request, and manual run.
+- `Check`: PR and push validation across backend, frontend, and Tauri shell.
 - `Docs`: DocFX and OpenAPI documentation build on pull request, with GitHub Pages deployment from the default branch.
 - `Portable Release`: manual or tag-based Windows portable preview artifact build.
 
@@ -75,13 +81,15 @@ Project releases are published through GitHub Releases. Release notes describe w
 
 - Backend format
 - Backend build
-- Backend tests
-- Frontend format
-- Frontend lint
-- Frontend typecheck
+- Backend unit tests
+- Backend integration tests
+- Backend RAG evaluation tests
+- Backend architecture tests
+- Frontend check: format, lint, typecheck, color guard
+- Frontend tests
 - Frontend build
-- Frontend color guard
-- Docker compose config
+- Tauri shell check (triggered only on `apps/desktop/src-tauri/**` or Taskfile changes)
+- API contract drift
 - Check summary
 
 ## Repository Hygiene

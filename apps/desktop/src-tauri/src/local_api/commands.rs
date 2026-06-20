@@ -161,7 +161,35 @@ pub fn select_connected_folder(app: AppHandle) -> Result<Option<String>, ErrorDt
     os::select_connected_folder(&app).map_err(ErrorDto::from)
 }
 
+/// Resolves a possibly-relative settings path against the app root so that
+/// relative values (e.g. "runtime/app/data") can still be opened in Explorer.
+fn resolve_against_app_root(path: &str) -> std::path::PathBuf {
+    let candidate = std::path::Path::new(path);
+    if candidate.is_absolute() {
+        return candidate.to_path_buf();
+    }
+
+    let mut resolved = paths::app_root();
+    for component in path.split(['/', '\\']) {
+        match component {
+            "" | "." => {}
+            ".." => {
+                resolved.pop();
+            }
+            other => resolved.push(other),
+        }
+    }
+    resolved
+}
+
 #[tauri::command]
 pub fn reveal_file_in_explorer(path: String) -> Result<(), ErrorDto> {
-    os::reveal_file(&path).map_err(ErrorDto::from)
+    let resolved = resolve_against_app_root(&path);
+    os::reveal_file(&resolved.to_string_lossy()).map_err(ErrorDto::from)
+}
+
+#[tauri::command]
+pub fn open_path_in_explorer(path: String) -> Result<(), ErrorDto> {
+    let resolved = resolve_against_app_root(&path);
+    os::open_folder(&resolved).map_err(ErrorDto::from)
 }
