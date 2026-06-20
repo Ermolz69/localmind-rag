@@ -1,4 +1,7 @@
+import { FileText } from "lucide-react";
+
 import { cn } from "@shared/lib/cn";
+import { EmptyState } from "@shared/ui";
 import { resolveDocumentPhase, documentPhaseClass } from "@entities/document";
 
 import {
@@ -11,7 +14,7 @@ function statusLabel(document: CompanionDocument): string {
   const { phase, label } = resolveDocumentPhase(document.status);
 
   if (phase === "processing" && document.progressPercent !== null) {
-    return `${label} · ${document.progressPercent}%`;
+    return `${label} - ${document.progressPercent}%`;
   }
 
   return label;
@@ -31,7 +34,7 @@ function Summary({ documents }: { documents: CompanionDocument[] }) {
 
   return (
     <p className="text-xs text-muted-foreground">
-      {ready} ready · {processing} processing · {waiting} waiting · {failed}{" "}
+      {ready} ready - {processing} processing - {waiting} waiting - {failed}{" "}
       failed
     </p>
   );
@@ -41,7 +44,9 @@ export function CompanionDocuments() {
   const { documents, isLoading, error } = useCompanionDocuments();
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading documents…</p>;
+    return (
+      <p className="text-sm text-muted-foreground">Loading documents...</p>
+    );
   }
 
   if (error) {
@@ -50,9 +55,11 @@ export function CompanionDocuments() {
 
   if (documents.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No documents yet. Add documents on the computer to search them here.
-      </p>
+      <EmptyState
+        icon={<FileText className="h-5 w-5" />}
+        title="No documents yet"
+        description="Add a document on the computer, or from Files, and it will appear here."
+      />
     );
   }
 

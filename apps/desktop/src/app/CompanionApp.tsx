@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Loader2 } from "lucide-react";
 import {
   Navigate,
   RouterProvider,
   createBrowserRouter,
 } from "react-router-dom";
+
+import { Button } from "@shared/ui";
 
 import { CompanionActionPage } from "@pages/CompanionActionPage";
 import { CompanionActivityPage } from "@pages/CompanionActivityPage";
@@ -40,23 +43,30 @@ export function CompanionApp() {
   const [state, setState] = useState<BootstrapState>("loading");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const runBootstrap = useCallback(() => {
+    setState("loading");
+    setError(null);
     void bootstrapCompanionSession().then((result) => {
       setError(result.error ?? null);
       setState(result.state);
     });
   }, []);
 
+  useEffect(() => {
+    runBootstrap();
+  }, [runBootstrap]);
+
   return (
     <AppProviders>
       {state === "ready" ? (
         <RouterProvider router={router} />
       ) : state === "loading" ? (
-        <CompanionMessage title="Connecting…" />
+        <CompanionMessage title="Connecting..." loading />
       ) : state === "error" ? (
         <CompanionMessage
-          title="Couldn’t connect"
-          body={error ?? "Try scanning the code again."}
+          title="Couldn't connect"
+          body={error ?? "Try again in a moment."}
+          action={<Button onClick={runBootstrap}>Try again</Button>}
         />
       ) : (
         <CompanionMessage
@@ -68,13 +78,27 @@ export function CompanionApp() {
   );
 }
 
-function CompanionMessage({ title, body }: { title: string; body?: string }) {
+function CompanionMessage({
+  title,
+  body,
+  loading,
+  action,
+}: {
+  title: string;
+  body?: string;
+  loading?: boolean;
+  action?: ReactNode;
+}) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-background px-6 text-center text-foreground">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-6 text-center text-foreground">
+      {loading ? (
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      ) : null}
       <h1 className="text-lg font-semibold">{title}</h1>
       {body ? (
         <p className="max-w-xs text-sm text-muted-foreground">{body}</p>
       ) : null}
+      {action ? <div className="mt-1">{action}</div> : null}
     </div>
   );
 }

@@ -1,11 +1,20 @@
-import { companionApi, getErrorMessage, setApiBaseUrl } from "@shared/api";
 import {
+  ApiError,
+  companionApi,
+  getErrorMessage,
+  setApiBaseUrl,
+} from "@shared/api";
+import {
+  clearCompanionToken,
   describeCompanionDevice,
   getCompanionToken,
   setCompanionToken,
 } from "@shared/lib/companionAuth";
 
 export type CompanionBootstrapState = "ready" | "unpaired" | "error";
+
+const COMPUTER_UNAVAILABLE =
+  "Your computer isn't reachable. Make sure LocalMind is running with Companion Mode on, and that your phone is on the same Wi-Fi.";
 
 export type CompanionBootstrapResult = {
   state: CompanionBootstrapState;
@@ -46,5 +55,22 @@ export async function bootstrapCompanionSession(): Promise<CompanionBootstrapRes
     }
   }
 
-  return { state: getCompanionToken() ? "ready" : "unpaired" };
+  if (!getCompanionToken()) {
+    return { state: "unpaired" };
+  }
+
+  // A returning device has a stored token. Verify the computer is actually
+  // reachable before showing the UI, so we can tell "computer unavailable" apart
+  // from "this device was removed".
+  try {
+    await companionApi.getInfo();
+    return { state: "ready" };
+  } catch (exception) {
+    if (exception instanceof ApiError && exception.status === 401) {
+      clearCompanionToken();
+      return { state: "unpaired" };
+    }
+
+    return { state: "error", error: COMPUTER_UNAVAILABLE };
+  }
 }

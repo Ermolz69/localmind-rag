@@ -2,10 +2,12 @@ import { useParams } from "react-router-dom";
 
 import { findCompanionAction } from "@features/companion-pairing";
 import { CompanionScreen } from "@widgets/CompanionScreen/CompanionScreen";
+import { EmptyState } from "@shared/ui";
 
 export function CompanionActionPage() {
   const { action } = useParams();
   const companionAction = findCompanionAction(action);
+  const Icon = companionAction?.icon;
 
   return (
     <CompanionScreen
@@ -13,11 +15,18 @@ export function CompanionActionPage() {
       description={companionAction?.description}
       icon={companionAction?.icon}
     >
-      <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
-        {companionAction
-          ? "This will be available from your phone in a later step. For now, use the desktop app for this."
-          : "This companion action does not exist."}
-      </div>
+      {companionAction ? (
+        <EmptyState
+          icon={Icon ? <Icon className="h-5 w-5" /> : undefined}
+          title="Not on the phone yet"
+          description="This control lives in LocalMind on your computer for now. You can still watch progress in Documents and Activity."
+        />
+      ) : (
+        <EmptyState
+          title="Screen not found"
+          description="This companion screen doesn't exist. Head back home to pick an action."
+        />
+      )}
     </CompanionScreen>
   );
 }

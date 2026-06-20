@@ -1,4 +1,7 @@
+import { Activity } from "lucide-react";
+
 import { cn } from "@shared/lib/cn";
+import { EmptyState } from "@shared/ui";
 
 import {
   useCompanionActivity,
@@ -38,7 +41,7 @@ export function CompanionActivity() {
   const { events, isLoading, error } = useCompanionActivity();
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading activity…</p>;
+    return <p className="text-sm text-muted-foreground">Loading activity...</p>;
   }
 
   if (error) {
@@ -47,9 +50,11 @@ export function CompanionActivity() {
 
   if (events.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Nothing yet. Activity appears here as LocalMind works on the computer.
-      </p>
+      <EmptyState
+        icon={<Activity className="h-5 w-5" />}
+        title="Nothing yet"
+        description="Activity shows up here as LocalMind works on your computer."
+      />
     );
   }
 

@@ -2,6 +2,8 @@ import { ArrowLeft, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
+import { CompanionTabBar } from "./CompanionTabBar";
+
 type CompanionScreenProps = {
   title: string;
   description?: string;
@@ -42,6 +44,8 @@ export function CompanionScreen({
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+
+        <CompanionTabBar />
       </div>
     </div>
   );

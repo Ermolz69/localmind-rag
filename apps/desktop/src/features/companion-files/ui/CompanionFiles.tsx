@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { File, Folder, Home, Plus } from "lucide-react";
+import { File, Folder, FolderInput, Home, Plus } from "lucide-react";
 
-import { Button, Toast } from "@shared/ui";
+import { Button, EmptyState, Toast } from "@shared/ui";
 import { useToast } from "@shared/lib/hooks";
 
 import { useCompanionFiles } from "../model/useCompanionFiles";
@@ -93,12 +93,14 @@ export function CompanionFiles() {
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <p className="text-sm text-muted-foreground">Loading...</p>
         ) : current === null ? (
           roots.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No folders are shared yet. Allow folders on the computer first.
-            </p>
+            <EmptyState
+              icon={<FolderInput className="h-5 w-5" />}
+              title="No shared folders"
+              description="Allow folders on the computer first, then pick files from them here."
+            />
           ) : (
             roots.map((root) => (
               <button
@@ -155,7 +157,7 @@ export function CompanionFiles() {
                   }
                 >
                   <Plus className="h-4 w-4" />
-                  {addingPath === entry.path ? "Adding…" : "Add"}
+                  {addingPath === entry.path ? "Adding..." : "Add"}
                 </Button>
               </div>
             ),
