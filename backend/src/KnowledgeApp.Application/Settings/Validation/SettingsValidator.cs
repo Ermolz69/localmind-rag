@@ -10,6 +10,8 @@ public sealed class SettingsValidator(IWatchedFolderPathValidator watchedFolderP
 {
     private const int MinDebounceMilliseconds = 250;
     private const int MaxDebounceMilliseconds = 60000;
+    private const int MinLogRetainedDays = 1;
+    private const int MaxLogRetainedDays = 365;
     private const string MarkDeletedPolicy = "MarkDeleted";
     private static readonly HashSet<string> SupportedLogLevels = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -74,6 +76,14 @@ public sealed class SettingsValidator(IWatchedFolderPathValidator watchedFolderP
             !SupportedLogLevels.Contains(diagnostics.MinimumLogLevel))
         {
             errors["diagnostics.minimumLogLevel"] = ["Unsupported diagnostics log level."];
+        }
+
+        if (diagnostics.LogRetainedDays is < MinLogRetainedDays or > MaxLogRetainedDays)
+        {
+            errors["diagnostics.logRetainedDays"] =
+            [
+                $"Log retention must be between {MinLogRetainedDays} and {MaxLogRetainedDays} days."
+            ];
         }
     }
 

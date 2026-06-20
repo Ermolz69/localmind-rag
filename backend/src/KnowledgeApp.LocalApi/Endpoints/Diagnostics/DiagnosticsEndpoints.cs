@@ -76,6 +76,16 @@ public static class DiagnosticsEndpoints
             .WithSummary("Gets recent operation logs.")
             .Produces<ApiResponse<CursorPage<KnowledgeApp.Contracts.Diagnostics.OperationLogDto>>>();
 
+        group.MapPost("/logs/cleanup", async (
+            ILogMaintenanceService logMaintenance,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+            ApiResults.Ok(await logMaintenance.CleanupAllAsync(cancellationToken), context))
+            .WithName("DiagnosticsLogsCleanup")
+            .WithSummary("Deletes local log files.")
+            .WithDescription("Removes LocalMind log files from the logs folder. Files currently in use are skipped.")
+            .Produces<ApiResponse<LogCleanupResultDto>>();
+
         return app;
     }
 }

@@ -13,8 +13,10 @@ pub fn open_folder(path: &Path) -> std::io::Result<()> {
 }
 
 pub fn reveal_file(path: &str) -> std::io::Result<()> {
+    // Quote only the path (not the whole switch) so Explorer's /select handles
+    // paths containing spaces; raw_arg appends verbatim without Rust's escaping.
     Command::new("explorer")
-        .arg(format!("/select,{path}"))
+        .raw_arg(format!("/select,\"{path}\""))
         .spawn()
         .map(|_| ())
 }

@@ -1016,6 +1016,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/diagnostics/logs/cleanup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Deletes local log files.
+     * @description Removes LocalMind log files from the logs folder. Files currently in use are skipped.
+     */
+    post: operations["DiagnosticsLogsCleanup"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/system/shutdown": {
     parameters: {
       query?: never;
@@ -1302,6 +1322,15 @@ export interface components {
       success: boolean;
       /** @description Response payload for successful operations. */
       data: null | components["schemas"]["ChatMessageDto"][];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfLogCleanupResultDto: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["LogCleanupResultDto"];
       error: null | components["schemas"]["ApiError"];
       /** @description Response metadata shared by success and error responses. */
       metadata: components["schemas"]["ApiMetadata"];
@@ -1821,6 +1850,12 @@ export interface components {
        * @default false
        */
       enableDebugTrace: boolean;
+      /**
+       * Format: int32
+       * @description How many days of log files to keep before automatic cleanup removes them.
+       * @default 14
+       */
+      logRetainedDays: number | string;
     };
     /** @description Storage size diagnostics in bytes. */
     DiagnosticsStorageDto: {
@@ -1956,6 +1991,24 @@ export interface components {
       limit: number | string;
       /** Format: int32 */
       offset: number | string;
+    };
+    /** @description Result of a log files cleanup operation. */
+    LogCleanupResultDto: {
+      /**
+       * Format: int32
+       * @description Number of log files that were removed.
+       */
+      deletedFiles: number | string;
+      /**
+       * Format: int64
+       * @description Total size of the removed files, in bytes.
+       */
+      freedBytes: number | string;
+      /**
+       * Format: int32
+       * @description Number of log files that could not be removed (e.g. currently in use).
+       */
+      skippedFiles: number | string;
     };
     /** @description Request used to move a note folder to a new bucket and/or parent folder. */
     MoveNoteFolderRequest: {
@@ -4345,6 +4398,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponseOfCursorPageOfOperationLogDto"];
+        };
+      };
+    };
+  };
+  DiagnosticsLogsCleanup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfLogCleanupResultDto"];
         };
       };
     };
