@@ -174,14 +174,21 @@ any native app is considered).
   knowledge base and lists matching snippets.
 - **Documents** (`/companion/documents`) is a read-only view of the knowledge
   base: each document's lifecycle status, live indexing progress (e.g.
-  "Embedding 75%"), and failure reasons, plus a counts summary (ready /
+  "Processing · 75%"), and failure reasons, plus a counts summary (ready /
   processing / waiting / failed). It polls while work is in flight. Actions
-  (retry, cancel, reindex) are intentionally deferred to a later stage.
+  (retry, cancel, reindex) are intentionally deferred to a later stage. Both this
+  view and the Files "Recently added" strip share one lifecycle vocabulary
+  (`resolveDocumentPhase` in `entities/document`): **accepted → waiting to
+  process → processing → ready to search / couldn't process**, so the many
+  internal status names map to five states the user can understand.
 - **Files** (`/companion/files`) lets the phone browse the **allowed folders**
   the user shared on the computer and add a chosen file into LocalMind for
   indexing. The file is added by path — it is **not** downloaded to the phone —
   and browsing is strictly confined to allowed roots (see
-  [Allowed folders](#allowed-folders-and-file-picking)).
+  [Allowed folders](#allowed-folders-and-file-picking)). Adding goes through the
+  normal `UploadDocumentHandler` pipeline (same as the desktop), and the added
+  file then appears in a **Recently added** strip on the same screen with its
+  **live lifecycle status**, so the loop closes without leaving Files.
 - **Activity** (`/companion/activity`) is a near-real-time feed of what LocalMind
   is doing — files added, text extraction, embeddings, indexed/failed, watched
   folder finds, and device connect/disconnect (see

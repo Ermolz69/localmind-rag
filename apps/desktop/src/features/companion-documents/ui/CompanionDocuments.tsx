@@ -1,4 +1,5 @@
 import { cn } from "@shared/lib/cn";
+import { resolveDocumentPhase, documentPhaseClass } from "@entities/document";
 
 import {
   ACTIVE_DOCUMENT_STATUSES,
@@ -7,28 +8,17 @@ import {
 } from "../model/useCompanionDocuments";
 
 function statusLabel(document: CompanionDocument): string {
-  if (
-    ACTIVE_DOCUMENT_STATUSES.has(document.status) &&
-    document.progressPercent !== null &&
-    document.status !== "Pending"
-  ) {
-    return `${document.status} ${document.progressPercent}%`;
+  const { phase, label } = resolveDocumentPhase(document.status);
+
+  if (phase === "processing" && document.progressPercent !== null) {
+    return `${label} · ${document.progressPercent}%`;
   }
 
-  return document.status;
+  return label;
 }
 
 function statusClass(status: string): string {
-  if (status === "Indexed") {
-    return "text-green-500";
-  }
-  if (status === "Failed") {
-    return "text-destructive";
-  }
-  if (ACTIVE_DOCUMENT_STATUSES.has(status)) {
-    return "text-accent";
-  }
-  return "text-muted-foreground";
+  return documentPhaseClass(resolveDocumentPhase(status).phase);
 }
 
 function Summary({ documents }: { documents: CompanionDocument[] }) {

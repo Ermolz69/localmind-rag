@@ -61,13 +61,17 @@ describe("useCompanionFiles", () => {
     const { result } = renderHook(() => useCompanionFiles());
     await waitFor(() => expect(result.current.roots).toHaveLength(1));
 
-    let outcome: { success: boolean; message: string } | undefined;
+    let outcome:
+      | { success: boolean; message: string; documentId?: string }
+      | undefined;
     await act(async () => {
       outcome = await result.current.addFile("C:/Docs/notes.txt");
     });
 
     expect(mockAddFile).toHaveBeenCalledWith({ path: "C:/Docs/notes.txt" });
     expect(outcome?.success).toBe(true);
+    // The created document id is surfaced so the UI can track its processing.
+    expect(outcome?.documentId).toBe("doc-1");
   });
 
   it("reports a failed add", async () => {

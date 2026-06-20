@@ -6,7 +6,11 @@ import { companionApi, getErrorMessage } from "@shared/api";
 export type CompanionFileRoot =
   OperationData<"GetCompanionFileRoots">["roots"][number];
 export type CompanionBrowse = OperationData<"BrowseCompanionFiles">;
-export type CompanionFileAddResult = { success: boolean; message: string };
+export type CompanionFileAddResult = {
+  success: boolean;
+  message: string;
+  documentId?: string;
+};
 
 /**
  * Browses the folders the user allowed on the computer and adds chosen files to
@@ -59,10 +63,11 @@ export function useCompanionFiles() {
     async (path: string): Promise<CompanionFileAddResult> => {
       setAddingPath(path);
       try {
-        await companionApi.addFile({ path });
+        const response = await companionApi.addFile({ path });
         return {
           success: true,
           message: "Added to LocalMind. Indexing will start shortly.",
+          documentId: response.documentId,
         };
       } catch (exception) {
         return {

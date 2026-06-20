@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { File, Folder, Home, Plus } from "lucide-react";
 
 import { Button, Toast } from "@shared/ui";
@@ -5,6 +6,10 @@ import { useToast } from "@shared/lib/hooks";
 
 import { useCompanionFiles } from "../model/useCompanionFiles";
 import { buildBreadcrumb } from "../model/breadcrumb";
+import {
+  RecentlyAddedFiles,
+  type RecentlyAddedItem,
+} from "./RecentlyAddedFiles";
 
 export function CompanionFiles() {
   const {
@@ -18,10 +23,21 @@ export function CompanionFiles() {
     addFile,
   } = useCompanionFiles();
   const { toast, showToast, dismissToast } = useToast();
+  const [recent, setRecent] = useState<RecentlyAddedItem[]>([]);
 
-  async function handleAdd(path: string) {
-    const result = await addFile(path);
+  async function handleAdd(entry: { name: string; path: string }) {
+    const result = await addFile(entry.path);
     showToast(result.message, result.success ? "success" : "error");
+
+    if (result.success && result.documentId) {
+      const id = result.documentId;
+      setRecent((previous) =>
+        [
+          { id, name: entry.name },
+          ...previous.filter((item) => item.id !== id),
+        ].slice(0, 5),
+      );
+    }
   }
 
   const breadcrumb = current ? buildBreadcrumb(roots, current.path) : [];
@@ -70,6 +86,8 @@ export function CompanionFiles() {
           </nav>
         </div>
       ) : null}
+
+      {recent.length > 0 ? <RecentlyAddedFiles items={recent} /> : null}
 
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
 
@@ -132,7 +150,9 @@ export function CompanionFiles() {
                   variant="secondary"
                   className="shrink-0"
                   disabled={addingPath === entry.path}
-                  onClick={() => void handleAdd(entry.path)}
+                  onClick={() =>
+                    void handleAdd({ name: entry.name, path: entry.path })
+                  }
                 >
                   <Plus className="h-4 w-4" />
                   {addingPath === entry.path ? "Adding…" : "Add"}
