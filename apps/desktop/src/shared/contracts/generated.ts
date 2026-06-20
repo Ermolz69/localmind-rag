@@ -1499,6 +1499,7 @@ export interface components {
       watchedFolders?:
         | null
         | components["schemas"]["WatchedFoldersSettingsDto"];
+      companionMode?: null | components["schemas"]["CompanionModeSettingsDto"];
     };
     /** @description Bucket returned by the LocalMind API. */
     BucketDto: {
@@ -1559,6 +1560,16 @@ export interface components {
       /** @description User message text. */
       content: string;
       filters?: null | components["schemas"]["RetrievalFilters"];
+    };
+    /**
+     * @description Companion Mode settings. Companion Mode is an opt-in mode that lets a phone
+     *     connect to LocalMind over the local network as a remote interface. It is
+     *     disabled by default and the desktop app stays local-only until the user
+     *     explicitly enables it.
+     */
+    CompanionModeSettingsDto: {
+      /** @description True when phone connection (Companion Mode) is enabled. */
+      enabled: boolean;
     };
     ContentSearchHitDto: {
       sourceType: string;

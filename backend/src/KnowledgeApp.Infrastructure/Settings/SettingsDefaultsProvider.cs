@@ -60,7 +60,8 @@ public sealed class SettingsDefaultsProvider(
                 IgnoredPatterns: ["~$*", "*.tmp", "*.bak"],
                 MaxFileSizeMb: 100,
                 AllowedExtensions: null,
-                StorageMode: WatchedFolderStorageModes.LinkOnly));
+                StorageMode: WatchedFolderStorageModes.LinkOnly),
+            CompanionMode: new CompanionModeSettingsDto(Enabled: false));
     }
 
     private static bool GetBool(IConfiguration section, string key, bool fallback)

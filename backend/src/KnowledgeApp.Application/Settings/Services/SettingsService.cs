@@ -40,6 +40,8 @@ public sealed class SettingsService(
                 DebounceMilliseconds: 1000,
                 DeletePolicy: "MarkDeleted",
                 Folders: []);
+        CompanionModeSettingsDto defaultCompanionMode =
+            defaults.CompanionMode ?? new CompanionModeSettingsDto(Enabled: false);
 
         AppSettingsDto settings = new(
             Appearance: new AppearanceSettingsDto(
@@ -133,7 +135,12 @@ public sealed class SettingsService(
                 StorageMode: GetString(
                     storedSettings,
                     SettingsKeys.WatchedFoldersStorageMode,
-                    defaultWatchedFolders.StorageMode)));
+                    defaultWatchedFolders.StorageMode)),
+            CompanionMode: new CompanionModeSettingsDto(
+                Enabled: GetBool(
+                    storedSettings,
+                    SettingsKeys.CompanionModeEnabled,
+                    defaultCompanionMode.Enabled)));
 
         if (settings.Diagnostics is not null)
         {
@@ -152,6 +159,9 @@ public sealed class SettingsService(
         WatchedFoldersSettingsDto watchedFolders =
             normalizedRequest.WatchedFolders
             ?? throw new InvalidOperationException("Normalized watched folder settings are required.");
+        CompanionModeSettingsDto companionMode =
+            normalizedRequest.CompanionMode
+            ?? throw new InvalidOperationException("Normalized companion mode settings are required.");
 
         Result validation = validator.Validate(normalizedRequest);
 
@@ -229,6 +239,8 @@ public sealed class SettingsService(
             SettingsKeys.WatchedFoldersStorageMode,
             watchedFolders.StorageMode);
 
+        Upsert(storedSettings, SettingsKeys.CompanionModeEnabled, companionMode.Enabled.ToString());
+
         await operationLogRepository.AddAsync(new OperationLog
         {
             OperationType = "Settings.Update",
@@ -253,7 +265,8 @@ public sealed class SettingsService(
         return request with
         {
             Diagnostics = request.Diagnostics ?? defaults.Diagnostics,
-            WatchedFolders = request.WatchedFolders ?? defaults.WatchedFolders
+            WatchedFolders = request.WatchedFolders ?? defaults.WatchedFolders,
+            CompanionMode = request.CompanionMode ?? defaults.CompanionMode
         };
     }
 

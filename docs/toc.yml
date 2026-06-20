@@ -59,6 +59,8 @@
       items:
         - name: Local security
           href: architecture/local-security.md
+        - name: Companion Mode
+          href: architecture/companion-mode.md
         - name: Offline/online sync
           href: architecture/offline-online-sync.md
     - name: Observability

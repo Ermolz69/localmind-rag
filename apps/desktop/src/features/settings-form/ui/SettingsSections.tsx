@@ -43,6 +43,10 @@ export function SettingsSections({
   const { toast, showToast, dismissToast } = useToast();
   const developerModeEnabled = draft.diagnostics?.developerModeEnabled ?? false;
   const useSeparateLogFiles = draft.diagnostics?.useSeparateLogFiles ?? false;
+  const companionModeEnabled = draft.companionMode?.enabled ?? false;
+  const companionStatusLabel = companionModeEnabled
+    ? "Waiting for connection"
+    : "Off";
 
   function setDiagnostics(patch: Partial<AppSettings["diagnostics"]>) {
     onChange({
@@ -351,6 +355,73 @@ export function SettingsSections({
             </Select>
           </Field>
         </div>
+      </Section>
+
+      <Section
+        id="companion-mode"
+        title="Companion Mode"
+        description="Let a phone connect to LocalMind over your local network as a remote interface. The desktop app stays local-only until you explicitly turn this on."
+        badge={
+          <Badge className="border-accent/40 bg-accent/10 text-accent">
+            Local network
+          </Badge>
+        }
+      >
+        <div className="divide-y divide-border rounded-lg border border-border">
+          <SettingRow
+            title="Enable phone connection"
+            description="Off by default. You decide when to allow a phone to connect."
+            control={
+              <Switch
+                checked={companionModeEnabled}
+                onChange={(enabled) =>
+                  onChange({
+                    ...draft,
+                    companionMode: { ...draft.companionMode, enabled },
+                  })
+                }
+                aria-label="Enable phone connection"
+              />
+            }
+          />
+          <SettingRow
+            title="Status"
+            description="Current state of the phone connection."
+            control={
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-xs font-medium",
+                  companionModeEnabled
+                    ? "bg-accent/10 text-accent"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                {companionStatusLabel}
+              </span>
+            }
+          />
+          <SettingRow
+            title="Network"
+            description="Companion Mode only accepts connections on your local Wi-Fi."
+            control={
+              <span className="text-sm text-muted-foreground">Local Wi-Fi</span>
+            }
+          />
+          <SettingRow
+            title="Device"
+            description="The phone currently paired with this computer."
+            control={
+              <span className="text-sm text-muted-foreground">
+                No device connected
+              </span>
+            }
+          />
+        </div>
+
+        <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+          Pairing a phone and browsing from it arrive in a later step. For now
+          this is the safe, opt-in switch that turns the mode on or off.
+        </p>
       </Section>
 
       <Section

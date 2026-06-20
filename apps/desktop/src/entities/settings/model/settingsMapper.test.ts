@@ -50,5 +50,32 @@ describe("toAppSettings", () => {
       allowedExtensions: null,
       storageMode: "LinkOnly",
     });
+    expect(mappedSettings.companionMode).toEqual({ enabled: false });
+  });
+
+  it("keeps companion mode when the backend provides it", () => {
+    const settings: OperationData<"GetSettings"> = {
+      appearance: { theme: "System" },
+      ai: {
+        provider: "llama-cpp",
+        chatModel: "chat.gguf",
+        embeddingModel: "embedding.gguf",
+        runtimePath: "runtime",
+        modelsPath: "models",
+      },
+      runtimePaths: {
+        dataPath: "data",
+        databasePath: "data/localmind.db",
+        filesPath: "files",
+        indexPath: "indexes",
+        logsPath: "logs",
+      },
+      sync: { enabled: false, autoSync: false },
+      companionMode: { enabled: true },
+    };
+
+    const mappedSettings = toAppSettings(settings);
+
+    expect(mappedSettings.companionMode).toEqual({ enabled: true });
   });
 });

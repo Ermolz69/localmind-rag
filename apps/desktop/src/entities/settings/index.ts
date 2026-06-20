@@ -2,6 +2,7 @@ export type {
   AiSettings,
   AppearanceSettings,
   AppSettings,
+  CompanionModeSettings,
   RuntimePathsSettings,
   SyncSettings,
   WatchedFolder,

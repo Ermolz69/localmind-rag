@@ -14,6 +14,10 @@ const defaultWatchedFolders: AppSettings["watchedFolders"] = {
   storageMode: "LinkOnly",
 };
 
+const defaultCompanionMode: AppSettings["companionMode"] = {
+  enabled: false,
+};
+
 const defaultDiagnostics: AppSettings["diagnostics"] = {
   enabled: true,
   developerModeEnabled: false,
@@ -33,6 +37,7 @@ export function toAppSettings(
   return {
     ...settings,
     diagnostics: settings.diagnostics ?? defaultDiagnostics,
+    companionMode: settings.companionMode ?? { ...defaultCompanionMode },
     watchedFolders: settings.watchedFolders ?? {
       ...defaultWatchedFolders,
       folders: [],
