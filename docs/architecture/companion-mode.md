@@ -41,9 +41,9 @@ What exists today:
   [Pairing](#pairing-qr-code) below.
 - A **mobile companion interface**: a standalone, phone-first shell served from
   the existing frontend at `/companion`, including a working RAG **chat**,
-  semantic **search**, and a read-only **documents** indexing-status view over
-  the already-indexed knowledge base. See [Mobile interface](#mobile-interface)
-  below.
+  semantic **search**, a read-only **documents** indexing-status view, and
+  **watched folders** management (rescan, cleanup). See
+  [Mobile interface](#mobile-interface) below.
 
 ## Settings shape
 
@@ -125,12 +125,17 @@ any native app is considered).
   "Embedding 75%"), and failure reasons, plus a counts summary (ready /
   processing / waiting / failed). It polls while work is in flight. Actions
   (retry, cancel, reindex) are intentionally deferred to a later stage.
-- Chat, Search, and Documents are **read-only over already-indexed documents** —
-  the phone does not manage files yet. They reuse the existing `chatsApi` /
-  `searchApi` / `documentsApi` / `ingestionApi` LocalApi slices, so no new
-  backend endpoints were added for them.
-- **Indexing, Folders** (`/companion/{action}`) are still lightweight
-  placeholder screens; their phone experiences arrive in later stages.
+- **Watched folders** (`/companion/folders`) lets the phone manage the folders
+  already allowed on the computer: view each folder's health, document count,
+  and access errors; **rescan** a folder (or all) to pick up new files; and
+  **clean up** records of deleted files. By design the phone **cannot add new
+  folders from disk** — it only acts on what the computer permits.
+- Chat, Search, and Documents are read-only; Watched folders adds the first
+  state-changing actions (rescan, cleanup). They reuse the existing `chatsApi` /
+  `searchApi` / `documentsApi` / `ingestionApi` / `watchedFoldersApi` LocalApi
+  slices, so no new backend endpoints were added for the mobile interface.
+- **Indexing** (`/companion/{action}`) is still a lightweight placeholder
+  screen; its phone experience arrives in a later stage.
 - The shell renders without the desktop chrome (no sidebar). On the desktop, the
   Companion Mode settings section links to `/companion?preview=1` so the user can
   preview what the phone sees; the preview adds an "Exit preview" link back to
@@ -151,10 +156,10 @@ default:
 2. Durable storage for trusted devices (and per-device tokens) so a paired phone
    reconnects without re-pairing across restarts.
 3. Document actions from the phone (retry, cancel, reindex) on top of the
-   read-only Documents view, the remaining mobile actions (indexing, folders —
-   these involve file management), and a companion bootstrap that obtains the
-   LocalApi base URL over the network instead of from the Tauri shell. Chat,
-   Search, and the read-only Documents view are already functional.
+   read-only Documents view, the remaining Indexing action, and a companion
+   bootstrap that obtains the LocalApi base URL over the network instead of from
+   the Tauri shell. Chat, Search, the read-only Documents view, and Watched
+   folders management are already functional.
 4. Capability-scoped access (chat, search, document view, indexing of selected
    files, managing allowed folders) rather than full disk access.
 
