@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Eye,
   FileText,
@@ -15,6 +15,9 @@ import { documentStatusStyles } from "@shared/constants/ui";
 import {
   Button,
   ConfirmDialog,
+  ContextMenu,
+  ContextMenuItem,
+  ContextMenuSeparator,
   EmptyState,
   InlineError,
   StatusBadge,
@@ -60,6 +63,7 @@ function DocumentListItem({
 }) {
   const [infoRef] = useAutoAnimate<HTMLDivElement>();
   const [actionsRef] = useAutoAnimate<HTMLDivElement>();
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
 
   const canProcess = ["Queued", "Failed"].includes(document.status) && !job;
   const lifecycleStatus = getDocumentLifecycleStatus(document, job);
@@ -67,8 +71,29 @@ function DocumentListItem({
     documentStatusStyles[lifecycleStatus] ?? documentStatusStyles.Pending;
   const hasJobDetails = job !== undefined;
 
+  const hasContextItems =
+    canProcess || !!(job?.canCancel && onCancel) || !!onRequestDelete;
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!hasContextItems) return;
+      e.preventDefault();
+      setMenuPos({ x: e.clientX, y: e.clientY });
+    },
+    [hasContextItems],
+  );
+
+  const closeMenu = useCallback(() => setMenuPos(null), []);
+
+  const hasPrimaryItems = canProcess || !!(job?.canCancel && onCancel);
+
   return (
-    <div className="group grid grid-cols-[minmax(0,1fr)_8rem_10rem_14rem] items-start gap-3 border-b border-border px-4 py-3 transition-colors duration-200 last:border-b-0 hover:bg-muted/50">
+    <div
+      className={`group grid grid-cols-[minmax(0,1fr)_8rem_10rem_11rem] items-start gap-3 border-b border-border px-4 py-3 transition-colors duration-200 last:border-b-0 hover:bg-muted/50 ${
+        isDeleting ? "pointer-events-none opacity-50" : ""
+      }`}
+      onContextMenu={handleContextMenu}
+    >
       <div ref={infoRef} className="mt-2 min-w-0">
         <p className="truncate text-sm font-medium text-card-foreground">
           {document.name}
@@ -125,49 +150,52 @@ function DocumentListItem({
             Retry
           </Button>
         ) : null}
-        {job?.canCancel && onCancel ? (
-          <Button variant="secondary" onClick={() => onCancel(job.id)}>
-            <X size={16} aria-hidden />
-            Cancel
-          </Button>
-        ) : null}
-        {canProcess ? (
-          <Button
-            variant="secondary"
-            disabled={isProcessing}
-            onClick={() => onProcess(document)}
-          >
-            {isProcessing ? (
-              <Loader2 className="animate-spin" size={16} aria-hidden />
-            ) : (
-              <Play size={16} aria-hidden />
-            )}
-            Process
-          </Button>
-        ) : null}
         {onPreview ? (
           <Button variant="secondary" onClick={() => onPreview(document)}>
             <Eye size={16} aria-hidden />
             Preview
           </Button>
         ) : null}
-        {onRequestDelete ? (
-          <Button
-            variant="secondary"
-            className="text-destructive"
-            disabled={isDeleting}
-            aria-label={`Delete ${document.name}`}
-            onClick={() => onRequestDelete(document)}
-          >
-            {isDeleting ? (
-              <Loader2 className="animate-spin" size={16} aria-hidden />
-            ) : (
-              <Trash2 size={16} aria-hidden />
-            )}
-            Delete
-          </Button>
-        ) : null}
       </div>
+
+      {menuPos ? (
+        <ContextMenu x={menuPos.x} y={menuPos.y} onClose={closeMenu}>
+          {canProcess ? (
+            <ContextMenuItem
+              icon={<Play size={14} aria-hidden />}
+              label="Process"
+              disabled={isProcessing}
+              onClick={() => {
+                onProcess(document);
+                closeMenu();
+              }}
+            />
+          ) : null}
+          {job?.canCancel && onCancel ? (
+            <ContextMenuItem
+              icon={<X size={14} aria-hidden />}
+              label="Cancel"
+              onClick={() => {
+                onCancel(job.id);
+                closeMenu();
+              }}
+            />
+          ) : null}
+          {onRequestDelete && hasPrimaryItems ? <ContextMenuSeparator /> : null}
+          {onRequestDelete ? (
+            <ContextMenuItem
+              icon={<Trash2 size={14} aria-hidden />}
+              label="Delete"
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={() => {
+                onRequestDelete(document);
+                closeMenu();
+              }}
+            />
+          ) : null}
+        </ContextMenu>
+      ) : null}
     </div>
   );
 }
@@ -216,7 +244,7 @@ export function DocumentList({
         ref={listRef}
         className="overflow-hidden rounded-md border border-border bg-card"
       >
-        <div className="grid grid-cols-[minmax(0,1fr)_8rem_10rem_14rem] gap-3 border-b border-border px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
+        <div className="grid grid-cols-[minmax(0,1fr)_8rem_10rem_11rem] gap-3 border-b border-border px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
           <span>Name</span>
           <span className="text-center">Status</span>
           <span>Created</span>
@@ -253,7 +281,7 @@ export function DocumentList({
         title="Delete document?"
         description={
           pendingDelete
-            ? `“${pendingDelete.name}” will be permanently removed from LocalMind. This can’t be undone.`
+            ? `"${pendingDelete.name}" will be permanently removed from LocalMind. This can't be undone.`
             : ""
         }
         confirmLabel="Delete"

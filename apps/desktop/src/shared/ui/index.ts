@@ -1,4 +1,9 @@
 export { Badge } from "./Badge";
+export {
+  ContextMenu,
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "./ContextMenu";
 export { Button } from "./Button";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { EmptyState } from "./EmptyState";

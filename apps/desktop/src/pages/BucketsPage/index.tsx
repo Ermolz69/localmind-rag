@@ -1,18 +1,21 @@
-import { FolderPlus, RefreshCw, Pencil, Trash2, Folder } from "lucide-react";
+import { useCallback, useState } from "react";
+import { FolderPlus, Folder, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { formatBucketSyncStatus } from "@entities/bucket";
 import { useBuckets } from "@features/bucket-management";
 import { routes } from "@shared/constants/routes";
 import { cn } from "@shared/lib/cn";
 import {
   Button,
+  ConfirmDialog,
+  ContextMenu,
+  ContextMenuItem,
+  ContextMenuSeparator,
   EmptyState,
   ErrorBanner,
   Input,
-  PageHeader,
-  ConfirmDialog,
   Modal,
+  PageHeader,
 } from "@shared/ui";
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export function BucketsPage() {
@@ -23,6 +26,14 @@ export function BucketsPage() {
   const [editBucketName, setEditBucketName] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteBucketId, setDeleteBucketId] = useState("");
+  const [menuPos, setMenuPos] = useState<{
+    x: number;
+    y: number;
+    bucketId: string;
+    bucketName: string;
+  } | null>(null);
+
+  const closeMenu = useCallback(() => setMenuPos(null), []);
 
   const filteredBuckets = bucketsPage.buckets.filter((bucket) =>
     bucket.name.toLowerCase().includes(bucketsPage.name.toLowerCase().trim()),
@@ -94,6 +105,7 @@ export function BucketsPage() {
             };
             const documentCount = bucketWithCount.documentCount;
             const syncStatusLabel = formatBucketSyncStatus(bucket.syncStatus);
+            const canDelete = bucket.name !== "Default";
             return (
               <div
                 key={bucket.id}
@@ -102,71 +114,46 @@ export function BucketsPage() {
                   "hover:bg-accent/30",
                 )}
                 onClick={() => navigate(routes.bucketDetails(bucket.id))}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenuPos({
+                    x: e.clientX,
+                    y: e.clientY,
+                    bucketId: bucket.id,
+                    bucketName: bucket.name,
+                  });
+                }}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <div
-                      className={cn(
-                        "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors",
-                        "border-border/50 bg-muted/50 text-muted-foreground group-hover:bg-background",
-                      )}
-                    >
-                      <Folder size={18} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h2
-                        className="truncate text-base font-semibold leading-tight text-foreground"
-                        title={bucket.name}
-                      >
-                        {bucket.name}
-                      </h2>
-                      <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500/80"></span>
-                          {syncStatusLabel}
-                        </span>
-                        {documentCount !== undefined ? (
-                          <>
-                            <span aria-hidden="true">&middot;</span>
-                            <span className="truncate">
-                              {documentCount} documents
-                            </span>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-
+                <div className="flex items-start gap-3">
                   <div
-                    className="flex items-center gap-1.5 rounded-lg border border-transparent bg-background/40 p-1 opacity-0 transition-all focus-within:opacity-100 group-hover:border-border/50 group-hover:opacity-100"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Button
-                      variant="ghost"
-                      className="h-9 w-9 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditBucketId(bucket.id);
-                        setEditBucketName(bucket.name);
-                        setRenameModalOpen(true);
-                      }}
-                    >
-                      <Pencil size={18} aria-hidden />
-                    </Button>
-
-                    {bucket.name !== "Default" && (
-                      <Button
-                        variant="ghost"
-                        className="h-9 w-9 rounded-md bg-transparent p-0 text-rose-400 hover:bg-rose-500/10 hover:text-rose-500"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteBucketId(bucket.id);
-                          setDeleteConfirmOpen(true);
-                        }}
-                      >
-                        <Trash2 size={18} aria-hidden />
-                      </Button>
+                    className={cn(
+                      "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors",
+                      "border-border/50 bg-muted/50 text-muted-foreground group-hover:bg-background",
                     )}
+                  >
+                    <Folder size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2
+                      className="truncate text-base font-semibold leading-tight text-foreground"
+                      title={bucket.name}
+                    >
+                      {bucket.name}
+                    </h2>
+                    <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
+                        {syncStatusLabel}
+                      </span>
+                      {documentCount !== undefined ? (
+                        <>
+                          <span aria-hidden="true">&middot;</span>
+                          <span className="truncate">
+                            {documentCount} documents
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -174,6 +161,36 @@ export function BucketsPage() {
           })}
         </div>
       )}
+
+      {menuPos ? (
+        <ContextMenu x={menuPos.x} y={menuPos.y} onClose={closeMenu}>
+          <ContextMenuItem
+            icon={<Pencil size={14} aria-hidden />}
+            label="Rename"
+            onClick={() => {
+              setEditBucketId(menuPos.bucketId);
+              setEditBucketName(menuPos.bucketName);
+              setRenameModalOpen(true);
+              closeMenu();
+            }}
+          />
+          {menuPos.bucketName !== "Default" ? (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                icon={<Trash2 size={14} aria-hidden />}
+                label="Delete"
+                variant="destructive"
+                onClick={() => {
+                  setDeleteBucketId(menuPos.bucketId);
+                  setDeleteConfirmOpen(true);
+                  closeMenu();
+                }}
+              />
+            </>
+          ) : null}
+        </ContextMenu>
+      ) : null}
 
       <Modal
         title="Rename bucket"
