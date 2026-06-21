@@ -55,4 +55,9 @@ export const documentsApi = {
         method: "POST",
       },
     ),
+
+  deleteDocument: (documentId: OperationPath<"DeleteDocument">["id"]) =>
+    request<OperationData<"DeleteDocument">>(`/documents/${documentId}`, {
+      method: "DELETE",
+    }),
 };

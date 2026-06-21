@@ -150,6 +150,8 @@ export function BucketDetailsPage() {
         onPreview={(document) => void preview.openPreview(document)}
         onRetry={(jobId) => void page.retryJob(jobId)}
         onCancel={(jobId) => void page.cancelJob(jobId)}
+        onDelete={(document) => void page.deleteDocument(document)}
+        deletingDocumentId={page.deletingDocumentId}
         onLoadMore={() => void page.loadMore()}
       />
 

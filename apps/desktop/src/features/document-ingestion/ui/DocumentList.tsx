@@ -1,9 +1,24 @@
-import { Eye, FileText, Loader2, Play, RotateCcw, X } from "lucide-react";
+import { useState } from "react";
+import {
+  Eye,
+  FileText,
+  Loader2,
+  Play,
+  RotateCcw,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import type { DocumentSummary } from "@entities/document";
 import type { IngestionJobDto } from "@shared/contracts";
 import { documentStatusStyles } from "@shared/constants/ui";
-import { Button, EmptyState, InlineError, StatusBadge } from "@shared/ui";
+import {
+  Button,
+  ConfirmDialog,
+  EmptyState,
+  InlineError,
+  StatusBadge,
+} from "@shared/ui";
 import { getDocumentLifecycleStatus } from "../model/ingestionLifecycle";
 
 type DocumentListProps = {
@@ -17,6 +32,8 @@ type DocumentListProps = {
   onPreview?: (document: DocumentSummary) => void;
   onRetry?: (jobId: string) => void;
   onCancel?: (jobId: string) => void;
+  onDelete?: (document: DocumentSummary) => void;
+  deletingDocumentId?: string | null;
   onLoadMore: () => void;
 };
 
@@ -24,18 +41,22 @@ function DocumentListItem({
   document,
   job,
   isProcessing,
+  isDeleting,
   onRetry,
   onCancel,
   onProcess,
   onPreview,
+  onRequestDelete,
 }: {
   document: DocumentSummary;
   job?: IngestionJobDto;
   isProcessing: boolean;
+  isDeleting: boolean;
   onRetry?: (jobId: string) => void;
   onCancel?: (jobId: string) => void;
   onProcess: (document: DocumentSummary) => void;
   onPreview?: (document: DocumentSummary) => void;
+  onRequestDelete?: (document: DocumentSummary) => void;
 }) {
   const [infoRef] = useAutoAnimate<HTMLDivElement>();
   const [actionsRef] = useAutoAnimate<HTMLDivElement>();
@@ -130,6 +151,22 @@ function DocumentListItem({
             Preview
           </Button>
         ) : null}
+        {onRequestDelete ? (
+          <Button
+            variant="secondary"
+            className="text-destructive"
+            disabled={isDeleting}
+            aria-label={`Delete ${document.name}`}
+            onClick={() => onRequestDelete(document)}
+          >
+            {isDeleting ? (
+              <Loader2 className="animate-spin" size={16} aria-hidden />
+            ) : (
+              <Trash2 size={16} aria-hidden />
+            )}
+            Delete
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -146,9 +183,14 @@ export function DocumentList({
   onPreview,
   onRetry,
   onCancel,
+  onDelete,
+  deletingDocumentId,
   onLoadMore,
 }: DocumentListProps) {
   const [listRef] = useAutoAnimate<HTMLDivElement>();
+  const [pendingDelete, setPendingDelete] = useState<DocumentSummary | null>(
+    null,
+  );
 
   if (isLoading) {
     return (
@@ -186,10 +228,12 @@ export function DocumentList({
             document={document}
             job={jobsByDocumentId[document.id]}
             isProcessing={processingDocumentId === document.id}
+            isDeleting={deletingDocumentId === document.id}
             onRetry={onRetry}
             onCancel={onCancel}
             onProcess={onProcess}
             onPreview={onPreview}
+            onRequestDelete={onDelete ? setPendingDelete : undefined}
           />
         ))}
       </div>
@@ -203,6 +247,27 @@ export function DocumentList({
           {isLoadingMore ? "Loading..." : "Load more"}
         </Button>
       ) : null}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete document?"
+        description={
+          pendingDelete
+            ? `“${pendingDelete.name}” will be permanently removed from LocalMind. This can’t be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        isPending={
+          pendingDelete !== null && deletingDocumentId === pendingDelete.id
+        }
+        onConfirm={() => {
+          if (pendingDelete) {
+            onDelete?.(pendingDelete);
+          }
+          setPendingDelete(null);
+        }}
+        onClose={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
