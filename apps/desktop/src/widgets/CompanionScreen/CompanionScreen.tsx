@@ -1,6 +1,6 @@
 import { ArrowLeft, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { CompanionTabBar } from "./CompanionTabBar";
 
@@ -18,11 +18,16 @@ export function CompanionScreen({
   icon: Icon,
   children,
 }: CompanionScreenProps) {
+  const [searchParams] = useSearchParams();
+
+  const homePath =
+    searchParams.get("preview") === "1" ? "/companion?preview=1" : "/companion";
+
   return (
     <div className="min-h-screen bg-background px-5 py-6 text-foreground">
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-md flex-col gap-4">
         <Link
-          to="/companion"
+          to={homePath}
           className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -35,8 +40,10 @@ export function CompanionScreen({
               <Icon className="h-5 w-5" />
             </span>
           ) : null}
+
           <div className="min-w-0">
             <h1 className="text-xl font-semibold">{title}</h1>
+
             {description ? (
               <p className="text-sm text-muted-foreground">{description}</p>
             ) : null}

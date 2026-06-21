@@ -79,4 +79,18 @@ describe("CompanionPage", () => {
       "/",
     );
   });
+
+  it("preserves preview mode in action routes", () => {
+    renderAt("/companion?preview=1");
+
+    expect(screen.getByRole("link", { name: /Chat/ })).toHaveAttribute(
+      "href",
+      "/companion/chat?preview=1",
+    );
+
+    expect(screen.getByRole("link", { name: /Folders/ })).toHaveAttribute(
+      "href",
+      "/companion/folders?preview=1",
+    );
+  });
 });

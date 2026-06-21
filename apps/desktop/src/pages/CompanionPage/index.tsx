@@ -9,8 +9,10 @@ import { CompanionLivePanel } from "@features/companion-activity";
 
 export function CompanionPage() {
   const { computerName, isLoading } = useCompanionInfo();
+
   const [searchParams] = useSearchParams();
   const isPreview = searchParams.get("preview") === "1";
+  const previewSearch = isPreview ? "?preview=1" : "";
 
   return (
     <div className="min-h-screen bg-background px-5 py-8 text-foreground">
@@ -29,8 +31,10 @@ export function CompanionPage() {
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Smartphone className="h-6 w-6" />
           </span>
+
           <div>
             <h1 className="text-xl font-semibold">LocalMind Companion</h1>
+
             <p className="text-sm text-muted-foreground">
               {isLoading ? (
                 "Connecting…"
@@ -54,19 +58,23 @@ export function CompanionPage() {
           <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Actions
           </h2>
+
           <ul className="grid grid-cols-2 gap-3">
             {companionActions.map((action) => {
               const Icon = action.icon;
+
               return (
                 <li key={action.key}>
                   <Link
-                    to={`/companion/${action.key}`}
+                    to={`/companion/${action.key}${previewSearch}`}
                     className="flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-4 text-card-foreground transition hover:bg-muted active:scale-[0.98]"
                   >
                     <Icon className="h-6 w-6 text-primary" />
+
                     <span className="text-base font-medium">
                       {action.label}
                     </span>
+
                     <span className="text-xs text-muted-foreground">
                       {action.description}
                     </span>
