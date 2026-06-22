@@ -31,32 +31,32 @@ The channel deduplicates queued and in-flight job IDs. It is an acceleration mec
 
 ## Structure-Aware Chunking
 
-The default strategy is `StructureAware`.
+The default algorithm is `structure-aware-token-v3`.
 
 Configuration:
 
 ```json
 {
   "Chunking": {
-    "Strategy": "StructureAware",
-    "TargetChunkCharacters": 1200,
-    "MaxChunkCharacters": 1600,
-    "MinChunkCharacters": 200,
-    "OverlapCharacters": 150,
-    "ApplyOverlapOnlyOnForcedSplit": true,
-    "PreserveHeadings": true
+    "ChunkingVersion": 3,
+    "ChunkingAlgorithmId": "structure-aware-token-v3",
+    "Default": {
+      "TargetTokens": 300,
+      "MaxTokens": 450,
+      "MinTokens": 80,
+      "OverlapTokens": 40
+    }
   }
 }
 ```
 
-`TargetChunkCharacters` is a target size, not a hard boundary. The chunker prefers semantic boundaries in this order:
+`TargetTokens` is the preferred size and `MaxTokens` is the hard emitted chunk limit. The chunker prefers semantic boundaries in this order:
 
 1. Headings.
 2. Paragraphs.
-3. Sentences.
-4. Forced character split.
+3. Forced token-window split for oversized blocks.
 
-Small adjacent blocks are merged until they approach the target size. Large blocks are split by sentence where possible. The configured overlap is applied only during forced character splits by default, so ordinary paragraph or heading boundaries do not duplicate text unnecessarily.
+Small adjacent blocks are merged until they approach the target size, while chunks that are still under `MinTokens` may grow up to `MaxTokens`. Oversized blocks are split by tokenizer spans from the original extracted text using `TargetTokens` windows and `OverlapTokens` stride. Overlap is applied only to forced splits, so ordinary paragraph or heading boundaries do not duplicate text unnecessarily.
 
 ## Metadata
 
@@ -97,5 +97,5 @@ Planned retrieval/indexing improvements:
 
 - Hybrid retrieval that combines vector and keyword signals.
 - Reranking for top candidate chunks.
-- Token-based chunking experiments.
+- Chunk profile quality evaluation across document types.
 - Expanded heading-sensitive and long-document RAG evaluation fixtures.

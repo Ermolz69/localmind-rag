@@ -30,6 +30,7 @@ public static class DiagnosticNames
     {
         public const string AnswerGenerated = "answer-generated";
         public const string AutostartDisabled = "autostart-disabled";
+        public const string ChunksCreated = "chunks-created";
         public const string ChunksAndEmbeddingsCreated = "chunks-and-embeddings-created";
         public const string ContextBuilt = "context-built";
         public const string DispatchCompleted = "dispatch-completed";

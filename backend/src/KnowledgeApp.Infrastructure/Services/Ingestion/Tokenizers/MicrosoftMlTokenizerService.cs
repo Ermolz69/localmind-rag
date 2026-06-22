@@ -121,7 +121,60 @@ public sealed class MicrosoftMlTokenizerService : ITokenizerService
 
     public IReadOnlyList<TokenSpan> GetTokenSpans(string text)
     {
-        throw new NotImplementedException();
+        if (string.IsNullOrEmpty(text)) return [];
+
+        EnsureAvailable();
+
+        IReadOnlyList<EncodedToken> encodedTokens =
+            _tokenizer!.EncodeToTokens(text, out _, considerNormalization: true, considerPreTokenization: true);
+
+        List<TokenSpan> spans = new(encodedTokens.Count);
+
+        foreach (EncodedToken token in encodedTokens)
+        {
+            int startIndex = token.Offset.Item1;
+            int length = ResolveOffsetLength(text, token.Offset, token.Value);
+
+            if (startIndex < 0 || startIndex >= text.Length || length <= 0)
+            {
+                continue;
+            }
+
+            spans.Add(new TokenSpan(startIndex, Math.Min(length, text.Length - startIndex), 1));
+        }
+
+        return spans;
+    }
+
+    private static int ResolveOffsetLength(string text, (int, int) offset, string tokenValue)
+    {
+        int startIndex = offset.Item1;
+        int secondValue = offset.Item2;
+
+        if (secondValue > 0
+            && startIndex + secondValue <= text.Length
+            && TokenValueMatches(text, startIndex, secondValue, tokenValue))
+        {
+            return secondValue;
+        }
+
+        if (secondValue >= startIndex && secondValue <= text.Length)
+        {
+            return secondValue - startIndex;
+        }
+
+        if (secondValue > 0 && startIndex + secondValue <= text.Length)
+        {
+            return secondValue;
+        }
+
+        return 0;
+    }
+
+    private static bool TokenValueMatches(string text, int startIndex, int length, string tokenValue)
+    {
+        return tokenValue.Length == length
+            && text.AsSpan(startIndex, length).SequenceEqual(tokenValue);
     }
 
     private static string ComputeSha256(string filePath)

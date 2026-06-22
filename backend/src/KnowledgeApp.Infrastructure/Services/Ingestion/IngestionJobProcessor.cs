@@ -139,6 +139,18 @@ public sealed class IngestionJobProcessor(
                 throw new InvalidOperationException("No extractable text was found in the document.");
             }
 
+            diagnostics?.LogStep(
+                operationId,
+                DiagnosticNames.Steps.ChunksCreated,
+                new Dictionary<string, object?>
+                {
+                    [DiagnosticNames.Properties.ChunksCount] = incomingChunks.Count,
+                    ["maxTokenCount"] = incomingChunks.Max(chunk => chunk.TokenCount),
+                    ["maxTextLength"] = incomingChunks.Max(chunk => chunk.Text.Length),
+                    ["chunkingAlgorithmId"] = incomingChunks.FirstOrDefault()?.ChunkingAlgorithmId,
+                    ["chunkVersion"] = IndexingVersions.CurrentChunkVersion
+                });
+
             DocumentChunk[] existingChunks = await dbContext.DocumentChunks
                 .Where(x => x.DocumentId == document.Id)
                 .OrderBy(x => x.Index)
