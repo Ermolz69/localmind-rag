@@ -6,7 +6,7 @@ import {
   Search,
   type LucideIcon,
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 
 import { cn } from "@shared/lib/cn";
 
@@ -25,6 +25,9 @@ const TABS: { key: string; label: string; icon: LucideIcon }[] = [
  */
 export function CompanionTabBar() {
   const { pathname } = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const previewSearch = searchParams.get("preview") === "1" ? "?preview=1" : "";
 
   return (
     <nav
@@ -33,8 +36,9 @@ export function CompanionTabBar() {
     >
       <ul className="flex items-stretch justify-between">
         {TABS.map((tab) => {
-          const to = `/companion/${tab.key}`;
-          const isActive = pathname === to;
+          const tabPath = `/companion/${tab.key}`;
+          const to = `${tabPath}${previewSearch}`;
+          const isActive = pathname === tabPath;
           const Icon = tab.icon;
 
           return (

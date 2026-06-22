@@ -40,4 +40,23 @@ describe("CompanionTabBar", () => {
       "aria-current",
     );
   });
+
+  it("preserves preview mode while switching tabs", () => {
+    renderAt("/companion/chat?preview=1");
+
+    expect(screen.getByRole("link", { name: "Chat" })).toHaveAttribute(
+      "href",
+      "/companion/chat?preview=1",
+    );
+
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute(
+      "href",
+      "/companion/search?preview=1",
+    );
+
+    expect(screen.getByRole("link", { name: "Activity" })).toHaveAttribute(
+      "href",
+      "/companion/activity?preview=1",
+    );
+  });
 });
