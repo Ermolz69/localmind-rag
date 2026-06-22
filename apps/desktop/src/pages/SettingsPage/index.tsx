@@ -42,6 +42,7 @@ const baseSettingsNavigation = [
   { href: "#appearance", label: "Appearance" },
   { href: "#ai", label: "AI" },
   { href: "#sync", label: "Sync" },
+  { href: "#companion-mode", label: "Companion Mode" },
   { href: "#diagnostics", label: "Diagnostics" },
   { href: "#watched-folders", label: "Watched folders" },
 ];

@@ -20,7 +20,8 @@ public sealed class IngestionJobProcessor(
     IIncrementalChunkPlanner incrementalChunkPlanner,
     IDateTimeProvider dateTimeProvider,
     IAppDiagnosticLogger? diagnostics = null,
-    IFullTextChunkIndex? fullTextChunkIndex = null) : IIngestionJobProcessor
+    IFullTextChunkIndex? fullTextChunkIndex = null,
+    ICompanionActivityFeed? activityFeed = null) : IIngestionJobProcessor
 {
     public async Task ProcessAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
@@ -92,6 +93,7 @@ public sealed class IngestionJobProcessor(
                 30,
                 dateTimeProvider.UtcNow,
                 cancellationToken);
+            activityFeed?.Publish("ingestion.extracting", $"Extracting text from {document.Name}");
 
             if (await StopIfCancelledAsync(jobId, document, cancellationToken))
             {
@@ -183,6 +185,7 @@ public sealed class IngestionJobProcessor(
                 75,
                 dateTimeProvider.UtcNow,
                 cancellationToken);
+            activityFeed?.Publish("ingestion.embedding", $"Creating embeddings for {document.Name}");
 
             if (await StopIfCancelledAsync(jobId, document, cancellationToken))
             {
@@ -253,6 +256,7 @@ public sealed class IngestionJobProcessor(
             }
 
             await ingestionJobs.MarkIndexedAsync(jobId, dateTimeProvider.UtcNow, cancellationToken);
+            activityFeed?.Publish("ingestion.indexed", $"{document.Name} indexed successfully");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -279,6 +283,7 @@ public sealed class IngestionJobProcessor(
                 sanitizedError,
                 dateTimeProvider.UtcNow,
                 cancellationToken);
+            activityFeed?.Publish("ingestion.failed", $"{document.Name} failed", sanitizedError);
 
             document.Status = DocumentStatus.Failed;
 

@@ -14,6 +14,7 @@ export type {
 } from "./common";
 export { bucketsApi } from "./buckets";
 export { chatsApi } from "./chats";
+export { companionApi } from "./companion";
 export { diagnosticsApi } from "./diagnostics";
 export { documentsApi } from "./documents";
 export { setApiBaseUrl } from "./http";

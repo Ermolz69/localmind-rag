@@ -4,7 +4,9 @@ import { getApiBaseUrl, request } from "./http";
 
 export const runtimeApi = {
   getRuntimeStatus: () =>
-    request<OperationData<"GetRuntimeStatus">>("/runtime/status"),
+    request<OperationData<"GetRuntimeStatus">>("/runtime/status", {
+      cache: "no-store",
+    }),
 
   startAiRuntimeSetup: () =>
     request<OperationData<"StartAiRuntimeSetup">>("/runtime/ai/setup", {
@@ -13,8 +15,11 @@ export const runtimeApi = {
 
   watchAiRuntimeSetup: (setupId: string, signal?: AbortSignal) =>
     fetch(`${getApiBaseUrl()}/api/v1/runtime/ai/setup/${setupId}/events`, {
+      cache: "no-store",
       signal,
-      headers: { Accept: "text/event-stream" },
+      headers: {
+        Accept: "text/event-stream",
+      },
     }),
 
   startAiRuntime: () =>

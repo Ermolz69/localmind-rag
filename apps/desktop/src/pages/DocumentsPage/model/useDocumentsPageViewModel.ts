@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import {
   filterDocumentsByLifecycleStatus,
   type UseDocumentListOptions,
+  useDeleteDocument,
   useDocumentList,
   useIngestionJobs,
   useProcessIngestionJob,
@@ -19,6 +20,11 @@ export function useDocumentsPageViewModel(options?: UseDocumentListOptions) {
   });
   const process = useProcessIngestionJob({
     onProcessed: async () => {
+      await documents.reloadDocuments();
+    },
+  });
+  const remove = useDeleteDocument({
+    onDeleted: async () => {
       await documents.reloadDocuments();
     },
   });
@@ -49,11 +55,13 @@ export function useDocumentsPageViewModel(options?: UseDocumentListOptions) {
     ...documents,
     ...upload,
     ...process,
+    ...remove,
     ...jobs,
     filteredDocuments,
     error:
       documents.documentListError ??
       process.processError ??
+      remove.deleteError ??
       jobs.retryError ??
       jobs.cancelError,
 

@@ -10,6 +10,7 @@ export type AppearanceSettings = Schema<"AppearanceSettingsDto">;
 export type AiSettings = Schema<"AiSettingsDto">;
 export type RuntimePathsSettings = Schema<"RuntimePathsSettingsDto">;
 export type SyncSettings = Schema<"SyncSettingsDto">;
+export type CompanionModeSettings = Schema<"CompanionModeSettingsDto">;
 export type WatchedFoldersSettings = Schema<"WatchedFoldersSettingsDto">;
 export type WatchedFolder = Schema<"WatchedFolderDto">;
 export type WatchedFolderCleanupResponse =
@@ -24,8 +25,9 @@ export type RescanWatchedFoldersResponse =
 
 export type AppSettings = Omit<
   AppSettingsDto,
-  "diagnostics" | "watchedFolders"
+  "diagnostics" | "watchedFolders" | "companionMode"
 > & {
   diagnostics: NonNullable<AppSettingsDto["diagnostics"]>;
   watchedFolders: WatchedFoldersSettings;
+  companionMode: CompanionModeSettings;
 };

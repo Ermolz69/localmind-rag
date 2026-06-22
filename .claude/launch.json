@@ -6,6 +6,13 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", "docs", "--listen", "5550", "--no-clipboard"],
       "port": 5550
+    },
+    {
+      "name": "desktop",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "desktop", "dev"],
+      "port": 5173,
+      "autoPort": false
     }
   ]
 }

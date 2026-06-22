@@ -28,6 +28,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<DocumentChunkTag> DocumentChunkTags => Set<DocumentChunkTag>();
     public DbSet<NoteTag> NoteTags => Set<NoteTag>();
     public DbSet<WatchedFileLink> WatchedFileLinks => Set<WatchedFileLink>();
+    public DbSet<CompanionDevice> CompanionDevices => Set<CompanionDevice>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

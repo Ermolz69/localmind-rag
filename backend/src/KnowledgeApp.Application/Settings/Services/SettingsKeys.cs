@@ -40,6 +40,9 @@ public static class SettingsKeys
     public const string WatchedFoldersAllowedExtensionsJson = "WatchedFolders.AllowedExtensionsJson";
     public const string WatchedFoldersStorageMode = "WatchedFolders.StorageMode";
 
+    public const string CompanionModeEnabled = "CompanionMode.Enabled";
+    public const string CompanionModeAllowedFoldersJson = "CompanionMode.AllowedFoldersJson";
+
     public static readonly string[] KnownKeys =
     [
         Theme,
@@ -74,5 +77,7 @@ public static class SettingsKeys
         WatchedFoldersMaxFileSizeMb,
         WatchedFoldersAllowedExtensionsJson,
         WatchedFoldersStorageMode,
+        CompanionModeEnabled,
+        CompanionModeAllowedFoldersJson,
     ];
 }

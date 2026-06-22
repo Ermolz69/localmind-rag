@@ -12,8 +12,11 @@ import {
   Badge,
   Button,
   ConfirmDialog,
+  Toast,
 } from "@shared/ui";
 import { diagnosticsApi, watchedFoldersApi } from "@shared/api";
+import { CompanionConnect } from "@features/companion-pairing";
+import { useToast } from "@shared/lib/hooks";
 import { cn } from "@shared/lib/cn";
 import {
   openPathInExplorer,
@@ -36,9 +39,15 @@ export function SettingsSections({
   const [isCleaning, setIsCleaning] = useState(false);
   const [isRescanningAll, setIsRescanningAll] = useState(false);
   const [rescanningPath, setRescanningPath] = useState<string | null>(null);
+  const [isClearLogsConfirmOpen, setClearLogsConfirmOpen] = useState(false);
   const [isClearingLogs, setIsClearingLogs] = useState(false);
+  const { toast, showToast, dismissToast } = useToast();
   const developerModeEnabled = draft.diagnostics?.developerModeEnabled ?? false;
   const useSeparateLogFiles = draft.diagnostics?.useSeparateLogFiles ?? false;
+  const companionModeEnabled = draft.companionMode?.enabled ?? false;
+  const companionStatusLabel = companionModeEnabled
+    ? "Waiting for connection"
+    : "Off";
 
   function setDiagnostics(patch: Partial<AppSettings["diagnostics"]>) {
     onChange({
@@ -47,27 +56,47 @@ export function SettingsSections({
     });
   }
 
-  async function handleClearLogs() {
-    if (
-      !window.confirm(
-        "Delete log files from the logs folder? Files currently in use are skipped.",
-      )
-    ) {
+  const allowedFolders = draft.companionMode?.allowedFolders ?? [];
+
+  async function addAllowedFolder() {
+    const path = await pickFolder();
+    if (!path || allowedFolders.includes(path)) {
       return;
     }
+    onChange({
+      ...draft,
+      companionMode: {
+        ...draft.companionMode,
+        allowedFolders: [...allowedFolders, path],
+      },
+    });
+  }
 
+  function removeAllowedFolder(path: string) {
+    onChange({
+      ...draft,
+      companionMode: {
+        ...draft.companionMode,
+        allowedFolders: allowedFolders.filter((item) => item !== path),
+      },
+    });
+  }
+
+  async function handleClearLogs() {
     setIsClearingLogs(true);
     try {
       const result = await diagnosticsApi.cleanupLogs();
       const freedKb = Math.round(result.freedBytes / 1024);
-      alert(
+      showToast(
         `Removed ${result.deletedFiles} log file(s), freed ${freedKb} KB. Skipped ${result.skippedFiles} in-use file(s).`,
+        "success",
       );
     } catch (error) {
       console.error(error);
-      alert("Failed to clear logs.");
+      showToast("Failed to clear logs.", "error");
     } finally {
       setIsClearingLogs(false);
+      setClearLogsConfirmOpen(false);
     }
   }
 
@@ -84,12 +113,13 @@ export function SettingsSections({
         response.queuedCreatedOrChanged +
         response.unchangedFiles +
         response.unsupportedFiles;
-      alert(
+      showToast(
         `Rescan completed: ${checked} files checked, ${response.queuedDeleted} missing files detected.`,
+        "success",
       );
     } catch (error) {
       console.error(error);
-      alert("Failed to rescan watched folders.");
+      showToast("Failed to rescan watched folders.", "error");
     } finally {
       if (path) {
         setRescanningPath(null);
@@ -103,12 +133,13 @@ export function SettingsSections({
     setIsCleaning(true);
     try {
       const response = await watchedFoldersApi.cleanup();
-      alert(
+      showToast(
         `Cleaned ${response.cleanedCount} deleted watched documents from LocalMind.`,
+        "success",
       );
     } catch (error) {
       console.error(error);
-      alert("Failed to clean up watched documents.");
+      showToast("Failed to clean up watched documents.", "error");
     } finally {
       setIsCleaning(false);
       setCleanupConfirmOpen(false);
@@ -354,6 +385,128 @@ export function SettingsSections({
       </Section>
 
       <Section
+        id="companion-mode"
+        title="Companion Mode"
+        description="Let a phone connect to LocalMind over your local network as a remote interface. The desktop app stays local-only until you explicitly turn this on."
+        badge={
+          <Badge className="border-accent/40 bg-accent/10 text-accent">
+            Local network
+          </Badge>
+        }
+      >
+        <div className="divide-y divide-border rounded-lg border border-border">
+          <SettingRow
+            title="Enable phone connection"
+            description="Off by default. You decide when to allow a phone to connect."
+            control={
+              <Switch
+                checked={companionModeEnabled}
+                onChange={(enabled) =>
+                  onChange({
+                    ...draft,
+                    companionMode: { ...draft.companionMode, enabled },
+                  })
+                }
+                aria-label="Enable phone connection"
+              />
+            }
+          />
+          <SettingRow
+            title="Status"
+            description="Current state of the phone connection."
+            control={
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-xs font-medium",
+                  companionModeEnabled
+                    ? "bg-accent/10 text-accent"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                {companionStatusLabel}
+              </span>
+            }
+          />
+          <SettingRow
+            title="Network"
+            description="Companion Mode only accepts connections on your local Wi-Fi."
+            control={
+              <span className="text-sm text-muted-foreground">Local Wi-Fi</span>
+            }
+          />
+        </div>
+
+        {companionModeEnabled ? (
+          <>
+            <CompanionConnect />
+            <div className="mt-4">
+              <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Folders the phone can browse
+              </p>
+              <p className="mt-1 px-1 text-xs text-muted-foreground">
+                The phone can pick files only from these folders — never your
+                whole disk.
+              </p>
+              {allowedFolders.length > 0 ? (
+                <ul className="mt-2 divide-y divide-border rounded-lg border border-border">
+                  {allowedFolders.map((folder) => (
+                    <li
+                      key={folder}
+                      className="flex items-center justify-between gap-3 px-4 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p
+                          className="truncate text-sm font-medium text-foreground"
+                          title={folder}
+                        >
+                          {folder.split(/[\\/]/).filter(Boolean).pop() ??
+                            folder}
+                        </p>
+                        <p
+                          className="truncate text-xs text-muted-foreground"
+                          title={folder}
+                        >
+                          {folder}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-destructive shrink-0 text-sm font-medium hover:underline"
+                        onClick={() => removeAllowedFolder(folder)}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 px-1 text-sm text-muted-foreground">
+                  No folders shared yet.
+                </p>
+              )}
+              <button
+                type="button"
+                className="mt-2 rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted"
+                onClick={() => void addAllowedFolder()}
+              >
+                Add folder
+              </button>
+            </div>
+          </>
+        ) : (
+          <p className="mt-4 px-1 text-sm text-muted-foreground">
+            Turn on the switch above to pair a phone and manage trusted devices.
+          </p>
+        )}
+
+        <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+          Pairing codes are short-lived and can be revoked at any time. A paired
+          phone connects over your local Wi-Fi and can only do — and see — what
+          you allow here: its granted capabilities and the folders listed above.
+        </p>
+      </Section>
+
+      <Section
         id="diagnostics"
         title="Diagnostics"
         description="Control the diagnostics panel and how LocalMind writes its log files."
@@ -524,7 +677,7 @@ export function SettingsSections({
                   <Button
                     variant="secondary"
                     disabled={isClearingLogs}
-                    onClick={handleClearLogs}
+                    onClick={() => setClearLogsConfirmOpen(true)}
                   >
                     {isClearingLogs ? "Clearing…" : "Clear logs"}
                   </Button>
@@ -794,6 +947,22 @@ export function SettingsSections({
         isPending={isCleaning}
         onConfirm={handleCleanup}
         onClose={() => setCleanupConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={isClearLogsConfirmOpen}
+        title="Clear log files?"
+        description="This deletes current log files from the logs folder. Files currently in use are skipped. This does not affect your documents or knowledge base."
+        confirmLabel="Clear logs"
+        isPending={isClearingLogs}
+        onConfirm={handleClearLogs}
+        onClose={() => setClearLogsConfirmOpen(false)}
+      />
+
+      <Toast
+        message={toast?.message ?? null}
+        variant={toast?.variant}
+        onDismiss={dismissToast}
       />
     </div>
   );

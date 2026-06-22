@@ -91,6 +91,47 @@ public sealed class SettingsServiceTests
     }
 
     [Fact]
+    public async Task GetAsync_Should_Default_Companion_Mode_To_Disabled()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        SettingsService service = CreateService(
+            database.Context,
+            new RecordingSettingsCache(),
+            new RecordingSettingsChangeSignal());
+
+        AppSettingsDto settings = await service.GetAsync();
+
+        Assert.NotNull(settings.CompanionMode);
+        Assert.False(settings.CompanionMode.Enabled);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_Persist_Companion_Mode_Enabled()
+    {
+        await using ApplicationTestDatabase database = await ApplicationTestDatabase.CreateAsync();
+        SettingsService service = CreateService(
+            database.Context,
+            new RecordingSettingsCache(),
+            new RecordingSettingsChangeSignal());
+
+        AppSettingsDto request = CreateSettings() with
+        {
+            CompanionMode = new CompanionModeSettingsDto(Enabled: true),
+        };
+
+        await service.UpdateAsync(request);
+
+        Dictionary<string, string> stored = await database.Context.AppSettings
+            .ToDictionaryAsync(setting => setting.Key, setting => setting.Value);
+
+        Assert.Equal("True", stored[SettingsKeys.CompanionModeEnabled]);
+
+        AppSettingsDto reloaded = await service.GetAsync();
+        Assert.NotNull(reloaded.CompanionMode);
+        Assert.True(reloaded.CompanionMode.Enabled);
+    }
+
+    [Fact]
     public void SettingsValidator_Should_Reject_Unsupported_Log_Level()
     {
         SettingsValidator validator = new(new AcceptingWatchedFolderPathValidator());
@@ -177,7 +218,8 @@ public sealed class SettingsServiceTests
                 EnableHttpLogs: true,
                 EnableDiagnosticEventLogs: false,
                 EnableDebugTrace: false),
-            new WatchedFoldersSettingsDto(false, 1000, "MarkDeleted", []));
+            new WatchedFoldersSettingsDto(false, 1000, "MarkDeleted", []),
+            new CompanionModeSettingsDto(false));
     }
 
     private sealed class FakeSettingsDefaultsProvider(AppSettingsDto settings)
@@ -277,6 +319,7 @@ public sealed class SettingsServiceTests
         public DbSet<SyncState> SyncStates => inner.SyncStates;
         public DbSet<SemanticCacheEntry> SemanticCacheEntries => inner.SemanticCacheEntries;
         public DbSet<WatchedFileLink> WatchedFileLinks => inner.WatchedFileLinks;
+        public DbSet<CompanionDevice> CompanionDevices => inner.CompanionDevices;
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

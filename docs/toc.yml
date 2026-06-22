@@ -59,6 +59,8 @@
       items:
         - name: Local security
           href: architecture/local-security.md
+        - name: Companion Mode
+          href: architecture/companion-mode.md
         - name: Offline/online sync
           href: architecture/offline-online-sync.md
     - name: Observability
@@ -103,6 +105,10 @@
       items:
         - name: ADR 0009 - LocalApi Local Security
           href: architecture/decisions/0009-localapi-local-security.md
+        - name: ADR 0011 - Companion Remote Access via Relay
+          href: architecture/decisions/0011-companion-remote-access-via-relay.md
+        - name: ADR 0012 - Companion LAN Gateway
+          href: architecture/decisions/0012-companion-lan-gateway.md
     - name: Failures
       href: architecture/decisions/failures.md
       items:

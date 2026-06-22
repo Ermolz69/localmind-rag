@@ -814,6 +814,214 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/companion/info": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Companion Mode info.
+     * @description Returns lightweight info for the phone companion interface, such as the computer name.
+     */
+    get: operations["GetCompanionInfo"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/pairing": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Companion Mode pairing status.
+     * @description Returns whether a pairing session is active and how long it remains valid.
+     */
+    get: operations["GetCompanionPairingStatus"];
+    put?: never;
+    /**
+     * Start Companion Mode pairing.
+     * @description Starts a time-limited pairing session and returns the QR payload. Fails when Companion Mode is disabled.
+     */
+    post: operations["StartCompanionPairing"];
+    /**
+     * Cancel Companion Mode pairing.
+     * @description Cancels any active pairing session.
+     */
+    delete: operations["CancelCompanionPairing"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/pairing/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Confirm Companion Mode pairing.
+     * @description Completes a pairing session, registers the calling device as trusted, and returns its device token.
+     */
+    post: operations["ConfirmCompanionPairing"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/activity": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Recent companion activity.
+     * @description Returns recent activity events (ingestion, watched folders, devices) newest first.
+     */
+    get: operations["GetCompanionActivity"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/files/roots": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List allowed folders.
+     * @description Returns the folders the user allowed the phone to browse.
+     */
+    get: operations["GetCompanionFileRoots"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/files/browse": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Browse an allowed folder.
+     * @description Lists subfolders and supported files inside an allowed folder.
+     */
+    get: operations["BrowseCompanionFiles"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/files/add": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Add a file from an allowed folder.
+     * @description Adds a file from an allowed folder into LocalMind for indexing.
+     */
+    post: operations["AddCompanionFile"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/devices": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List trusted Companion Mode devices.
+     * @description Returns the phones currently paired as trusted devices.
+     */
+    get: operations["GetCompanionDevices"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/devices/{deviceId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Disconnect a trusted device.
+     * @description Removes a phone from the trusted Companion Mode devices.
+     */
+    delete: operations["RevokeCompanionDevice"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/companion/devices/{deviceId}/permissions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Update a trusted device's permissions.
+     * @description Sets what a trusted device is allowed to do.
+     */
+    put: operations["UpdateCompanionDevicePermissions"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/sync/status": {
     parameters: {
       query?: never;
@@ -1057,6 +1265,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Request to add a file from an allowed folder into LocalMind. */
+    AddCompanionFileRequest: {
+      /** @description Absolute path of the file to add. Must be inside an allowed root. */
+      path: string;
+    };
     /** @description Capabilities advertised by the configured AI runtime provider. */
     AiRuntimeProviderCapabilities: {
       supportsEmbeddings: boolean;
@@ -1119,6 +1332,78 @@ export interface components {
       /** @description True when the operation completed successfully. */
       success: boolean;
       data: null | components["schemas"]["BucketDto"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionActivityResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionActivityResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionBrowseResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionBrowseResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionDevicesResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionDevicesResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionInfoDto: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionInfoDto"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionPairingSessionDto: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionPairingSessionDto"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionPairingStatusDto: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionPairingStatusDto"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfCompanionRootsResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["CompanionRootsResponse"];
+      error: null | components["schemas"]["ApiError"];
+      /** @description Response metadata shared by success and error responses. */
+      metadata: components["schemas"]["ApiMetadata"];
+    };
+    /** @description Standard LocalApi response envelope. */
+    ApiResponseOfConfirmCompanionPairingResponse: {
+      /** @description True when the operation completed successfully. */
+      success: boolean;
+      data: null | components["schemas"]["ConfirmCompanionPairingResponse"];
       error: null | components["schemas"]["ApiError"];
       /** @description Response metadata shared by success and error responses. */
       metadata: components["schemas"]["ApiMetadata"];
@@ -1499,6 +1784,7 @@ export interface components {
       watchedFolders?:
         | null
         | components["schemas"]["WatchedFoldersSettingsDto"];
+      companionMode?: null | components["schemas"]["CompanionModeSettingsDto"];
     };
     /** @description Bucket returned by the LocalMind API. */
     BucketDto: {
@@ -1559,6 +1845,187 @@ export interface components {
       /** @description User message text. */
       content: string;
       filters?: null | components["schemas"]["RetrievalFilters"];
+    };
+    /** @description A single near-real-time activity event shown in the companion feed. */
+    CompanionActivityEventDto: {
+      /**
+       * Format: uuid
+       * @description Stable event identifier.
+       */
+      id: string;
+      /**
+       * Format: date-time
+       * @description When the event happened.
+       */
+      timestamp: string;
+      /** @description Machine-readable event kind, e.g. "ingestion.indexed". */
+      kind: string;
+      /** @description Human-friendly description. */
+      message: string;
+      /** @description Optional extra detail, e.g. a failure reason. */
+      detail: null | string;
+    };
+    /** @description Recent companion activity, newest first. */
+    CompanionActivityResponse: {
+      /** @description Recent activity events. */
+      events: components["schemas"]["CompanionActivityEventDto"][];
+    };
+    /** @description The contents of a browsed allowed folder. */
+    CompanionBrowseResponse: {
+      /** @description The folder being browsed. */
+      path: string;
+      /** @description Parent folder when still inside an allowed root, else null. */
+      parentPath: null | string;
+      /** @description Subfolders and supported files within the folder. */
+      entries: components["schemas"]["CompanionFileEntryDto"][];
+    };
+    /** @description A phone that has been paired as a trusted Companion Mode device. */
+    CompanionDeviceDto: {
+      /**
+       * Format: uuid
+       * @description Stable device identifier.
+       */
+      id: string;
+      /** @description Human-friendly device name, e.g. "Redmi Note". */
+      name: string;
+      /** @description Client platform, e.g. "Chrome". */
+      platform: string;
+      /**
+       * Format: date-time
+       * @description When the device was first paired.
+       */
+      createdAt: string;
+      /**
+       * Format: date-time
+       * @description When the device last connected.
+       */
+      lastSeenAt: string;
+      /** @description What this device is allowed to do. */
+      permissions: components["schemas"]["CompanionDevicePermissionsDto"];
+    };
+    /**
+     * @description What a trusted companion device is allowed to do. Only safe capabilities are
+     *     grantable; dangerous actions (deleting documents, changing system paths or AI
+     *     runtime, managing the whole configuration) are never available to a phone.
+     */
+    CompanionDevicePermissionsDto: {
+      /** @description Use the RAG chat. */
+      chat: boolean;
+      /** @description Search the knowledge base. */
+      search: boolean;
+      /** @description View documents and their statuses. */
+      viewDocuments: boolean;
+      /** @description View indexing and watched-folder status. */
+      viewStatus: boolean;
+      /** @description Trigger watched-folder rescans. */
+      rescan: boolean;
+      /** @description Add files from allowed folders. */
+      addFiles: boolean;
+    };
+    /** @description The list of trusted Companion Mode devices. */
+    CompanionDevicesResponse: {
+      /** @description Currently trusted devices. */
+      devices: components["schemas"]["CompanionDeviceDto"][];
+    };
+    /** @description An entry inside an allowed folder: a subfolder or an addable file. */
+    CompanionFileEntryDto: {
+      /** @description File or folder name. */
+      name: string;
+      /** @description Absolute path of the entry. */
+      path: string;
+      /** @description True when the entry is a folder. */
+      isDirectory: boolean;
+    };
+    /** @description A folder the phone is allowed to browse (a configured allowed root). */
+    CompanionFileRootDto: {
+      /** @description Display name (the folder's leaf name). */
+      name: string;
+      /** @description Absolute path of the allowed root. */
+      path: string;
+    };
+    /** @description Lightweight info shown by the phone companion interface. */
+    CompanionInfoDto: {
+      /** @description Name of the computer running LocalMind. */
+      computerName: string;
+    };
+    /**
+     * @description Companion Mode settings. Companion Mode is an opt-in mode that lets a phone
+     *     connect to LocalMind over the local network as a remote interface. It is
+     *     disabled by default and the desktop app stays local-only until the user
+     *     explicitly enables it.
+     */
+    CompanionModeSettingsDto: {
+      /** @description True when phone connection (Companion Mode) is enabled. */
+      enabled: boolean;
+      /**
+       * @description Absolute folder paths the phone is allowed to browse and pick files from.
+       *     The phone can only see inside these folders, never the whole disk.
+       */
+      allowedFolders?: null | string[];
+    };
+    /**
+     * @description An active, time-limited Companion Mode pairing session. The desktop renders
+     *     string CompanionPairingSessionDto.PairingUrl as a QR code for a phone to scan.
+     */
+    CompanionPairingSessionDto: {
+      /** @description Opaque single-use pairing token. */
+      token: string;
+      /** @description URL encoded into the QR code that the phone opens. */
+      pairingUrl: string;
+      /**
+       * Format: date-time
+       * @description When the pairing session expires.
+       */
+      expiresAt: string;
+      /**
+       * Format: int32
+       * @description Seconds until the session expires.
+       */
+      expiresInSeconds: number | string;
+    };
+    /** @description Current state of the Companion Mode pairing session. */
+    CompanionPairingStatusDto: {
+      /** @description True when a pairing session is active and not expired. */
+      active: boolean;
+      /**
+       * Format: date-time
+       * @description When the active session expires, if any.
+       */
+      expiresAt: null | string;
+      /**
+       * Format: int32
+       * @description Seconds until the active session expires, or 0 when inactive.
+       */
+      expiresInSeconds: number | string;
+    };
+    /** @description The set of allowed roots the phone may browse. */
+    CompanionRootsResponse: {
+      /** @description Configured allowed roots. */
+      roots: components["schemas"]["CompanionFileRootDto"][];
+    };
+    /**
+     * @description Completes a pairing session and registers the calling device as trusted. In a
+     *     later stage this is what a phone calls over the local-network transport; today
+     *     it is reachable only on the loopback API.
+     */
+    ConfirmCompanionPairingRequest: {
+      /** @description The pairing token from the scanned QR code. */
+      token: string;
+      /** @description Human-friendly device name, e.g. "Redmi Note". */
+      deviceName: string;
+      /** @description Client platform, e.g. "Chrome". */
+      platform: string;
+    };
+    /**
+     * @description Result of completing a pairing session: the registered device and a durable
+     *     per-device token the phone stores and sends on later requests. The token is
+     *     returned only here and is never included in device listings.
+     */
+    ConfirmCompanionPairingResponse: {
+      /** @description The newly trusted device. */
+      device: components["schemas"]["CompanionDeviceDto"];
+      /** @description The device's authentication token. */
+      token: string;
     };
     ContentSearchHitDto: {
       sourceType: string;
@@ -4164,6 +4631,266 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponseOfWatchedFolderCleanupResponse"];
+        };
+      };
+    };
+  };
+  GetCompanionInfo: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionInfoDto"];
+        };
+      };
+    };
+  };
+  GetCompanionPairingStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionPairingStatusDto"];
+        };
+      };
+    };
+  };
+  StartCompanionPairing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionPairingSessionDto"];
+        };
+      };
+    };
+  };
+  CancelCompanionPairing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  ConfirmCompanionPairing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfirmCompanionPairingRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfConfirmCompanionPairingResponse"];
+        };
+      };
+    };
+  };
+  GetCompanionActivity: {
+    parameters: {
+      query?: {
+        limit?: number | string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionActivityResponse"];
+        };
+      };
+    };
+  };
+  GetCompanionFileRoots: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionRootsResponse"];
+        };
+      };
+    };
+  };
+  BrowseCompanionFiles: {
+    parameters: {
+      query: {
+        path: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionBrowseResponse"];
+        };
+      };
+    };
+  };
+  AddCompanionFile: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AddCompanionFileRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfUploadDocumentResponse"];
+        };
+      };
+    };
+  };
+  GetCompanionDevices: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfCompanionDevicesResponse"];
+        };
+      };
+    };
+  };
+  RevokeCompanionDevice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        deviceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
+        };
+      };
+    };
+  };
+  UpdateCompanionDevicePermissions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        deviceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CompanionDevicePermissionsDto"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponseOfObject"];
         };
       };
     };

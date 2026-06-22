@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using KnowledgeApp.Bootstrap;
 using KnowledgeApp.LocalApi;
+using KnowledgeApp.LocalApi.CompanionGateway;
 using KnowledgeApp.LocalApi.Endpoints;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -24,6 +25,10 @@ builder.Services.AddOpenApi(ApiVersions.V1DocumentName, options =>
 
 builder.Services.AddHostedService<KnowledgeApp.LocalApi.Services.SidecarPortWriter>();
 
+builder.Services.Configure<CompanionGatewayOptions>(
+    builder.Configuration.GetSection(CompanionGatewayOptions.SectionName));
+builder.Services.AddHostedService<CompanionGatewayHostedService>();
+
 WebApplication app = builder.Build();
 
 app.UseKnowledgeAppBootstrap();
@@ -44,6 +49,7 @@ apiV1.MapChatEndpoints();
 apiV1.MapSearchEndpoints();
 apiV1.MapSettingsEndpoints();
 apiV1.MapWatchedFolderEndpoints();
+apiV1.MapCompanionEndpoints();
 apiV1.MapSyncEndpoints();
 apiV1.MapSystemEndpoints();
 

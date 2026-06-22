@@ -7,10 +7,12 @@ namespace KnowledgeApp.Contracts.Settings;
 /// <param name="Sync">Remote sync settings.</param>
 /// <param name="Diagnostics">Diagnostics settings.</param>
 /// <param name="WatchedFolders">Watched folder auto-ingestion settings.</param>
+/// <param name="CompanionMode">Companion Mode (phone connection) settings.</param>
 public sealed record AppSettingsDto(
     AppearanceSettingsDto Appearance,
     AiSettingsDto Ai,
     RuntimePathsSettingsDto RuntimePaths,
     SyncSettingsDto Sync,
     DiagnosticsSettingsDto? Diagnostics = null,
-    WatchedFoldersSettingsDto? WatchedFolders = null);
+    WatchedFoldersSettingsDto? WatchedFolders = null,
+    CompanionModeSettingsDto? CompanionMode = null);

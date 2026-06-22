@@ -14,6 +14,7 @@ public static partial class DependencyInjection
             .AddChatApplication()
             .AddSearchApplication()
             .AddSettingsApplication()
-            .AddIngestionApplication();
+            .AddIngestionApplication()
+            .AddCompanionApplication();
     }
 }
