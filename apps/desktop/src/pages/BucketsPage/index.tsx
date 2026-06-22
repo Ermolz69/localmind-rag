@@ -105,7 +105,6 @@ export function BucketsPage() {
             };
             const documentCount = bucketWithCount.documentCount;
             const syncStatusLabel = formatBucketSyncStatus(bucket.syncStatus);
-            const canDelete = bucket.name !== "Default";
             return (
               <div
                 key={bucket.id}
