@@ -6,9 +6,9 @@ public sealed class ChunkingOptions
 
     public ChunkingTokenizerOptions Tokenizer { get; set; } = new();
 
-    public int ChunkingVersion { get; set; } = 2;
+    public int ChunkingVersion { get; set; } = 3;
 
-    public string ChunkingAlgorithmId { get; set; } = "structure-aware-token-v2";
+    public string ChunkingAlgorithmId { get; set; } = "structure-aware-token-v3";
 
     public ChunkingProfile Default { get; set; } = new()
     {

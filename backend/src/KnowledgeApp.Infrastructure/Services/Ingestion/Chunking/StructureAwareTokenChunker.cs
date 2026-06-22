@@ -1,11 +1,8 @@
 using KnowledgeApp.Application.Abstractions;
 using KnowledgeApp.Application.Abstractions.Ingestion;
-using KnowledgeApp.Application.Common.Diagnostics;
 using KnowledgeApp.Application.Ingestion.IncrementalIndexing;
 using KnowledgeApp.Infrastructure.Options;
 using Microsoft.Extensions.Options;
-using System.Text.RegularExpressions;
-using System.Linq;
 
 namespace KnowledgeApp.Infrastructure.Services.Ingestion.Chunking;
 
@@ -24,146 +21,201 @@ public sealed class StructureAwareTokenChunker(
         }
 
         ChunkingOptions config = options.CurrentValue;
+        ChunkingProfile profile = config.Default;
         ITextStructureParser parser = parsers.FirstOrDefault(p => p.CanParse(text))
             ?? parsers.First();
 
         IReadOnlyList<DocumentBlock> blocks = parser.Parse(text);
         List<DocumentChunkText> chunks = [];
-
-        // Simplified grouping logic: combine blocks until TargetTokens is reached
         List<DocumentBlock> currentChunkBlocks = [];
         int currentTokenCount = 0;
 
         foreach (DocumentBlock block in blocks)
         {
-            // Oversized block handling – split using natural boundaries
-            if (block.TokenCount > config.Default.MaxTokens)
+            if (block.TokenCount > profile.MaxTokens)
             {
-                // Flush any accumulated chunk first
-                if (currentChunkBlocks.Count > 0)
+                FlushCurrentChunk(chunks, currentChunkBlocks, config, ref currentTokenCount);
+
+                foreach (ForcedSplitBlock split in SplitOversizedBlock(block, profile))
                 {
-                    chunks.Add(BuildChunk(currentChunkBlocks, config));
-                    currentChunkBlocks.Clear();
-                    currentTokenCount = 0;
+                    chunks.Add(BuildChunk([split.Block], config, split.CoreText, split.HasOverlap));
                 }
 
-                // Split the oversized block and emit each piece as its own chunk
-                foreach (var split in SplitOversizedBlock(block, config))
-                {
-                    chunks.Add(BuildChunk([split], config));
-                }
-                continue; // move to next original block
+                continue;
             }
 
-            // Normal overflow handling – start a new chunk when adding this block would exceed the limit
-            if (currentTokenCount + block.TokenCount > config.Default.MaxTokens && currentChunkBlocks.Count > 0)
+            int nextTokenCount = currentTokenCount + block.TokenCount;
+            bool exceedsMaxTokens = nextTokenCount > profile.MaxTokens;
+            bool passedTargetWithEnoughContent =
+                currentTokenCount >= profile.MinTokens &&
+                nextTokenCount > profile.TargetTokens;
+
+            if (currentChunkBlocks.Count > 0 && (exceedsMaxTokens || passedTargetWithEnoughContent))
             {
-                chunks.Add(BuildChunk(currentChunkBlocks, config));
-                currentChunkBlocks.Clear();
-                currentTokenCount = 0;
+                FlushCurrentChunk(chunks, currentChunkBlocks, config, ref currentTokenCount);
             }
 
             currentChunkBlocks.Add(block);
             currentTokenCount += block.TokenCount;
         }
 
-        if (currentChunkBlocks.Count > 0)
-        {
-            chunks.Add(BuildChunk(currentChunkBlocks, config));
-        }
+        FlushCurrentChunk(chunks, currentChunkBlocks, config, ref currentTokenCount);
 
         return chunks;
     }
 
-    private DocumentChunkText BuildChunk(List<DocumentBlock> blocks, ChunkingOptions config)
+    private void FlushCurrentChunk(
+        List<DocumentChunkText> chunks,
+        List<DocumentBlock> currentChunkBlocks,
+        ChunkingOptions config,
+        ref int currentTokenCount)
     {
-        string text = string.Join("\n\n", blocks.Select(b => b.Text));
+        if (currentChunkBlocks.Count == 0)
+        {
+            return;
+        }
+
+        chunks.Add(BuildChunk(currentChunkBlocks, config, coreText: null, hasOverlap: false));
+        currentChunkBlocks.Clear();
+        currentTokenCount = 0;
+    }
+
+    private DocumentChunkText BuildChunk(
+        IReadOnlyList<DocumentBlock> blocks,
+        ChunkingOptions config,
+        string? coreText,
+        bool hasOverlap)
+    {
+        string text = string.Join("\n\n", blocks.Select(block => block.Text));
         string normalized = normalizer.NormalizeForEmbedding(text);
         string identityNormalized = normalizer.NormalizeForIdentity(text);
         int tokenCount = tokenizer.CountTokens(normalized);
 
-        string metadataKey = $"{blocks.FirstOrDefault()?.HeadingPath}|{blocks.FirstOrDefault()?.SectionTitle}|{blocks.FirstOrDefault()?.SourceStartOffset}";
+        DocumentBlock? firstBlock = blocks.FirstOrDefault();
+        DocumentBlock? lastBlock = blocks.LastOrDefault();
+        string metadataKey = $"{firstBlock?.HeadingPath}|{firstBlock?.SectionTitle}|{firstBlock?.SourceStartOffset}";
         string chunkIdentityHash = hashService.ComputeChunkHash(identityNormalized + metadataKey + config.ChunkingAlgorithmId);
         string embeddingTextHash = hashService.ComputeChunkHash(normalized);
 
         return new DocumentChunkText(
             Text: text,
-            CoreText: text,
-            HasOverlap: false,
-            HeadingPath: blocks.FirstOrDefault()?.HeadingPath,
-            SectionTitle: blocks.FirstOrDefault()?.SectionTitle,
+            CoreText: coreText ?? text,
+            HasOverlap: hasOverlap,
+            HeadingPath: firstBlock?.HeadingPath,
+            SectionTitle: firstBlock?.SectionTitle,
             ChunkType: "text",
-            SourceStartOffset: blocks.FirstOrDefault()?.SourceStartOffset,
-            SourceEndOffset: blocks.LastOrDefault()?.SourceEndOffset,
+            SourceStartOffset: firstBlock?.SourceStartOffset,
+            SourceEndOffset: lastBlock?.SourceEndOffset,
             TokenCount: tokenCount,
             TokenizerId: tokenizer.TokenizerId,
             ChunkingAlgorithmId: config.ChunkingAlgorithmId,
             ChunkIdentityHash: chunkIdentityHash,
-            EmbeddingTextHash: embeddingTextHash
-        );
+            EmbeddingTextHash: embeddingTextHash);
     }
-    private IEnumerable<DocumentBlock> SplitOversizedBlock(DocumentBlock block, ChunkingOptions config)
+
+    private IEnumerable<ForcedSplitBlock> SplitOversizedBlock(DocumentBlock block, ChunkingProfile profile)
     {
-        // 1️⃣ Try paragraph split (double newline)
-        var paragraphs = block.Text.Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        foreach (var para in paragraphs)
+        IReadOnlyList<TokenSpan> tokenSpans = tokenizer.GetTokenSpans(block.Text);
+        List<TokenSpan> expandedTokenSpans = ExpandTokenSpans(tokenSpans);
+
+        if (expandedTokenSpans.Count == 0)
         {
-            int paraTokens = tokenizer.CountTokens(para);
-            if (paraTokens <= config.Default.MaxTokens)
+            yield break;
+        }
+
+        int windowTokenCount = Math.Min(profile.TargetTokens, profile.MaxTokens);
+        int overlapTokenCount = Math.Min(profile.OverlapTokens, Math.Max(0, windowTokenCount - 1));
+        int strideTokenCount = Math.Max(1, windowTokenCount - overlapTokenCount);
+
+        for (int startTokenIndex = 0; startTokenIndex < expandedTokenSpans.Count;)
+        {
+            int endTokenIndex = Math.Min(startTokenIndex + windowTokenCount, expandedTokenSpans.Count);
+            TextSlice textSlice = CreateSlice(block.Text, expandedTokenSpans, startTokenIndex, endTokenIndex);
+
+            if (!string.IsNullOrWhiteSpace(textSlice.Text))
             {
-                yield return new DocumentBlock(
-                    Type: block.Type,
-                    Text: para,
-                    HeadingPath: block.HeadingPath,
-                    SectionTitle: block.SectionTitle,
-                    SourceStartOffset: null,
-                    SourceEndOffset: null,
-                    TokenCount: paraTokens,
-                    IsAtomic: block.IsAtomic);
-                continue;
+                bool hasOverlap = startTokenIndex > 0 && overlapTokenCount > 0;
+                int coreStartTokenIndex = hasOverlap
+                    ? Math.Min(startTokenIndex + overlapTokenCount, endTokenIndex)
+                    : startTokenIndex;
+                TextSlice coreSlice = coreStartTokenIndex < endTokenIndex
+                    ? CreateSlice(block.Text, expandedTokenSpans, coreStartTokenIndex, endTokenIndex)
+                    : textSlice;
+                int? sourceStartOffset = AddOffset(block.SourceStartOffset, textSlice.StartIndex);
+                int? sourceEndOffset = AddOffset(block.SourceStartOffset, textSlice.EndIndex);
+
+                yield return new ForcedSplitBlock(
+                    new DocumentBlock(
+                        block.Type,
+                        textSlice.Text,
+                        block.HeadingPath,
+                        block.SectionTitle,
+                        sourceStartOffset,
+                        sourceEndOffset,
+                        endTokenIndex - startTokenIndex,
+                        block.IsAtomic),
+                    string.IsNullOrWhiteSpace(coreSlice.Text) ? textSlice.Text : coreSlice.Text,
+                    hasOverlap);
             }
 
-            // 2️⃣ Sentence split (simple regex)
-            var sentences = Regex.Split(para, @"(?<=[.!?])\\s+");
-            foreach (var sentence in sentences)
+            if (endTokenIndex >= expandedTokenSpans.Count)
             {
-                int sentTokens = tokenizer.CountTokens(sentence);
-                if (sentTokens <= config.Default.MaxTokens)
-                {
-                    yield return new DocumentBlock(
-                        Type: block.Type,
-                        Text: sentence,
-                        HeadingPath: block.HeadingPath,
-                        SectionTitle: block.SectionTitle,
-                        SourceStartOffset: null,
-                        SourceEndOffset: null,
-                        TokenCount: sentTokens,
-                        IsAtomic: block.IsAtomic);
-                    continue;
-                }
-
-                // 3️⃣ Token‑based split fallback
-                var tokenIds = tokenizer.Encode(sentence);
-                int start = 0;
-                while (start < tokenIds.Count)
-                {
-                    int length = Math.Min(config.Default.MaxTokens, tokenIds.Count - start);
-                    var sliceIds = tokenIds.Skip(start).Take(length).ToArray();
-                    string sliceText = tokenizer.Decode(sliceIds);
-                    yield return new DocumentBlock(
-                        Type: block.Type,
-                        Text: sliceText,
-                        HeadingPath: block.HeadingPath,
-                        SectionTitle: block.SectionTitle,
-                        SourceStartOffset: null,
-                        SourceEndOffset: null,
-                        TokenCount: length,
-                        IsAtomic: block.IsAtomic);
-                    start += length;
-                }
+                break;
             }
+
+            startTokenIndex += strideTokenCount;
         }
     }
 
-}
+    private static List<TokenSpan> ExpandTokenSpans(IReadOnlyList<TokenSpan> tokenSpans)
+    {
+        List<TokenSpan> expanded = [];
 
+        foreach (TokenSpan tokenSpan in tokenSpans)
+        {
+            int tokenCount = Math.Max(1, tokenSpan.TokenCount);
+
+            for (int index = 0; index < tokenCount; index++)
+            {
+                expanded.Add(tokenSpan);
+            }
+        }
+
+        return expanded;
+    }
+
+    private static TextSlice CreateSlice(
+        string text,
+        IReadOnlyList<TokenSpan> tokenSpans,
+        int startTokenIndex,
+        int endTokenIndex)
+    {
+        TokenSpan firstToken = tokenSpans[startTokenIndex];
+        TokenSpan lastToken = tokenSpans[endTokenIndex - 1];
+        int startIndex = Math.Clamp(firstToken.StartIndex, 0, text.Length);
+        int endIndex = Math.Clamp(lastToken.StartIndex + lastToken.Length, startIndex, text.Length);
+
+        while (startIndex < endIndex && char.IsWhiteSpace(text[startIndex]))
+        {
+            startIndex++;
+        }
+
+        while (endIndex > startIndex && char.IsWhiteSpace(text[endIndex - 1]))
+        {
+            endIndex--;
+        }
+
+        return new TextSlice(startIndex, endIndex, text[startIndex..endIndex]);
+    }
+
+    private static int? AddOffset(int? sourceStartOffset, int relativeOffset)
+    {
+        return sourceStartOffset is null
+            ? null
+            : sourceStartOffset.Value + relativeOffset;
+    }
+
+    private sealed record ForcedSplitBlock(DocumentBlock Block, string CoreText, bool HasOverlap);
+
+    private readonly record struct TextSlice(int StartIndex, int EndIndex, string Text);
+}
