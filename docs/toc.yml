@@ -140,6 +140,11 @@
     - name: Packaging
       href: development/packaging.md
 
+- name: Instructions
+  items:
+    - name: LocalMind Demo Gallery
+      href: instructions/localmind-demo-gallery.md
+
 - name: API
   items:
     - name: OpenAPI
