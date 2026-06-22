@@ -26,6 +26,7 @@
           "product/**/*.md",
           "architecture/**/*.md",
           "development/**/*.md",
+          "instructions/**/*.md",
           "api/**/*.md",
           "auto-generated/dotnet-api/**/*.yml"
         ],
