@@ -2,6 +2,10 @@
 This document collects the recorded demo GIFs and explains what each one shows. GIF numbers are renumbered sequentially for the final gallery, so the list has no skipped numbers.
 > Each GIF is clickable: the preview plays directly in GitHub, and clicking it opens the hosted viewer page.
 ## Table of contents
+- [End-to-end videos](#end-to-end-videos)
+  - [E2E-1 — Full knowledge base workflow](#e2e-1--full-knowledge-base-workflow)
+  - [E2E-2 — Quick document-to-answer workflow](#e2e-2--quick-document-to-answer-workflow)
+  - [E2E-3 — Watched folders and companion workflow](#e2e-3--watched-folders-and-companion-workflow)
 - [0. Demo overview](#0-demo-overview)
 - [1. End-to-end video workflows](#1-end-to-end-video-workflows)
 - [2. Recorded GIF use cases](#2-recorded-gif-use-cases)
@@ -15,6 +19,82 @@ This document collects the recorded demo GIFs and explains what each one shows. 
 - [3. Recommended sample files](#3-recommended-sample-files)
 - [4. Suggested folder structure](#4-suggested-folder-structure)
 - [5. Recorded coverage map](#5-recorded-coverage-map)
+
+# End-to-end videos
+
+Full end-to-end demos show the complete LocalMind workflow from the user's point of view: creating or selecting a workspace, adding documents, indexing them, searching, taking notes, and asking questions through RAG chat.
+
+---
+
+## E2E-1 — Full knowledge base workflow
+
+[![E2E-1 — Full knowledge base workflow](https://img.youtube.com/vi/00_35C1mC7o/hqdefault.jpg)](https://youtu.be/00_35C1mC7o)
+
+**Video:** [Full knowledge base workflow | LocalMind](https://youtu.be/00_35C1mC7o)
+
+**Use case:** Complete local knowledge base workflow  
+**Action:** Create a bucket, upload a document, wait for indexing, preview the document, search through it, create notes, and ask a question in RAG chat.  
+**Result:** LocalMind shows the full local cycle: document upload → indexing → search → notes → grounded chat answer with sources.
+
+**What this video demonstrates:**
+
+- Local runtime status on the Dashboard
+- Bucket creation
+- Document upload
+- Ingestion and indexing status
+- Document preview
+- Semantic search results
+- Notes and markdown annotations
+- RAG chat answer
+- Source panel with document references
+
+---
+
+## E2E-2 — Quick document-to-answer workflow
+
+[![E2E-2 — Quick document-to-answer workflow](https://img.youtube.com/vi/JftTZeyha04/hqdefault.jpg)](https://youtu.be/JftTZeyha04)
+
+**Video:** [Quick document to answer workflow | LocalMind](https://youtu.be/JftTZeyha04)
+
+**Use case:** Fast document-to-answer workflow  
+**Action:** Upload a document without manually creating a bucket, wait until it is indexed, then ask a quick question in chat and verify the result through search.  
+**Result:** The user can drop in a file and quickly get useful answers without setting up a full structure first.
+
+**What this video demonstrates:**
+
+- Quick document upload
+- Default or all-buckets workflow
+- Queued ingestion
+- Indexed document state
+- Chat question based on the uploaded document
+- Source panel
+- Search result/snippet from the same document
+
+---
+
+## E2E-3 — Watched folders and companion workflow
+
+[![E2E-3 — Watched folders and companion workflow](https://img.youtube.com/vi/SXvb_9mA5ig/hqdefault.jpg)](https://youtu.be/SXvb_9mA5ig)
+
+**Video:** [Watched folders and companion workflow | LocalMind](https://youtu.be/SXvb_9mA5ig)
+
+**Use case:** Automated local knowledge base with companion preview  
+**Action:** Enable watched folders, add a folder for auto-ingestion, rescan it, check the indexed document, and continue through Companion preview with documents, search, chat, and activity.  
+**Result:** LocalMind works as an automated local knowledge base that watches selected folders and exposes document status, search, chat, and activity through the companion-style interface.
+
+**What this video demonstrates:**
+
+- Watched folder setup
+- Auto-ingestion
+- Rescan workflow
+- Automatically added document
+- Indexing status
+- Companion preview
+- Companion Documents
+- Companion Search
+- Companion Chat
+- Companion Activity
+- Cleanup/rescan maintenance actions
 
 ## 0. Demo overview
 
